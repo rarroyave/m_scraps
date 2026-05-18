@@ -72,21 +72,35 @@ the sum rule Σ_j c_j α_ij = 0).
 
 ## Verification
 
-Use `tools/verify_sro.py` to compute the true Warren-Cowley α matrix
-directly from any generated `SCRAPS.vasp` and compare against your
-target:
+`tools/verify_sro.py` computes the Warren-Cowley α matrix directly from
+any `SCRAPS.vasp` using pymatgen — independent of SCRAPS's own
+accounting, so it serves as a cross-check. Supports multi-shell
+computation, target-file comparison with pass/fail tolerance, JSON
+output for CI, and POSCAR formats including species symbol lines,
+selective dynamics, and non-orthogonal cells.
 
 ```bash
-python3 tools/verify_sro.py SCRAPS.vasp Ni Co Cr
+pip install pymatgen
+python3 tools/verify_sro.py SCRAPS.vasp --species Ni,Co,Cr
+python3 tools/verify_sro.py SCRAPS.vasp --species Ni,Co,Cr --target INPUT
 ```
+
+See [`tools/README.md`](tools/README.md) for the full CLI reference.
 
 After the printtoscreen fix, the SCRAPS log and `verify_sro.py` agree
 to floating-point precision.
 
 ## Tests
 
-The `tests/` directory ships three case files (INPUT + POSCAR only — run
-each in its own directory to produce `SCRAPS.vasp`):
+```bash
+pytest tools/tests/                  # exercise verifier against known structures
+```
+
+Reference cells with analytically-known α matrices (B2 NiAl, L1₂ Ni₃Al)
+plus SCRAPS round-trip checks.
+
+The `tests/` directory also ships three case files (INPUT + POSCAR only
+— run each in its own directory to produce `SCRAPS.vasp`):
 
 - `tests/bcc_binary/` — binary A_27 B_27 in 3×3×3 BCC, no SRO target.
   Reproduces upstream's `test_bcc` case as a regression check.
