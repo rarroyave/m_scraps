@@ -80,40 +80,25 @@ void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector
                 pairGr[nest[i]][nest[j]][lat.neighbours[i][j] - 1] += 1;
         }
     }
-    for(int i = 0; i < nest.size(); i++)
-        {
-            for(int j = 0; j < nest.size(); j++)
-            {
-                if (lat.neighbours[i][j] > 0){
-                    //if( nest[j] != nest[i])
-                        //cout << "The pair Gr[" <<  nest[i] << "][" << nest[j] << "] - > is " << pairGr[nest[i]][nest[j]][lat.neighbours[i][j] - 1] << endl;
-                    conc = (double)eachElement[nest[j]]/(double)numofatoms;
-                    if( nest[i] == nest[j])
-                    {
-                        pairSRO[nest[i]][nest[j]][lat.neighbours[i][j] - 1] =	(((double)pairGr[nest[i]][nest[j]][lat.neighbours[i][j] - 1]/lat.maxneighbourspershell[nest[i]][lat.neighbours[i][j] - 1]) - conc*eachElement[nest[j]])/(1 - conc);
-                        pairSRO[nest[i]][nest[j]][lat.neighbours[i][j] - 1] += pairSRO[nest[i]][nest[j]][lat.neighbours[i][j] - 1]/eachElement[nest[i]];
-                        countSRO[nest[i]][nest[j]][lat.neighbours[i][j] - 1] += 1;
-                    }
-                    else
-                    {
-                        pairSRO[nest[i]][nest[j]][lat.neighbours[i][j] - 1] = (double)eachElement[nest[i]] - (pairGr[nest[i]][nest[j]][lat.neighbours[i][j] - 1]/lat.maxneighbourspershell[nest[i]][lat.neighbours[i][j] - 1])/((double)eachElement[nest[j]]/(double)numofatoms);
-                        pairSRO[nest[i]][nest[j]][lat.neighbours[i][j] - 1] += pairSRO[nest[i]][nest[j]][lat.neighbours[i][j] - 1]/eachElement[nest[i]];
-                        countSRO[nest[i]][nest[j]][lat.neighbours[i][j] - 1] += 1;
-                    }
-                }
-            }
-        }
+    // Warren-Cowley parameter from pair counts:
+    //   alpha_ij = 1 - P(j|i) / c_j
+    //            = 1 - count_ij * N_total / (z_shell * N_i * N_j)
+    //
+    // The shell coordination z is read from maxneighbourspershell[0][shell].
+    // numneighofeachshell() populates this per-atom, but for a periodic
+    // single-site lattice every atom has identical coordination, so index 0
+    // is representative. (Original code looked up by nest[i], which is a
+    // species index; that worked by accident for the same reason.)
     for (int k = 0; k < numofmaxneighs; k++) {
+        int z_shell = lat.maxneighbourspershell[0][k];
+        if (z_shell <= 0) continue;
         cout << " SRO FOR THE SHELL NO - > " << k << endl;
-        for(int i = 0; i <  _typesatoms; i++){
-            for(int j = 0; j < _typesatoms; j++)
-            {
-                if(i != j)
-                {
-                   pairSRO[i][j][k] /= countSRO[i][j][k];
-                    cout << "The pair SRO[" << i<<"]["<< j<< "] - > is " << pairSRO[i][j][k] << endl;
-                //				cout << pairSRO[i][j] << endl;
-                }
+        for (int i = 0; i < _typesatoms; i++) {
+            for (int j = 0; j < _typesatoms; j++) {
+                if (i == j) continue;
+                double alpha = 1.0 - (double)pairGr[i][j][k] * numofatoms
+                             / ((double)z_shell * eachElement[i] * eachElement[j]);
+                cout << "The pair SRO[" << i << "][" << j << "] - > is " << alpha << endl;
             }
         }
     }
@@ -121,12 +106,20 @@ void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector
 }
 
 //Test for the goodness of fit
-double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights)
+//
+// Per-pair, per-shell Warren-Cowley targets are passed in via targetSROpair
+// (shape [_typesatoms][_typesatoms][>=max_num_neighs]). An empty/zero matrix
+// reproduces the original SQS-style "all-random" behavior.
+//
+// Also fixes an upstream bug: the original gated avgGr accumulation on
+// `nest[center] != nest[surr]`, which indexed `nest` by a species index
+// rather than an atom index. The correct test for "unlike pair" is
+// `center != surr` (compare species directly).
+double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair)
 {
     int doublepairs = (int)_typesatoms + (int)_typesatoms*((int)_typesatoms - 1)/2;
     double targetErr = 0.0, Error = 0.0, sqrError = 0.0;
     double totalGr = 0.0;
-    double targetSRO[5] = {0.0, 0.0, 0.0, 0.0,0.0};
     int numofmaxneighs = lat.maxneigh;
     //cout << "Max Neighbours are " << numofmaxneighs << endl;
     int numofatoms = nest.size();
@@ -148,14 +141,15 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
                 center = nest[i];
                 surr = nest[lat.atoms_shell_atom[i][j][k]];
                 pairGr[center][surr][j] += 1;
-                if(nest[center] != nest[surr] )
+                if(center != surr)
                 {
-                    avgGr[center][surr][j] += (double)eachElement[center]*(1 - targetSRO[j])*shellnum*((double)eachElement[surr]/(double)numofatoms);
+                    double alphaTarget = targetSROpair[center][surr][j];
+                    avgGr[center][surr][j] += (double)eachElement[center]*(1 - alphaTarget)*shellnum*((double)eachElement[surr]/(double)numofatoms);
                     countgr[center][surr][j] += 1;
-            
+
                 }
             }
-            
+
         }
     }
     
@@ -188,7 +182,7 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
  The function based on fitness randomize and sorts the best nests for global optimization.
  
  */
-int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, vector<double> &_fitness, const Lattice &lat, int _typeatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights)
+int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, vector<double> &_fitness, const Lattice &lat, int _typeatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair)
 {
     int n, indexOfBest;
     n = _nests.size();
@@ -196,7 +190,7 @@ int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, v
     sortthenests(_nests, _fitness, max_num_neighs);
     if(n == 1)
     {
-        int fitness_new = fitnessvalue(_newnests[0], lat, _typeatoms, eachElement, max_num_neighs, weights);
+        int fitness_new = fitnessvalue(_newnests[0], lat, _typeatoms, eachElement, max_num_neighs, weights, targetSROpair);
         if (fitness_new < _fitness[0])
         {
             _nests = _newnests;
@@ -208,7 +202,7 @@ int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, v
         for(int i = (int)(keepCuckoos*(double)n); i < n; i++)
         {
             _nests[i] = _newnests[i - (int)(keepCuckoos*(double)n)];
-            _fitness[i] = fitnessvalue(_nests[i], lat, _typeatoms, eachElement, max_num_neighs, weights);
+            _fitness[i] = fitnessvalue(_nests[i], lat, _typeatoms, eachElement, max_num_neighs, weights, targetSROpair);
         }
         sortthenests(_nests, _fitness, max_num_neighs);
     }
@@ -225,7 +219,7 @@ during global optimization.
 
  */
 
-int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness , const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights)
+int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness , const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair)
 {
     double len = _nests[0].size();
     double eps = 0.001;
@@ -235,13 +229,13 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
     std::uniform_int_distribution<> dis(0, len - 1);
     std::uniform_int_distribution<> dis1(1, 100);
     double oldFitness, newFitness;
-    
+
     int atom1, atom2, temphold, prob;
     vector<int> prevnest, currnest;
     for (int i = 0; i < _nests.size(); i++) {
         prevnest = _nests[i];
         currnest = _nests[i];
-        oldFitness = fitnessvalue(_nests[i], lat, _typesatoms, eachElement, max_num_neighs, weights);
+        oldFitness = fitnessvalue(_nests[i], lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
         origfitness[i] = oldFitness;
         for(int j = 0; j < iter; j++)
         {
@@ -252,7 +246,7 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
             temphold = currnest[atom1];
             currnest[atom1] = currnest[atom2];
             currnest[atom2] = temphold;
-            newFitness = fitnessvalue(currnest, lat, _typesatoms, eachElement, max_num_neighs, weights);
+            newFitness = fitnessvalue(currnest, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
             if(newFitness < oldFitness)
             {
                 prevnest = currnest;
@@ -278,14 +272,14 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
     }
     return 0;
 }
-vector<double> fitnessofnests(vector<vector<int>> nests, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights)
+vector<double> fitnessofnests(vector<vector<int>> nests, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair)
 {
     vector<double> fitness(nests.size(), INT_MAX);
     //cout << "SIZE OF NESTS " << nests.size() << endl;
     //cout << "SIZE OF NESTS {0} - > " << nests[0].size() << endl;
     for(std::size_t i = 0; i < nests.size(); i++)
     {
-        fitness[i] = fitnessvalue(nests[i], lat, _typesatoms, eachElement, max_num_neighs, weights);
+        fitness[i] = fitnessvalue(nests[i], lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
         //cout << fitness[i] << endl;
     }
     return fitness;
@@ -329,7 +323,7 @@ vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size
  
  */
 
-int get_cuckoos(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, int MCiter, const Lattice &lat, int _typesatoms, const vector<int> &eachElement, const vector<int> &maxAtomNum, int &max_num_neighs, vector<double> &weights, int nproc)
+int get_cuckoos(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, int MCiter, const Lattice &lat, int _typesatoms, const vector<int> &eachElement, const vector<int> &maxAtomNum, int &max_num_neighs, vector<double> &weights, int nproc, const vector<vector<vector<double>>> &targetSROpair)
 {
     int numofatoms = _nests[0].size();
     int numofnests = _nests.size();
@@ -337,10 +331,10 @@ int get_cuckoos(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
     vector<vector<int> > localnests(randomizeLattice(localiter, _typesatoms, numofatoms, maxAtomNum, numofatoms));
     vector<double> localfitness(localiter, INT_MAX);
     vector<double> fitness(numofnests, INT_MAX);
-    empty_nests(localnests, localnests, 8*MCiter, localfitness, lat, _typesatoms, eachElement, max_num_neighs, weights);
+    empty_nests(localnests, localnests, 8*MCiter, localfitness, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
     sortthenests(localnests, localfitness, max_num_neighs);
     std::copy ( localnests.begin(), localnests.begin() + numofnests, _newnests.begin());
-    empty_nests(_newnests, _newnests, iter, fitness, lat, _typesatoms, eachElement, max_num_neighs, weights);
+    empty_nests(_newnests, _newnests, iter, fitness, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
     sortthenests(_newnests, fitness, max_num_neighs);
     cout << " NEW NESTS FITNESS =<----1----> " << fitness[0] << " <----2----> " << fitness[1] << " <----3----> " << fitness[2] << endl;
     return 0;
@@ -412,6 +406,7 @@ int main(int argc, char ** argv)
     vector<int> eachElement = inputfile.eachElement;
     vector<double> weights = inputfile.weights; // Weights can be defined later on:
     int max_num_neighs = inputfile.num_of_shells; // Maximum number of neighbours can be changed here
+    const vector<vector<vector<double>>> &targetSROpair = inputfile.targetSROpair;
     
     //point3d atom1(-0.000001613, 1.838152961, 1.312359929), atom2(1.591887967 , 0.919075084, 3.937079787);
     //vector<point3d> atoms  = inputfile.atoms;
@@ -424,10 +419,13 @@ int main(int argc, char ** argv)
 // Switch to maximum shell number if exceeds MAXIMUM allowed in given lattice
     if(templat.maxneigh < max_num_neighs)
         max_num_neighs = templat.maxneigh;
-    if(weights.size() < max_num_neighs)
+    if((int)weights.size() < max_num_neighs)
     {
-        cout << "WEIGHTS SIZE NOT EQUAL TO SHELL NUMBER\n STOPPING......." << endl;
-        
+        cout << "WEIGHTS SIZE (" << weights.size()
+             << ") LESS THAN SHELL NUMBER (" << max_num_neighs
+             << "). STOPPING......." << endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        return 1;
     }
     
     vector<vector<double>> distances = templat.distanceMatrix();
@@ -456,20 +454,20 @@ int main(int argc, char ** argv)
     vector<vector<int>> nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms));
     vector<vector<int >> new_nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms));
     vector<double> fitness(nestsperproc, INT_MAX);
-    fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights);
+    fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
     vector<int> best(total_atoms, 0), bestnest(total_atoms, 0);
-    best_max = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights);
+    best_max = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
 
-//    empty_nests(nests, new_nests, MCiter, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights);
+//    empty_nests(nests, new_nests, MCiter, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
     while (iters < iterTotal && error > epsi)
     {
 // The Cuckoo search algorithm: set up cuckoo search, finds best nests, do fitness test until fins the best nest
-        get_cuckoos(nests, new_nests, globalIter, MCiter, templat, typeofatoms, eachElement, maxAtomNum, max_num_neighs, weights, nproc);
-        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights);
-        best_new = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights);
-        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights);
-        empty_nests(nests, new_nests, MCiter, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights);
-        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights);
+        get_cuckoos(nests, new_nests, globalIter, MCiter, templat, typeofatoms, eachElement, maxAtomNum, max_num_neighs, weights, nproc, targetSROpair);
+        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+        best_new = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+        empty_nests(nests, new_nests, MCiter, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
         globalIter = globalIter + (iters+1)*MCiter;
         sortthenests(nests, fitness, max_num_neighs);
         error = fitness[0];
@@ -499,7 +497,7 @@ int main(int argc, char ** argv)
                 nests.push_back(temp);
             }
         }
-        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights);
+        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
         sortthenests(nests, fitness, max_num_neighs);
         printtoscreen(nests[0], templat, typeofatoms, eachElement);
         printFinalCoords2File(nests[0], templat, typeofatoms, eachElement);

@@ -46,6 +46,7 @@ readInput::readInput()
 }
 void readInput::readPOSCAR()
 {
+    totalatoms = 0;
     stringstream ss;
     int linnumb = 1;
     string line, key;
@@ -149,6 +150,10 @@ void readInput::readPOSCAR()
 void readInput::input() {
     stringstream ss;
     string line, key;
+    // Collect SRO directives during the main pass; resolve into targetSROpair
+    // afterwards, once TYP and MAXSHELLNUM are known.
+    struct SROEntry { int i; int j; int shell; double alpha; };
+    vector<SROEntry> sroEntries;
     std::ifstream inp ("./INPUT");
     if (inp.is_open()) {
         while (inp.good()) {
@@ -159,7 +164,7 @@ void readInput::input() {
             if(key.compare("TYP") == 0)
             {
                 ss >> typeofatoms;
-                
+
             }
             if(key.compare("GITER") == 0)
             {
@@ -178,7 +183,7 @@ void readInput::input() {
                 while (ss >> dim) {
                     cell_dim.push_back(dim);
                 }
-                
+
             }
             if(key.compare("NESTS") == 0)
             {
@@ -203,14 +208,48 @@ void readInput::input() {
                     weights.push_back(w);
                 }
             }
+            if(key.compare("SRO") == 0)
+            {
+                SROEntry e;
+                if(ss >> e.i >> e.j >> e.shell >> e.alpha)
+                {
+                    sroEntries.push_back(e);
+                }
+                else
+                {
+                    cout << "Warning: malformed SRO line ignored: " << line << endl;
+                }
+            }
             ss.clear();
         }
     }
     else
     {
-    
+
         std::cout << " INPUT FILE DOES NOT EXIST " << endl;
-        
+        return;
     }
-    
+
+    // Resolve per-pair, per-shell SRO targets. Default to zeros; symmetrize
+    // user-supplied entries (alpha_ij = alpha_ji).
+    int nTyp = typeofatoms;
+    int nShell = num_of_shells > 0 ? num_of_shells : 5;
+    targetSROpair.assign(
+        nTyp,
+        vector<vector<double>>(nTyp, vector<double>(nShell, 0.0))
+    );
+    for (const auto &e : sroEntries) {
+        if (e.i < 0 || e.i >= nTyp || e.j < 0 || e.j >= nTyp) {
+            cout << "Warning: SRO species index out of range (TYP=" << nTyp
+                 << "): " << e.i << " " << e.j << endl;
+            continue;
+        }
+        if (e.shell < 0 || e.shell >= nShell) {
+            cout << "Warning: SRO shell index out of range (MAXSHELLNUM="
+                 << nShell << "): " << e.shell << endl;
+            continue;
+        }
+        targetSROpair[e.i][e.j][e.shell] = e.alpha;
+        targetSROpair[e.j][e.i][e.shell] = e.alpha;
+    }
 }

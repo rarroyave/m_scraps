@@ -59,6 +59,10 @@ public:
     int MCiter;
     int iterTotal;
     int num_of_shells;
+    // Per-pair, per-shell Warren-Cowley SRO targets: targetSROpair[i][j][shell].
+    // Defaults to all zeros (random / SQS) when no SRO lines appear in INPUT.
+    // Populated by readInput::input() after TYP and MAXSHELLNUM are known.
+    vector<vector<vector<double>>> targetSROpair;
 // Lattice Variables
     int totalatoms;
     point3d a, b, c;
