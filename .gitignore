@@ -1,0 +1,18 @@
+# Build outputs
+SCRAPs/scraps
+SCRAPs/scraps_*
+SCRAPs/*.o
+SCRAPs/a.out
+
+# Test run outputs (only commit INPUT/POSCAR, not the generated supercells)
+SCRAPS.vasp
+*.log
+scraps
+scraps_*
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp

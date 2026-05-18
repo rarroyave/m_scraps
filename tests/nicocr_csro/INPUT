@@ -1,0 +1,15 @@
+TYP     3
+GITER   1000
+ELEMENT 36 36 36
+Cell_DIM        3 3 3
+NESTS   24
+MCSTEP  750
+TOTALIter 10
+MAXSHELLNUM 2
+WEIGHT 2.0 1.0 1.0
+
+# Literature CSRO pattern for NiCoCr at moderate T (Zhang et al. Nature 2020).
+# Species: 0=Ni, 1=Co, 2=Cr.
+# Ni-Cr and Co-Cr show ordering; Ni-Co is roughly random.
+SRO 0 2 0 -0.10
+SRO 1 2 0 -0.05
