@@ -133,9 +133,18 @@ def detect_shells(structure: Structure, n_shells: int,
 
 # ---- Alpha computation ------------------------------------------------------
 
-def compute_alpha(structure: Structure, shells: list[Shell]
+def compute_alpha(structure: Structure, shells: list[Shell],
+                  spectator_species: Optional[list[str]] = None
                   ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Compute Warren-Cowley alpha per shell.
+
+    If spectator_species is given (e.g. ["B"] for an HEB), spectator
+    atoms are excluded from both the center and the neighbor side of
+    every pair count. The reference concentration becomes the per-
+    sublattice c_j^M = N_j^M / N^M (M = non-spectator atoms), the
+    per-shell coordination becomes z^M (count of non-spectator neighbors
+    of a non-spectator center), and rows/columns for spectator species
+    are returned as NaN.
 
     Returns (alpha[shell, i, j], counts[shell, i, j], species_names).
     """
@@ -144,17 +153,35 @@ def compute_alpha(structure: Structure, shells: list[Shell]
     spec_idx = {sym: k for k, sym in enumerate(species_order)}
     site_species = np.array([spec_idx[s.symbol] for s in structure.species])
     n_typ = len(species_order)
-    n_total = len(structure)
-    counts_per_spec = np.bincount(site_species, minlength=n_typ)
-    c = counts_per_spec / n_total
 
+    # Spectator handling. is_spectator_species[idx] is True if that species
+    # was declared as spectator; is_spectator_atom[i] is the per-atom mask.
+    spectator_set = set(spectator_species or [])
+    is_spectator_species = np.array(
+        [sym in spectator_set for sym in species_order]
+    )
+    is_spectator_atom = is_spectator_species[site_species]
+    n_M = int((~is_spectator_atom).sum())
+
+    counts_per_spec = np.bincount(site_species, minlength=n_typ)
     if (counts_per_spec == 0).any():
         zero = [species_order[i] for i in range(n_typ) if counts_per_spec[i] == 0]
         raise ValueError(f"Species with zero atoms: {zero}")
+    # Per-sublattice species counts: spectator species get 0 on the M
+    # sublattice; non-spectator species use their full count.
+    counts_per_spec_M = np.where(is_spectator_species, 0, counts_per_spec)
+    c_M = counts_per_spec_M / max(n_M, 1)
 
     # One pass over the global neighbor list for the largest cutoff we need.
     cutoff = max(s.r_max for s in shells) + 1e-3
     centers, neighbors, _, distances = structure.get_neighbor_list(r=cutoff)
+
+    # Restrict to non-spectator centers AND non-spectator neighbors.
+    if spectator_set:
+        keep = (~is_spectator_atom[centers]) & (~is_spectator_atom[neighbors])
+        centers = centers[keep]
+        neighbors = neighbors[keep]
+        distances = distances[keep]
 
     alpha = np.zeros((len(shells), n_typ, n_typ))
     counts = np.zeros((len(shells), n_typ, n_typ), dtype=int)
@@ -164,16 +191,19 @@ def compute_alpha(structure: Structure, shells: list[Shell]
         ns = site_species[neighbors[mask]]
         np.add.at(counts[k], (cs, ns), 1)
 
-        # alpha_ij = 1 - P(j|i) / c_j
-        # P(j|i) = counts[k][i][j] / (z_k * N_i)
-        z_k = sh.z
+        # alpha_ij = 1 - P(j|i) / c_j   (per-sublattice reference for HEB)
+        # z_k^M = (non-spectator pair entries in this shell) / N^M
+        if spectator_set:
+            z_k = int(mask.sum()) / max(n_M, 1)
+        else:
+            z_k = sh.z
         for i in range(n_typ):
             for j in range(n_typ):
-                if counts_per_spec[i] == 0 or c[j] == 0:
+                if counts_per_spec_M[i] == 0 or counts_per_spec_M[j] == 0 or z_k <= 0:
                     alpha[k, i, j] = np.nan
                     continue
-                Pji = counts[k, i, j] / (z_k * counts_per_spec[i])
-                alpha[k, i, j] = 1.0 - Pji / c[j]
+                Pji = counts[k, i, j] / (z_k * counts_per_spec_M[i])
+                alpha[k, i, j] = 1.0 - Pji / c_M[j]
 
     return alpha, counts, species_order
 
@@ -247,6 +277,11 @@ def report_human(structure: Structure, shells: list[Shell],
 
     all_pass = True
     for k, sh in enumerate(shells):
+        # Suppress all-NaN shells (typical with spectator filtering: shells
+        # where every entry between non-spectator species has zero count
+        # because the shell is dominated by spectator-involving pairs).
+        if np.all(np.isnan(alpha[k])):
+            continue
         print(f"=== Shell {sh.index} (z = {sh.z:g}) ===")
         print(format_matrix_table(alpha[k], names))
         print()
@@ -371,6 +406,12 @@ Examples:
                         "(default: 0.02)")
     p.add_argument("--json", action="store_true",
                    help="Emit machine-readable JSON instead of human table")
+    p.add_argument("--spectator-species", type=str, default=None,
+                   help="Comma-separated list of species names to treat as "
+                        "spectator (e.g. 'B' for HEB-type AlB2 diborides). "
+                        "Spectator atoms are excluded from neighbor counts; "
+                        "alpha is computed with per-sublattice reference "
+                        "c_j^M and rows/cols for spectator species are NaN.")
     return p.parse_args()
 
 
@@ -394,7 +435,11 @@ def main() -> int:
               file=sys.stderr)
         return 2
 
-    alpha, counts, names = compute_alpha(structure, shells)
+    spectator = (
+        [s.strip() for s in args.spectator_species.split(",")]
+        if args.spectator_species else None
+    )
+    alpha, counts, names = compute_alpha(structure, shells, spectator)
 
     targets = parse_target_file(args.target) if args.target else None
 

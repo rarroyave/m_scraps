@@ -59,6 +59,7 @@ optional.
 | `--target FILE` | — | Target α file (SCRAPS INPUT-style) |
 | `--tolerance T` | 0.02 | `|achieved − target|` pass/fail threshold |
 | `--json` | (off) | Emit JSON instead of human table |
+| `--spectator-species LIST` | — | Comma-separated species to treat as spectator (e.g. `B` for HEB-type AlB₂ diborides) — α is computed M-M only, with per-sublattice reference c_j^M |
 
 ### Target file format
 
@@ -117,6 +118,9 @@ The test suite covers:
 - Target file parser (well-formed, comments, malformed lines)
 - SCRAPS round-trip: random NiCoCr should give max|α| < 0.05; CSRO-targeted
   NiCoCr should match its INPUT within tolerance 0.03
+- **HEB round-trip (spectator-aware)**: random (Hf,Zr,Ti,Ta,Nb)B₂ should
+  give max|α| < 0.01 on the M-M shell when B is treated as spectator;
+  CSRO-targeted version should match its target within 0.05
 
 Tests requiring SCRAPS output gracefully skip if `SCRAPS.vasp` hasn't
 been generated yet.

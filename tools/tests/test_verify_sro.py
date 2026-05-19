@@ -188,6 +188,65 @@ def test_scraps_random_supercell_approximately_zero():
         f"SQS quality check failed: max |alpha| = {np.max(np.abs(alpha[0]))}"
 
 
+def test_heb_random_zero_alpha_on_M_sublattice():
+    """HEB 5-metal random run should give alpha ~ 0 on the M sublattice
+    when B is treated as spectator."""
+    supercell = TOOLS.parent / "tests" / "heb_5metal_random" / "SCRAPS.vasp"
+    if not supercell.exists():
+        pytest.skip(f"{supercell} not yet generated — run SCRAPS first")
+    structure, _ = load_structure(
+        supercell, species_override=["Hf", "Zr", "Ti", "Ta", "Nb", "B"]
+    )
+    shells = detect_shells(structure, n_shells=10)
+    alpha, _, names = compute_alpha(structure, shells, spectator_species=["B"])
+    # Find the first shell with non-NaN M-M values (i.e., an M-M shell)
+    M_indices = [i for i, n in enumerate(names) if n != "B"]
+    mm_shell_k = None
+    for k in range(len(shells)):
+        sub = alpha[k][np.ix_(M_indices, M_indices)]
+        if not np.all(np.isnan(sub)):
+            mm_shell_k = k
+            break
+    assert mm_shell_k is not None, "No M-M shell found within first 10 shells"
+    # On the M-M shell, equiatomic 5-component SQS should give |alpha| ~ 0
+    sub = alpha[mm_shell_k][np.ix_(M_indices, M_indices)]
+    assert np.nanmax(np.abs(sub)) < 0.01, \
+        f"HEB SQS quality check failed: max |alpha_MM| = {np.nanmax(np.abs(sub))}"
+
+
+def test_heb_csro_supercell_matches_target():
+    """HEB 5-metal CSRO run should match its INPUT-file target within 0.05
+    at the M-M shell. Discrete-count rounding at this supercell size gives
+    achieved alpha ~ +/-1/3 for +/-0.30 targets, so tolerance is loose."""
+    supercell = TOOLS.parent / "tests" / "heb_5metal_csro" / "SCRAPS.vasp"
+    target_file = TOOLS.parent / "tests" / "heb_5metal_csro" / "INPUT"
+    if not supercell.exists():
+        pytest.skip(f"{supercell} not yet generated — run SCRAPS first")
+    structure, _ = load_structure(
+        supercell, species_override=["Hf", "Zr", "Ti", "Ta", "Nb", "B"]
+    )
+    shells = detect_shells(structure, n_shells=10)
+    alpha, _, names = compute_alpha(structure, shells, spectator_species=["B"])
+    targets = parse_target_file(target_file)
+    # Targets reference shell index 8 in the SCRAPS-internal numbering;
+    # our pymatgen-side shell index is 7 because pymatgen and SCRAPS
+    # disagree by one on how the lowest distance group is binned. Find
+    # the shell with z > 5 (the M-M shell with 6 in-plane + maybe more).
+    mm_shell_k = None
+    for k in range(len(shells)):
+        if shells[k].z > 5:
+            mm_shell_k = k
+            break
+    assert mm_shell_k is not None, "No high-coordination M-M shell found"
+    # Verify each target landed within tolerance
+    for t in targets:
+        achieved = float(alpha[mm_shell_k, t.i, t.j])
+        err = abs(achieved - t.alpha)
+        assert err < 0.05, \
+            f"{names[t.i]}-{names[t.j]}: target {t.alpha:+.4f}, " \
+            f"achieved {achieved:+.4f}, err {err:.4f}"
+
+
 def test_scraps_csro_supercell_matches_target():
     """The nicocr_csro case should match its INPUT-file target within 0.02."""
     supercell = TOOLS.parent / "tests" / "nicocr_csro" / "SCRAPS.vasp"

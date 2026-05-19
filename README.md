@@ -114,6 +114,16 @@ The `tests/` directory also ships three case files (INPUT + POSCAR only
   ~1 second after the multi-sublattice diagnostic; verifies the
   detection in `Lattice::coordination_per_shell()` is wired correctly.
   See `tests/fluorite_unsupported/README.md`.
+- `tests/heb_5metal_random/` — AlB₂-type 150-atom supercell of
+  (Hf,Zr,Ti,Ta,Nb)B₂ with boron declared as the spectator sublattice.
+  Optimizer finds an exact SQS on the M sublattice (α = 0 for every
+  pair). Demonstrates `SPECTATOR_BASIS_SPECIES` end-to-end.
+- `tests/heb_5metal_csro/` — same structure with literature-flavored
+  CSRO targets (Hf-Zr clustering +0.30, Hf-Ti ordering −0.30, Ti-Ta
+  ordering −0.30, Ta-Nb clustering +0.30). Optimizer achieves ±0.333
+  (closest integer-count approximation at this size); unspecified
+  pairs stay at α=0. Demonstrates per-pair targeting on a designed
+  sublattice with a fixed spectator.
 
 ## Supported lattice types
 
@@ -139,6 +149,45 @@ global concentration c_j is the right reference, and SCRAPS computes
 it correctly. The validated test cases (`tests/bcc_binary`,
 `tests/nicocr_random`, `tests/nicocr_csro`, plus the pytest reference
 structures B2 NiAl and L1₂ Ni₃Al) all fall in this regime.
+
+### Supported: one designed sublattice + one or more spectator sublattices
+
+Structures where compositional disorder is confined to a single
+sublattice and other sublattices are occupied by a single fixed
+species. The canonical example is the **AlB₂-type high-entropy
+diboride (HEB)**, where 4–6 transition metals share the metal
+sublattice and pure boron sits on a fixed honeycomb sublattice.
+Also covers:
+
+- HEB family: (Hf, Zr, Ti, Ta, Nb, Cr, Mo, W, V) on M with pure B
+- Carbides and nitrides of similar structure (high-entropy MX_n)
+- Substitutional alloys with structural vacancies pinned to specific
+  sites
+- Any structure where the user can identify which basis positions
+  belong to the compositionally-disordered (designed) sublattice
+
+Use the `SPECTATOR_BASIS_SPECIES <basis_idx> <species_idx>` INPUT
+keyword to declare which basis positions are spectator (one line per
+spectator basis position). For an HEB with M at POSCAR basis 0 and B
+at basis positions 1, 2 (with B as species 5):
+
+```
+SPECTATOR_BASIS_SPECIES 1 5
+SPECTATOR_BASIS_SPECIES 2 5
+```
+
+The optimizer pins those positions to the declared species and only
+shuffles atoms on the designed (non-spectator) sublattice. Warren-
+Cowley α is computed using per-sublattice reference concentrations
+c_j^M = N_j^M / N^M (M = non-spectator atoms) and counting only
+M-M neighbor pairs. Output α matrix omits spectator-species rows and
+columns. See `tests/heb_5metal_random/` and `tests/heb_5metal_csro/`.
+
+A practical note on shell numbering: in HEB-type lattices, the global
+shell ordering puts B-B and M-B distances before the first M-M shell.
+Set `MAXSHELLNUM` large enough to reach the M-M shells (≥ 8–10 for
+AlB₂-type with typical c/a ≈ 1.1), or your fitness function won't
+include them.
 
 ### Not supported: multi-sublattice structures with non-uniform coordination
 
