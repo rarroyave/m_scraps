@@ -37,16 +37,31 @@ Output binary: `SCRAPs/scraps`.
 
 ## INPUT file format
 
-All upstream keywords are unchanged. The new directive:
+All upstream keywords are unchanged. New directives:
 
 ```
 SRO  <species_i>  <species_j>  <shell_index>  <alpha_target>
+
+AUTO_MCSTEP          <k>          # MCSTEP = max(50, k * N) once N is known
+EARLY_STOP_PATIENCE  <n>          # stop after n outer iters w/o improvement
+EARLY_STOP_TOL       <tol>        # improvement threshold (default 1e-6)
+SPECTATOR_BASIS_SPECIES  <bi>  <s>   # see HEB section below
 ```
 
-Species indices are 0-based and follow the order in `ELEMENT`. Shell index
-is 0-based (0 = nearest-neighbor). Lines may appear in any order; entries
-are symmetrized automatically (α_ij = α_ji). Pairs not mentioned default
-to α = 0.
+`SRO`: species indices are 0-based and follow the order in `ELEMENT`.
+Shell index is 0-based (0 = nearest-neighbor). Lines may appear in any
+order; entries are symmetrized automatically (α_ij = α_ji). Pairs not
+mentioned default to α = 0.
+
+`AUTO_MCSTEP`: convenient way to scale MCSTEP with supercell size; the
+factor `k=7` is what we use in the cell-size benchmarks. Overrides any
+explicit `MCSTEP` line when set to a positive integer.
+
+`EARLY_STOP_PATIENCE`: stop the optimization once the global best
+fitness has not improved by more than `EARLY_STOP_TOL` for that many
+consecutive outer iterations. Default 0 = disabled (run to TOTALIter).
+Use `patience=3` for typical SQS runs; `patience=5` for harder cases
+where you want a few extra iterations to confirm a plateau.
 
 ### Example — NiCoCr with literature CSRO pattern
 
@@ -69,6 +84,30 @@ SRO 1 2 0 -0.05
 This produces a 108-atom FCC supercell with α(Ni-Cr) ≈ −0.10, α(Co-Cr) ≈
 −0.05, α(Ni-Co) ≈ 0, and α(Cr-Cr) ≈ +0.15 (which emerges naturally from
 the sum rule Σ_j c_j α_ij = 0).
+
+## Picking Cell_DIM: feasibility and a one-shot wrapper
+
+For SQS targets (α=0) the expected pair count `N_i · z_k · N_j / N`
+must be integer for every weighted shell, or the optimizer plateaus at
+a non-zero fitness floor (see `docs/mcsqs_comparison.md` for the full
+explanation). Two tools help:
+
+```bash
+# Tell me the best Cell_DIM near 200 atoms for 35:35:30 ternary
+tools/suggest_cell.py POSCAR --composition 0.35,0.35,0.30 \
+    --target-atoms 200 --shells 2 --non-cubic
+
+# One-shot: pick cell, write INPUT, run scraps with early stopping
+tools/run_sqs.py POSCAR --composition 0.35,0.35,0.30 \
+    --target-atoms 200 --shells 2 --patience 3
+```
+
+`run_sqs.py` composes `suggest_cell.py` with the new INPUT heuristics
+(`AUTO_MCSTEP`, `EARLY_STOP_PATIENCE`) so that "give me an SQS at this
+composition" is a single command — no manual MCSTEP or TOTALIter
+tuning. SCRAPS' main loop also prints a warning at startup if the
+chosen `(ELEMENT, Cell_DIM, MAXSHELLNUM)` makes any target
+non-integer, naming the offending pair and the floor.
 
 ## Verification
 

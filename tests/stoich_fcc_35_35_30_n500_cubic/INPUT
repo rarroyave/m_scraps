@@ -1,0 +1,15 @@
+TYP     3
+GITER   1000
+ELEMENT 175 175 150
+Cell_DIM        5 5 5
+NESTS   24
+MCSTEP  3500
+TOTALIter 10
+MAXSHELLNUM 2
+WEIGHT 1.0 1.0
+
+# 35:35:30 ternary on FCC 500-atom 5x5x5 cubic supercell.
+# Cubic but INFEASIBLE for 2-shell SQS (shell 1 AB target = 367.5).
+# Minimum achievable fitness >= sqrt(0.5) = 0.707.
+# Included for comparison against the non-cubic feasible n=200 case.
+# MCSTEP scaled ~7 per atom (500 * 7 = 3500).

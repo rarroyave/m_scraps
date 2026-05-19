@@ -1,0 +1,11 @@
+FCC conventional cell (35:35:30 ternary, 5x5x5 = 500 atoms, infeasible at shell 1)
+ 1.0
+ 1.0 0.0 0.0
+ 0.0 1.0 0.0
+ 0.0 0.0 1.0
+ 4
+direct
+ 0.0 0.0 0.0
+ 0.5 0.5 0.0
+ 0.5 0.0 0.5
+ 0.0 0.5 0.5

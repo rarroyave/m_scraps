@@ -40,6 +40,10 @@ THE SOFTWARE.
 using namespace std;
 
 readInput::readInput()
+    : typeofatoms(0), globalIter(0), num_of_nests(0), MCiter(0),
+      iterTotal(0), num_of_shells(0),
+      earlyStopPatience(0), earlyStopTol(1e-6), autoMcstepFactor(0),
+      totalatoms(0)
 {
     input();
     readPOSCAR();
@@ -225,6 +229,18 @@ void readInput::input() {
                 {
                     cout << "Warning: malformed SRO line ignored: " << line << endl;
                 }
+            }
+            if(key.compare("AUTO_MCSTEP") == 0)
+            {
+                ss >> autoMcstepFactor;
+            }
+            if(key.compare("EARLY_STOP_PATIENCE") == 0)
+            {
+                ss >> earlyStopPatience;
+            }
+            if(key.compare("EARLY_STOP_TOL") == 0)
+            {
+                ss >> earlyStopTol;
             }
             if(key.compare("SPECTATOR_BASIS_SPECIES") == 0)
             {

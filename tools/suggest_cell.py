@@ -37,16 +37,25 @@ from verify_sro import detect_shells, load_structure  # noqa: E402
 
 @dataclass
 class CellReport:
-    k: int
+    cell_dim: tuple[int, int, int]
     total_atoms: int
     species_counts: tuple[int, ...]
     fitness_sq_lower_bound: float
     feasible: bool
     nonintegral_pairs: list[tuple[int, int, int, float]]  # (shell, i, j, target)
+    # Anisotropy penalty: 0 for cubic (k1=k2=k3), grows with shape mismatch.
+    aspect_penalty: float
 
     @property
     def fitness_lower_bound(self) -> float:
         return math.sqrt(self.fitness_sq_lower_bound)
+
+    @property
+    def is_cubic(self) -> bool:
+        return self.cell_dim[0] == self.cell_dim[1] == self.cell_dim[2]
+
+    def cell_dim_str(self) -> str:
+        return " ".join(str(k) for k in self.cell_dim)
 
 
 def integer_counts(fractions: list[float], total: int) -> Optional[tuple[int, ...]]:
@@ -75,20 +84,28 @@ def integer_counts(fractions: list[float], total: int) -> Optional[tuple[int, ..
 
 def evaluate_cell(
     primitive_struct,
-    k: int,
+    cell_dim,
     species_counts: tuple[int, ...],
     n_shells: int,
     weights: list[float],
 ) -> CellReport:
-    """Build the k×k×k supercell and check shell-by-shell feasibility."""
+    """Build the supercell and check shell-by-shell feasibility.
+
+    `cell_dim` may be an int (cubic k×k×k for back-compat) or a tuple
+    `(k1, k2, k3)`.
+    """
+    if isinstance(cell_dim, int):
+        cell_dim = (cell_dim, cell_dim, cell_dim)
+    k1, k2, k3 = cell_dim
     supercell = primitive_struct.copy()
-    supercell.make_supercell((k, k, k))
+    supercell.make_supercell((k1, k2, k3))
     total = len(supercell)
     if sum(species_counts) != total:
         raise ValueError(f"species_counts {species_counts} (sum {sum(species_counts)}) "
                          f"!= supercell atoms ({total})")
 
-    # Wigner-Seitz cutoff (half min cell vector)
+    # Wigner-Seitz cutoff (half min cell vector). For very anisotropic cells
+    # this may include fewer shells than a cubic supercell of similar volume.
     shells = detect_shells(supercell, n_shells=n_shells)
     n_species = len(species_counts)
 
@@ -99,8 +116,6 @@ def evaluate_cell(
         if w == 0:
             continue
         z = sh.z
-        # off-diagonals (i, j) with i != j contribute one term each;
-        # since pair[i][j] = pair[j][i] in count, target is also symmetric.
         for i in range(n_species):
             for j in range(n_species):
                 if i == j:
@@ -112,13 +127,15 @@ def evaluate_cell(
                     fit2_lb += w * (gap ** 2)
                     nonint.append((sh.index, i, j, target))
     feasible = (fit2_lb == 0.0)
+    aspect = (max(cell_dim) / min(cell_dim)) - 1.0  # 0 for cubic
     return CellReport(
-        k=k,
+        cell_dim=(k1, k2, k3),
         total_atoms=total,
         species_counts=species_counts,
         fitness_sq_lower_bound=fit2_lb,
         feasible=feasible,
         nonintegral_pairs=nonint,
+        aspect_penalty=aspect,
     )
 
 
@@ -131,7 +148,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--element-counts", type=str, default=None,
                    help="Explicit ELEMENT counts (e.g. 27,54,27); diagnose mode")
     p.add_argument("--cell-dim", type=str, default=None,
-                   help="Cubic Cell_DIM as k (e.g. 3) to diagnose a single cell")
+                   help="Cell_DIM to diagnose: either 'k' (cubic) or 'k1,k2,k3' (non-cubic)")
     p.add_argument("--target-atoms", type=int, default=None,
                    help="Target supercell atom count (suggest mode)")
     p.add_argument("--shells", type=int, default=2,
@@ -140,6 +157,8 @@ def parse_args() -> argparse.Namespace:
                    help="Per-shell weights, comma-separated (default uniform)")
     p.add_argument("--k-range", type=str, default="2:8",
                    help="k search range as kmin:kmax (default 2:8)")
+    p.add_argument("--non-cubic", action="store_true",
+                   help="Also search non-cubic Cell_DIM (k1,k2,k3) shapes")
     p.add_argument("--top", type=int, default=5,
                    help="Show top N suggestions (default 5)")
     return p.parse_args()
@@ -163,9 +182,16 @@ def main() -> int:
 
     # Diagnose mode: explicit cell + counts
     if args.cell_dim is not None and args.element_counts is not None:
-        k = int(args.cell_dim)
+        cd_parts = args.cell_dim.split(",")
+        if len(cd_parts) == 1:
+            cell = int(cd_parts[0])
+        elif len(cd_parts) == 3:
+            cell = tuple(int(x) for x in cd_parts)
+        else:
+            print("ERROR: --cell-dim must be 'k' or 'k1,k2,k3'", file=sys.stderr)
+            return 2
         counts = tuple(int(x) for x in args.element_counts.split(","))
-        report = evaluate_cell(struct, k, counts, args.shells, weights)
+        report = evaluate_cell(struct, cell, counts, args.shells, weights)
         print_diagnose(report, weights)
         return 0
 
@@ -183,23 +209,35 @@ def main() -> int:
         return 2
 
     kmin, kmax = (int(x) for x in args.k_range.split(":"))
+    candidate_dims: list[tuple[int, int, int]] = []
+    if args.non_cubic:
+        # Search the unordered (k1<=k2<=k3) grid; symmetric shapes are the
+        # same supercell volume so we only keep canonical ordering.
+        for k1 in range(kmin, kmax + 1):
+            for k2 in range(k1, kmax + 1):
+                for k3 in range(k2, kmax + 1):
+                    candidate_dims.append((k1, k2, k3))
+    else:
+        for k in range(kmin, kmax + 1):
+            candidate_dims.append((k, k, k))
+
     reports: list[CellReport] = []
-    for k in range(kmin, kmax + 1):
-        total = (k ** 3) * basis_atoms
+    for cell in candidate_dims:
+        total = (cell[0] * cell[1] * cell[2]) * basis_atoms
         counts = integer_counts(fractions, total)
         if counts is None:
             continue
         try:
-            r = evaluate_cell(struct, k, counts, args.shells, weights)
+            r = evaluate_cell(struct, cell, counts, args.shells, weights)
             reports.append(r)
         except Exception as e:
-            print(f"  k={k}: skipped ({e})", file=sys.stderr)
+            print(f"  Cell_DIM {cell}: skipped ({e})", file=sys.stderr)
 
     target = args.target_atoms
-    feasible = sorted([r for r in reports if r.feasible],
-                      key=lambda r: abs(r.total_atoms - target))
-    infeasible = sorted([r for r in reports if not r.feasible],
-                        key=lambda r: abs(r.total_atoms - target))
+    # Sort by (closeness to target, then cubic-ness as tiebreaker).
+    sort_key = lambda r: (abs(r.total_atoms - target), r.aspect_penalty)
+    feasible = sorted([r for r in reports if r.feasible], key=sort_key)
+    infeasible = sorted([r for r in reports if not r.feasible], key=sort_key)
 
     print(f"Composition fractions: {fractions}")
     print(f"Target atoms: {target}")
@@ -211,8 +249,9 @@ def main() -> int:
         for r in feasible[:args.top]:
             dn = r.total_atoms - target
             sign = "+" if dn >= 0 else ""
-            print(f"  Cell_DIM {r.k} {r.k} {r.k}  ->  N={r.total_atoms} ({sign}{dn} from target),  "
-                  f"ELEMENT {' '.join(str(c) for c in r.species_counts)}")
+            tag = "" if r.is_cubic else "  [non-cubic]"
+            print(f"  Cell_DIM {r.cell_dim_str()}  ->  N={r.total_atoms} ({sign}{dn} from target),  "
+                  f"ELEMENT {' '.join(str(c) for c in r.species_counts)}{tag}")
     else:
         print("  (none in search range)")
     print()
@@ -221,16 +260,17 @@ def main() -> int:
         for r in infeasible[:args.top]:
             dn = r.total_atoms - target
             sign = "+" if dn >= 0 else ""
-            print(f"  Cell_DIM {r.k} {r.k} {r.k}  ->  N={r.total_atoms} ({sign}{dn}),  "
+            tag = "" if r.is_cubic else "  [non-cubic]"
+            print(f"  Cell_DIM {r.cell_dim_str()}  ->  N={r.total_atoms} ({sign}{dn}),  "
                   f"ELEMENT {' '.join(str(c) for c in r.species_counts)},  "
-                  f"min fitness >= {r.fitness_lower_bound:.4f}")
+                  f"min fitness >= {r.fitness_lower_bound:.4f}{tag}")
     else:
         print("  (none in search range; all configurations exact-SQS achievable)")
     return 0
 
 
 def print_diagnose(report: CellReport, weights: list[float]) -> None:
-    print(f"Cell_DIM {report.k} {report.k} {report.k}  (N = {report.total_atoms})")
+    print(f"Cell_DIM {report.cell_dim_str()}  (N = {report.total_atoms})")
     print(f"ELEMENT {' '.join(str(c) for c in report.species_counts)}")
     print(f"Weights: {weights}")
     print()

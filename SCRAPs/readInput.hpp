@@ -61,6 +61,16 @@ public:
     int MCiter;
     int iterTotal;
     int num_of_shells;
+    // Heuristic 1: plateau-based early stopping. If patience > 0, the main
+    // optimization loop breaks once the global-best fitness has not
+    // improved by more than `earlyStopTol` for `earlyStopPatience`
+    // consecutive outer iterations. Default 0 disables (run to iterTotal).
+    int earlyStopPatience;
+    double earlyStopTol;
+    // Heuristic 2: auto-scale MCSTEP. If autoMcstepFactor > 0, MCiter is
+    // overridden by max(50, autoMcstepFactor * total_atoms) once the
+    // supercell size is known. Default 0 leaves MCiter as parsed.
+    int autoMcstepFactor;
     // Per-pair, per-shell Warren-Cowley SRO targets: targetSROpair[i][j][shell].
     // Defaults to all zeros (random / SQS) when no SRO lines appear in INPUT.
     // Populated by readInput::input() after TYP and MAXSHELLNUM are known.

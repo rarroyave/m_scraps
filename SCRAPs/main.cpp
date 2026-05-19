@@ -537,6 +537,23 @@ int main(int argc, char ** argv)
     unordered_map<int, int> numneighs;
     int total_atoms = atoms.size()*dim[0]*dim[1]*dim[2];
 
+    // Heuristic 2: auto-scale MCSTEP from supercell size if AUTO_MCSTEP is set.
+    // MCiter (= INPUT keyword MCSTEP) is the number of MC swap attempts per
+    // outer iteration per nest. The right scaling for "fixed sampling per
+    // atom" is k * N with k ~ 5-10; default factor 7 in our cell-size sweep.
+    // We override only when autoMcstepFactor > 0 so the explicit MCSTEP
+    // keyword remains the source of truth otherwise.
+    if (inputfile.autoMcstepFactor > 0) {
+        int auto_mciter = std::max(50, inputfile.autoMcstepFactor * total_atoms);
+        if (id == 0) {
+            cout << "AUTO_MCSTEP=" << inputfile.autoMcstepFactor
+                 << " -> MCSTEP = max(50, " << inputfile.autoMcstepFactor
+                 << " * " << total_atoms << ") = " << auto_mciter
+                 << " (overriding INPUT MCSTEP=" << MCiter << ")" << endl;
+        }
+        MCiter = auto_mciter;
+    }
+
     // Sanity check: ELEMENT counts must sum to total supercell atoms.
     // Otherwise randomizeLattice() falls into an infinite loop trying to
     // place atoms into species buckets whose capacity is already full
@@ -716,6 +733,16 @@ int main(int argc, char ** argv)
     best_max = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
 
 //    empty_nests(nests, new_nests, MCiter, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+    // Heuristic 1: plateau-based early stopping. Each rank tracks its own
+    // per-rank best fitness; if no improvement larger than earlyStopTol
+    // for earlyStopPatience consecutive outer iterations, that rank breaks
+    // out of the loop. Ranks may exit at different iterations — that's
+    // safe because the post-loop MPI merge is one-shot (each rank sends
+    // its nests exactly once after exiting).
+    const int early_stop_patience = inputfile.earlyStopPatience;  // 0 disables
+    const double early_stop_tol = inputfile.earlyStopTol;
+    double best_seen = INT_MAX;
+    int no_improve_count = 0;
     while (iters < iterTotal && error > epsi)
     {
 // The Cuckoo search algorithm: set up cuckoo search, finds best nests, do fitness test until fins the best nest
@@ -731,6 +758,22 @@ int main(int argc, char ** argv)
         cout << " FITNESS - > " << fitness[0] << "<-- iter -->" << iters << endl;
         iters += 1;
 
+        if (early_stop_patience > 0) {
+            if (error < best_seen - early_stop_tol) {
+                best_seen = error;
+                no_improve_count = 0;
+            } else {
+                no_improve_count += 1;
+            }
+            if (no_improve_count >= early_stop_patience) {
+                cout << "Early stop on rank " << id
+                     << ": no improvement > " << early_stop_tol
+                     << " for " << early_stop_patience
+                     << " iterations (best = " << best_seen
+                     << ", iter " << iters << "/" << iterTotal << ")." << endl;
+                break;
+            }
+        }
     }
     vector<int> nest1D;
     if (id != 0) {

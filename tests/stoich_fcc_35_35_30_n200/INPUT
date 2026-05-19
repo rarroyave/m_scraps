@@ -1,0 +1,15 @@
+TYP     3
+GITER   1000
+ELEMENT 70 70 60
+Cell_DIM        2 5 5
+NESTS   24
+MCSTEP  1400
+TOTALIter 10
+MAXSHELLNUM 2
+WEIGHT 1.0 1.0
+
+# 35:35:30 ternary on FCC 200-atom 2x5x5 conventional supercell.
+# ELEMENT 70/70/60 = exact 35%/35%/30%.
+# Feasibility verified via tools/suggest_cell.py --non-cubic:
+#   shell 0 (z=12) and shell 1 (z=6) targets all integer.
+# MCSTEP scaled ~7 per atom (200 * 7 = 1400).
