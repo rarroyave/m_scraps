@@ -635,6 +635,15 @@ int main(int argc, char ** argv)
     vector<vector<int >> new_nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms, initialPlacement));
     vector<double> fitness(nestsperproc, INT_MAX);
     fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
+    // Diagnostic: report initial (pre-MCMC) fitness so the user can see
+    // whether optimization is doing meaningful work vs. the random init
+    // already landing close to the target. The fitness vector here is
+    // the fitness of each per-rank nest after randomization.
+    double init_min = fitness[0], init_max = fitness[0];
+    for (double f : fitness) { init_min = std::min(init_min, f); init_max = std::max(init_max, f); }
+    cout << " INITIAL FITNESS (post-randomize, pre-MCMC) on rank " << id
+         << ": min=" << init_min << " max=" << init_max
+         << " across " << fitness.size() << " nests" << endl;
     vector<int> best(total_atoms, 0), bestnest(total_atoms, 0);
     best_max = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
 
