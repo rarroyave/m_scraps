@@ -39,6 +39,7 @@ THE SOFTWARE.
 #include <queue>
 #include <set>
 #include <unordered_map>
+#include <mpi.h>  // for MPI_Abort in coordination_per_shell()
 
 using namespace std;
 point3d& point3d::operator=(const point3d &vec2)
@@ -328,8 +329,58 @@ vector<vector<int>> Lattice::numneighofeachshell()
         tempneighs.clear();
         shell = 0;
     }
- //   std::cout << "maximum num of neighbours are  " << numofneighs << endl; 
+ //   std::cout << "maximum num of neighbours are  " << numofneighs << endl;
     return numofneighs;
+}
+
+vector<int> Lattice::coordination_per_shell() const
+{
+    // Returns the per-shell coordination number z_shell, taken from
+    // atom 0 as the canonical reference. The original code accessed
+    // maxneighbourspershell[species_index][shell] by accident (species
+    // and atom indices both happened to be in range), which silently
+    // worked only because most callers used species 0 or 1. This method
+    // replaces that with an explicit, semantically-correct accessor.
+    //
+    // KNOWN UPSTREAM ISSUE: neighbourMatrix() assigns shell numbers
+    // per-atom (each atom builds its own distance->shell map via
+    // removedublicates()), so floating-point precision near shell
+    // boundaries can shuffle neighbors across shells between different
+    // atoms. As a result, maxneighbourspershell can be non-uniform
+    // across atoms even for geometrically uniform lattices like a
+    // cubic 3x3x3 BCC. We surface this with a warning the first time
+    // it occurs in a run, then proceed using atom 0's values --- the
+    // canonical neighbor list for the Bravais origin (0,0,0).
+    //
+    // A complete fix requires reworking neighbourMatrix() to use a
+    // global shell numbering (sort all unique pairwise distances across
+    // the whole supercell, assign shell indices globally), tracked as
+    // an open item in the project README.
+    if (maxneighbourspershell.empty()) {
+        return {};
+    }
+    const std::size_t n_sites = maxneighbourspershell.size();
+    const std::size_t n_shells = maxneighbourspershell[0].size();
+    static bool warned = false;
+    for (std::size_t s = 0; s < n_shells && !warned; ++s) {
+        const int z0 = maxneighbourspershell[0][s];
+        for (std::size_t i = 1; i < n_sites; ++i) {
+            if (s >= maxneighbourspershell[i].size() ||
+                maxneighbourspershell[i][s] != z0) {
+                cout << "WARNING: non-uniform coordination detected "
+                     << "(shell " << s << ", atom 0 z=" << z0
+                     << ", atom " << i << " z="
+                     << (s < maxneighbourspershell[i].size()
+                         ? maxneighbourspershell[i][s] : -1)
+                     << "). This is a known upstream limitation in "
+                     << "neighbourMatrix() shell numbering. Using atom 0's "
+                     << "values as canonical." << endl;
+                warned = true;
+                break;
+            }
+        }
+    }
+    return maxneighbourspershell[0];
 }
 void Lattice::maxneighshell()
 {

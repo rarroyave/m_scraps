@@ -109,6 +109,37 @@ The `tests/` directory also ships three case files (INPUT + POSCAR only
 - `tests/nicocr_csro/` — same composition with the literature-pattern
   CSRO above.
 
+## Known limitations
+
+### `neighbourMatrix()` uses per-atom shell numbering
+
+`Lattice::neighbourMatrix()` builds a separate distance→shell map for
+each atom (via `removedublicates(localdists)` inside a per-atom loop).
+Two atoms with floating-point precision differences near a shell
+boundary can end up with the same physical neighbor assigned to
+different shell indices. On a geometrically uniform 3×3×3 cubic BCC
+supercell, for example, atom 0 may report 6 neighbors in shell 1
+while atom 28 reports 5 (with the missing neighbor showing up in
+shell 2 instead).
+
+The original `printtoscreen()` masked this by always accessing
+`maxneighbourspershell[nest[i]]` — `nest[i]` is a species index in
+`[0, _typesatoms)`, so only atoms 0 or 1 were ever read, and those
+atoms had consistent shell assignments.
+
+After the printtoscreen formula was fixed in this fork (commit
+[`5f7e8f1`](../../commit/5f7e8f1)), `Lattice::coordination_per_shell()`
+takes atom 0 as the canonical reference and emits a one-time warning
+if any other atom disagrees. This means SRO results are still
+correct on every test case we ship, but downstream code that depends
+on atom-2-or-later coordination data would see slightly different
+shell boundaries than atom 0.
+
+**Complete fix:** rework `neighbourMatrix()` to use **global** shell
+numbering — sort all unique pairwise distances across the whole
+supercell once, assign shell indices once, reuse for all atoms.
+Tracked but not yet implemented.
+
 ## Credits
 
 Original SCRAPS / Hybrid-Cuckoo-Search code by Rahul Singh, Aayush Sharma,

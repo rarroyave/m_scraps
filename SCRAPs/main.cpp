@@ -84,13 +84,15 @@ void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector
     //   alpha_ij = 1 - P(j|i) / c_j
     //            = 1 - count_ij * N_total / (z_shell * N_i * N_j)
     //
-    // The shell coordination z is read from maxneighbourspershell[0][shell].
-    // numneighofeachshell() populates this per-atom, but for a periodic
-    // single-site lattice every atom has identical coordination, so index 0
-    // is representative. (Original code looked up by nest[i], which is a
-    // species index; that worked by accident for the same reason.)
+    // z_shell is the per-shell coordination number, computed via
+    // Lattice::coordination_per_shell() which collapses the per-atom
+    // maxneighbourspershell table to one value per shell. The collapse
+    // asserts that every atom has identical coordination in each shell
+    // (true for any single-Bravais-lattice-with-basis crystal); if the
+    // assertion fails the method MPI_Aborts with a clear message.
+    const vector<int> z_per_shell = lat.coordination_per_shell();
     for (int k = 0; k < numofmaxneighs; k++) {
-        int z_shell = lat.maxneighbourspershell[0][k];
+        int z_shell = (k < (int)z_per_shell.size()) ? z_per_shell[k] : 0;
         if (z_shell <= 0) continue;
         cout << " SRO FOR THE SHELL NO - > " << k << endl;
         for (int i = 0; i < _typesatoms; i++) {

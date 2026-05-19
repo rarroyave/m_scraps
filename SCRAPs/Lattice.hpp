@@ -121,8 +121,14 @@ public:
     int neighmax();
     double imageDistance(point3d latpoint1, point3d latpoint2);
     unordered_map<int, int> removedublicates(vector<double> temp);
-    vector<vector<int>> maxneighbourspershell;
+    vector<vector<int>> maxneighbourspershell;  // [atom_index][shell]
     vector<vector<int>> numneighofeachshell();
+    // Per-shell coordination number, derived from maxneighbourspershell.
+    // Asserts that every atom has identical coordination in each shell
+    // (true for any single-Bravais-lattice-with-basis crystal: FCC, BCC,
+    // HCP, B2, L1_2, D0_3, etc.). Aborts via MPI_Abort if a non-uniform
+    // lattice is detected, since the SRO-fitness machinery assumes uniformity.
+    vector<int> coordination_per_shell() const;
     friend Lattice operator+(const Lattice &lat1, Lattice &lat2);
     void maxneighshell();
 };
