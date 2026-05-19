@@ -7,8 +7,8 @@ SCRAPs/a.out
 # Test run outputs (only commit INPUT/POSCAR, not the generated supercells)
 SCRAPS.vasp
 *.log
-scraps
-scraps_*
+# Symlinks like tests/<case>/scraps -> ../../SCRAPs/scraps
+tests/**/scraps
 
 # macOS
 .DS_Store

@@ -433,6 +433,23 @@ int main(int argc, char ** argv)
     unordered_map<int, int> numneighs;
     int total_atoms = atoms.size()*dim[0]*dim[1]*dim[2];
 
+    // Sanity check: ELEMENT counts must sum to total supercell atoms.
+    // Otherwise randomizeLattice() falls into an infinite loop trying to
+    // place atoms into species buckets whose capacity is already full
+    // (or never reaches the cell size if sums fall short). Hangs with
+    // no error were repeatedly traced to this user-input mismatch.
+    int sum_element = 0;
+    for (int v : eachElement) sum_element += v;
+    if (sum_element != total_atoms) {
+        cout << "ERROR: ELEMENT counts sum to " << sum_element
+             << " but supercell has " << total_atoms << " atoms"
+             << " (" << atoms.size() << " basis atoms x "
+             << dim[0] << "x" << dim[1] << "x" << dim[2] << " cells)."
+             << " Aborting." << endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        return 1;
+    }
+
     vector<int> maxAtomNum(typeofatoms, 0);
     vector<int> atomNum(typeofatoms, 0);
     
