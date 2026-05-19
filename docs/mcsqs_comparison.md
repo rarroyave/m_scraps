@@ -161,6 +161,42 @@ which scraps-perpair does not.
 | Multi-sublattice with independent compositions on >1 sublattice (e.g. σ-phase, fluorite-like ternary) | **mcsqs** (not supported by scraps-perpair) |
 | Very large cells (>> 1000 atoms) with full symmetry handling | mcsqs with `-rc`, or scraps-perpair |
 
+## Stoichiometry sweep (single sublattice)
+
+Six binaries and ternaries on FCC (108 atoms, 3×3×3 conventional) and
+BCC (54 or 128 atoms). SCRAPS at `MAXSHELLNUM=2, WEIGHT 1 1` (4 MPI
+ranks), mcsqs given a 60 s wall budget per case, both verified with
+the same 2-shell `verify_sro.py`. Inputs live under
+`tests/stoich_*/`; the runnable sweep is `docs/mcsqs_stoich_sweep.sh`.
+
+| case | lattice | atoms | composition | scraps wall | scraps fitness | scraps max\|α\| | mcsqs wall | mcsqs max\|α\| |
+|---|---|---|---|---|---|---|---|---|
+| stoich_fcc_50_50 | FCC | 108 | 50:50 | 2 s | 0 | **0.000** | 30 s | **0.000** |
+| stoich_fcc_75_25 | FCC | 108 | 75:25 | 9 s | 1.58 | **0.012** | 64 s | **0.012** |
+| stoich_fcc_50_25_25 | FCC | 108 | 50:25:25 | 20 s | 1.58 | **0.012** | 64 s | 0.037 |
+| stoich_bcc_50_50_54 | BCC | 54 | 50:50 | 5 s | 1.41 | **0.012** | 64 s | **0.012** |
+| stoich_bcc_75_25 | BCC | 128 | 75:25 | <1 s | 0 | **0.000** | 39 s | **0.000** |
+| stoich_bcc_equi3_54 | BCC | 54 | ~33:33:33 | 1 s | 0 | **0.000** | 65 s | 0.056 |
+
+**Observations.** On binaries both tools reach equivalent quality;
+scraps is consistently 5–60× faster in wall time and 1.5–15× faster
+in CPU-time (accounting for the 4-MPI advantage). On the two
+ternaries, scraps wins on quality at the same budget — most
+strikingly on BCC equi3 where scraps hits exact SQS while mcsqs
+plateaus at max|α| ≈ 0.056. This is consistent with the multi-shell
+trend reported above: scraps' explicit α-residual loss tends to flat-
+out reach zero at modest supercell sizes when the target is
+representable, while mcsqs's correlation engineering leaves
+distributed residuals.
+
+The mcsqs failures observed during initial sweep design — "Impossible
+to match point correlations due to incompatible supercell size" — came
+from compositions whose smallest representable cell exceeded the
+requested n. The cases listed above use compositions that divide
+cleanly into the chosen cell sizes; for harder fractions you'd need
+to either grow the cell or pass mcsqs an explicit `sqscell.out` via
+`-rc`.
+
 ## Reproducing this comparison
 
 ATAT 3.50 source: `https://axelvandewalle.github.io/www-avdw/atat/atat3_50.tar.gz`
@@ -169,4 +205,6 @@ to non-portable `<bits/stdc++.h>` include, but `mcsqs` and `corrdump`
 build before that error).
 
 After installing `mcsqs`, `corrdump`, `str2cif`, `cellcvrt` on PATH,
-run `docs/mcsqs_comparison.sh`.
+run `docs/mcsqs_comparison.sh` (multi-shell case) or
+`docs/mcsqs_stoich_sweep.sh` (stoichiometry sweep, env var
+`MCSQS_BUDGET=<seconds>` to change per-case mcsqs budget).

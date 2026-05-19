@@ -1,0 +1,11 @@
+TYP     2
+GITER   1000
+ELEMENT 96 32
+Cell_DIM        4 4 4
+NESTS   24
+MCSTEP  750
+TOTALIter 10
+MAXSHELLNUM 2
+WEIGHT 1.0 1.0
+
+# Binary 75:25 on BCC 128-atom 4x4x4 conventional supercell. Random target (SQS).
