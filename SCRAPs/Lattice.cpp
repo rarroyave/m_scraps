@@ -237,31 +237,91 @@ vector<vector<double>> Lattice::distanceMatrix(){
         return distances;
 }
 vector<vector <int>> Lattice::neighbourMatrix(){
+    // Build the neighbor-shell matrix using GLOBAL shell numbering.
+    //
+    // Original upstream code constructed a per-atom distance->shell map
+    // (one call to removedublicates() per atom inside the outer loop),
+    // so two atoms with floating-point precision differences near a
+    // shell boundary could end up with the same physical neighbor in
+    // different shell indices. On a 3x3x3 cubic BCC supercell, this
+    // produced atom 0 z=6 in shell 1 vs atom 28 z=5 in shell 1, with
+    // the missing 2nd-nearest neighbor mis-assigned to shell 2 for
+    // atom 28. The downstream printtoscreen and SRO fitness machinery
+    // assume z_shell is well-defined and identical for every atom in
+    // a periodic lattice, so the per-atom inconsistency was a real
+    // (silently masked) bug.
+    //
+    // This rewrite: collect all unique pairwise distances below the
+    // Wigner-Seitz cutoff across the entire supercell, cluster them
+    // into shells with a small relative tolerance, then assign each
+    // (i, j) pair its global shell index by direct lookup. Result is
+    // a uniform neighbor structure across all atoms in a uniform lattice.
     int latticeSites = supercell.size();
-    std::vector<double> neighdistances;
-    unordered_map<int, int> disttoshell;
     std::vector<std::vector<int>> neighs (latticeSites, std::vector<int>(latticeSites));
     double maxneighdist = mindist();
+    double cutoff = maxneighdist - 0.0001;
     maxneigh = INT_MIN;
-//    cout << "MAX NEIGH DIST IS - > " << maxneighdist << endl;
-    vector<double> localdists;
-    int shellnum;
-    for(int i = 0; i < latticeSites; i++){
-        localdists = distances[i];
-        std::sort(localdists.begin(), localdists.end());
-        disttoshell = removedublicates(localdists);
-        localdists.clear();
-        for(int j = 0; j < latticeSites; j++)
-        {
-            if(i == j || distances[i][j] >= maxneighdist - 0.0001)
-                shellnum = 0;
-            else
-                shellnum = disttoshell[100*distances[i][j]];
-            neighs[i][j] = shellnum;
-//	    cout << "Atom - " << i << " Atom - " << j << " shellnum - " << shellnum << endl;
-            maxneigh = max(shellnum, maxneigh); // Set the number of neighbour shells allowed in a conventional unit cell.
+
+    // (1) Collect all unique pairwise distances strictly inside the cutoff.
+    //     Use upper triangle (symmetric distance matrix). Skip self-pairs.
+    std::set<double> all_dists;
+    const double eps = 1e-9;
+    for (int i = 0; i < latticeSites; ++i) {
+        for (int j = i + 1; j < latticeSites; ++j) {
+            const double d = distances[i][j];
+            if (d > eps && d < cutoff) {
+                all_dists.insert(d);
+            }
         }
-        disttoshell.clear();
+    }
+
+    // (2) Cluster the sorted unique distances into shells. Two consecutive
+    //     unique distances are in the same shell if their relative gap is
+    //     below `rel_tol`. 0.5% comfortably merges floating-point jitter
+    //     while keeping every standard crystallographic shell distinct
+    //     (BCC/FCC/HCP first-few-shells separations are 13-30% apart).
+    const double rel_tol = 0.005;
+    std::vector<std::pair<double, double>> shells;  // (min, max) per shell
+    if (!all_dists.empty()) {
+        auto it = all_dists.begin();
+        double shell_min = *it;
+        double shell_max = *it;
+        ++it;
+        for (; it != all_dists.end(); ++it) {
+            const double d = *it;
+            if ((d - shell_max) / shell_max > rel_tol) {
+                shells.emplace_back(shell_min, shell_max);
+                shell_min = d;
+            }
+            shell_max = d;
+        }
+        shells.emplace_back(shell_min, shell_max);
+    }
+
+    // (3) Helper: lookup global shell index (1-based; 0 = not a neighbor).
+    //     Linear scan; |shells| is small (typically 3-10), so this is
+    //     dominated by the surrounding O(N^2) pair loop anyway.
+    auto shell_of = [&shells](double d) -> int {
+        for (std::size_t k = 0; k < shells.size(); ++k) {
+            if (d >= shells[k].first - 1e-9 && d <= shells[k].second + 1e-9) {
+                return static_cast<int>(k) + 1;
+            }
+        }
+        return 0;
+    };
+
+    // (4) Populate the neighbor-shell matrix using the global mapping.
+    for (int i = 0; i < latticeSites; ++i) {
+        for (int j = 0; j < latticeSites; ++j) {
+            int shellnum;
+            if (i == j || distances[i][j] >= cutoff) {
+                shellnum = 0;
+            } else {
+                shellnum = shell_of(distances[i][j]);
+            }
+            neighs[i][j] = shellnum;
+            maxneigh = std::max(shellnum, maxneigh);
+        }
     }
     return neighs;
 }
