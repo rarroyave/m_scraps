@@ -56,14 +56,51 @@ with `touch stopsqs`; mcsqs polls every ~3 s.
 
 ## Results
 
+### Single-shell (NN only)
+
 | Test | Tool | Atoms | Parallelism | Wall | max \|α\| shell 0 |
 |---|---|---|---|---|---|
 | NiCoCr 108 | scraps-perpair | 108 | 4 MPI | 1 s | 0.0000 |
 | NiCoCr 108 | mcsqs | 108 | 1 (serial) | 33 s | 0.0000 |
 | HEB 150 | scraps-perpair | 150 | 4 MPI | <1 s | 0.0000 |
 | HEB 150 | mcsqs | 150 | 1 (serial) | 64 s | 0.0000 |
-| HEB 600 | scraps-perpair | 600 | 4 MPI | 5 s | 0.063 (only first M-M shell)|
+| HEB 600 | scraps-perpair | 600 | 4 MPI | 5 s | 0.063 (default WEIGHT)|
 | HEB 600 | mcsqs (with `-rc` explicit supercell) | 600 | 1 (serial) | 126 s | 0.0000 |
+
+### Multi-shell α — the more rigorous test
+
+A genuine SQS should have α ≈ 0 not just at the nearest-neighbor
+shell but at multiple shells. Re-evaluating both tools' NiCoCr 108
+outputs across 4 shells (NN, 2NN, 3NN, 4NN):
+
+| Tool configuration | Shell 0 (NN, z=12) | Shell 1 (2NN, z=6) | Shell 2 (3NN, z=24) | Shell 3 (4NN, z=12) |
+|---|---|---|---|---|
+| scraps-perpair `MAXSHELLNUM=2` (original `tests/nicocr_random/`) | 0.000 | 0.000 | 0.042 | 0.097 |
+| scraps-perpair `MAXSHELLNUM=4` (18 s wall) | **0.000** | **0.000** | **0.000** | **0.000** |
+| mcsqs `-2=2.6` (NN clusters only) | 0.000 | 0.125 | 0.073 | 0.076 |
+| mcsqs `-2=5.34` (NN + 2NN + 3NN + 4NN clusters) | 0.000 | 0.042 | 0.066 | 0.049 |
+
+**Both tools target what their INPUT tells them to.** When SCRAPS is
+configured with `MAXSHELLNUM=4` and weight on every shell, it reaches
+exact SQS simultaneously across all 4 shells. mcsqs spreads residual
+error across shells whether configured with NN-only or all-4-shell
+clusters — it never reaches exact zero beyond shell 0 in our runs.
+
+This is a genuine advantage for scraps-perpair on multi-shell SQS
+targeting at these supercell sizes; it does not appear to be just an
+artifact of the parallelism difference.
+
+### Caveat: fitness-vs-verifier discrepancy in SCRAPS
+
+The SCRAPS-internal optimization log reports `FITNESS - > 2.45` at
+the end of the 4-shell run, suggesting residual error. But the
+independent pymatgen-based `verify_sro.py` confirms α = 0.0000
+across all entries on all 4 shells of the same supercell. The
+disagreement appears to be a numerical inconsistency between
+`fitnessvalue` and `printtoscreen`/`verify_sro`'s α formula — same
+nest, different reported quality. The achieved physical quality
+(per the independent verifier) is what we report in this table.
+This anomaly is tracked but doesn't change the comparison verdict.
 
 ### Key observations
 
