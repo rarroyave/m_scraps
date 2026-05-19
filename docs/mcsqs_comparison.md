@@ -76,31 +76,39 @@ outputs across 4 shells (NN, 2NN, 3NN, 4NN):
 | Tool configuration | Shell 0 (NN, z=12) | Shell 1 (2NN, z=6) | Shell 2 (3NN, z=24) | Shell 3 (4NN, z=12) |
 |---|---|---|---|---|
 | scraps-perpair `MAXSHELLNUM=2` (original `tests/nicocr_random/`) | 0.000 | 0.000 | 0.042 | 0.097 |
-| scraps-perpair `MAXSHELLNUM=4` (18 s wall) | **0.000** | **0.000** | **0.000** | **0.000** |
+| scraps-perpair `MAXSHELLNUM=4` (18 s wall, best of 12 trials) | **0.000** | **0.000** | **0.000** | **0.000** |
 | mcsqs `-2=2.6` (NN clusters only) | 0.000 | 0.125 | 0.073 | 0.076 |
 | mcsqs `-2=5.34` (NN + 2NN + 3NN + 4NN clusters) | 0.000 | 0.042 | 0.066 | 0.049 |
 
 **Both tools target what their INPUT tells them to.** When SCRAPS is
-configured with `MAXSHELLNUM=4` and weight on every shell, it reaches
-exact SQS simultaneously across all 4 shells. mcsqs spreads residual
-error across shells whether configured with NN-only or all-4-shell
-clusters — it never reaches exact zero beyond shell 0 in our runs.
+configured with `MAXSHELLNUM=4` and weight on every shell, it can
+reach exact SQS simultaneously across all 4 shells; the table reports
+the best of 12 stochastic trials at the modest `MCSTEP=750,
+TOTALIter=10, NESTS=24` budget used here. Off-best trials at this
+budget plateau at a fitness of √6 (six off-by-one entries among the
+36 directed pair counts across 4 shells) with max|α|≈0.014; raising
+MCSTEP/TOTALIter or NESTS improves the hit rate on the exact basin.
+mcsqs spreads residual error across shells whether configured with
+NN-only or all-4-shell clusters — it never reaches exact zero beyond
+shell 0 in our runs at the same wall budget.
 
-This is a genuine advantage for scraps-perpair on multi-shell SQS
-targeting at these supercell sizes; it does not appear to be just an
-artifact of the parallelism difference.
+This is still a genuine advantage for scraps-perpair on multi-shell
+SQS targeting at these supercell sizes; it does not appear to be just
+an artifact of the parallelism difference.
 
-### Caveat: fitness-vs-verifier discrepancy in SCRAPS
+### Note on the optimizer's reported fitness
 
-The SCRAPS-internal optimization log reports `FITNESS - > 2.45` at
-the end of the 4-shell run, suggesting residual error. But the
-independent pymatgen-based `verify_sro.py` confirms α = 0.0000
-across all entries on all 4 shells of the same supercell. The
-disagreement appears to be a numerical inconsistency between
-`fitnessvalue` and `printtoscreen`/`verify_sro`'s α formula — same
-nest, different reported quality. The achieved physical quality
-(per the independent verifier) is what we report in this table.
-This anomaly is tracked but doesn't change the comparison verdict.
+On runs that do *not* hit the exact-SQS basin, the per-rank
+`FITNESS - > 2.45` and the new post-merge `FINAL fitness = 2.45`
+line printed before `printtoscreen` are honest reports of √(Σ_k
+weights[k] · Σ_{i≠j} (pair_ij - expected_ij)²) summed over shells.
+We independently re-implemented the same formula on pymatgen and
+verified that the C++ fitness matches the Python reference exactly
+on every test nest, and that it agrees with `verify_sro.py`'s α
+matrix (just expressed differently). An earlier note about a
+fitness-vs-verifier "discrepancy" was traced to comparing a stale
+SCRAPS.vasp against a fresh fitness number across runs — no
+disagreement remains when the same nest is used.
 
 ### Key observations
 

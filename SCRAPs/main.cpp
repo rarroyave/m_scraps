@@ -688,6 +688,8 @@ int main(int argc, char ** argv)
         }
         fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
         sortthenests(nests, fitness, max_num_neighs);
+        cout << "FINAL fitness (best across all " << nests.size() << " merged nests) = "
+             << fitness[0] << endl;
         printtoscreen(nests[0], templat, typeofatoms, eachElement, initialPlacement);
         printFinalCoords2File(nests[0], templat, typeofatoms, eachElement);
     //cout << "HELOO" << endl;
