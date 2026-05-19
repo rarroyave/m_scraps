@@ -124,6 +124,15 @@ The `tests/` directory also ships three case files (INPUT + POSCAR only
   (closest integer-count approximation at this size); unspecified
   pairs stay at α=0. Demonstrates per-pair targeting on a designed
   sublattice with a fixed spectator.
+- `tests/heb_5metal_csro_1200/` — same CSRO targets at 1200 atoms
+  (10×10×4 supercell). Achieves α ≈ ±0.302 — within 1% of target.
+  Demonstrates precision improvement at MLIP-friendly cell sizes,
+  with the required `MCSTEP=5000` and shell-focused `WEIGHT` recipe.
+- `tests/heb_5metal_nonequi/` — Hf-rich (Hf₅₀Zr₃₀Ti₃₀Ta₂₀Nb₁₄)B₂ at
+  432 atoms. Validates that per-sublattice c_j^M reference is computed
+  correctly for non-equiatomic M-sublattice compositions; expected α
+  matrix is exactly symmetric with α(Nb-X) ≈ −0.029 reflecting Nb
+  being the rarest species.
 
 ## Supported lattice types
 
@@ -188,6 +197,33 @@ shell ordering puts B-B and M-B distances before the first M-M shell.
 Set `MAXSHELLNUM` large enough to reach the M-M shells (≥ 8–10 for
 AlB₂-type with typical c/a ≈ 1.1), or your fitness function won't
 include them.
+
+#### MLIP-friendly cells: WEIGHT and MCSTEP scaling
+
+When you go beyond a few hundred atoms to MLIP-friendly cell sizes
+(≥ ~1000), two parameters need attention:
+
+1. **MCSTEP and GITER should scale roughly with N.** The Cuckoo
+   Search inner loop attempts a fixed number of single-site swaps
+   regardless of cell size, so at large N the per-atom swap budget
+   drops and the optimizer leaves you near random init. Empirical
+   guideline: `MCSTEP = GITER ≈ 10 × N_metal_atoms`. For a 400-M-atom
+   HEB, use ~5000 each instead of the default 500.
+
+2. **WEIGHT must focus on the targeted shell when multiple M-M
+   shells exist.** In a small HEB cell (e.g. 5×5×2 = 50 M atoms with
+   cutoff = c = 1.1) only one M-M shell fits inside the cutoff. In
+   larger cells (10×10×4 = 400 M atoms with cutoff = 4.4) several
+   M-M shells fit. With `WEIGHT 1 1 1 …` the optimizer puts equal
+   pressure on every shell, including the untargeted ones, which
+   pulls back toward SQS. Set `WEIGHT 0 0 … 1 … 0 0` with `1` only
+   at the index of your targeted shell. See
+   `tests/heb_5metal_csro_1200/README.md` for the concrete recipe.
+
+With these two tuned, 1200-atom HEB CSRO targeting hits α to ±0.002
+in ~25 seconds on 4 ranks.
+
+### Not supported: multi-sublattice structures with non-uniform coordination
 
 ### Not supported: multi-sublattice structures with non-uniform coordination
 
