@@ -277,10 +277,14 @@ vector<vector <int>> Lattice::neighbourMatrix(){
 
     // (2) Cluster the sorted unique distances into shells. Two consecutive
     //     unique distances are in the same shell if their relative gap is
-    //     below `rel_tol`. 0.5% comfortably merges floating-point jitter
-    //     while keeping every standard crystallographic shell distinct
-    //     (BCC/FCC/HCP first-few-shells separations are 13-30% apart).
-    const double rel_tol = 0.005;
+    //     below `rel_tol`. 2% safely separates standard crystallographic
+    //     shells (BCC/FCC first-few-shell separations are 13-30%; HCP with
+    //     c/a in [1.5, 1.7] keeps in-plane vs out-of-plane >3% apart) and
+    //     merges floating-point jitter plus the small distance variations
+    //     that arise from cross-cell periodic-image neighbors in
+    //     anisotropic hex/tetragonal lattices (which a 0.5% tolerance
+    //     was over-fragmenting into 10+ spurious sub-shells on HEB cells).
+    const double rel_tol = 0.02;
     std::vector<std::pair<double, double>> shells;  // (min, max) per shell
     if (!all_dists.empty()) {
         auto it = all_dists.begin();

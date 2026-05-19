@@ -1,0 +1,28 @@
+TYP            6
+GITER          500
+ELEMENT        10 10 10 10 10 100
+Cell_DIM       5 5 2
+NESTS          24
+MCSTEP         500
+TOTALIter      8
+MAXSHELLNUM    15
+WEIGHT         1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+
+# AlB2-type basis: M at position 0, B at positions 1 and 2.
+# Species ordering: 0=Hf, 1=Zr, 2=Ti, 3=Ta, 4=Nb, 5=B.
+# Boron sublattice is the spectator (compositionally fixed).
+SPECTATOR_BASIS_SPECIES 1 5
+SPECTATOR_BASIS_SPECIES 2 5
+
+# Illustrative CSRO targets for refractory HEBs, large enough that the
+# discrete pair counts at this supercell size (10 atoms per species,
+# z=6 at the in-plane M-M shell) are unambiguously shifted away from
+# the SQS solution. Pattern: Hf-Zr clustering, Hf-Cr ordering, Ti-Ta
+# ordering, Ta-Nb clustering. Not validated against any DFT/MC study;
+# they exercise the per-pair targeting machinery on the M sublattice.
+# Shell 8 is the first M-M shell in this lattice (see heb_5metal_random
+# for shell-index calibration).
+SRO 0 1 8  0.30
+SRO 0 2 8 -0.30
+SRO 2 3 8 -0.30
+SRO 3 4 8  0.30

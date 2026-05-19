@@ -159,6 +159,12 @@ void readInput::input() {
         while (inp.good()) {
             getline(inp, line);
             ss.str(line);
+            // Clear `key` before each extraction. Without this, an empty
+            // line at end-of-file (where getline returns "" but inp.good()
+            // is still true until the next read fails) would leave key
+            // holding its previous value, causing the LAST keyword's branch
+            // to fire spuriously on the trailing empty line.
+            key.clear();
             ss >> key;
             transform(key.begin(), key.end(), key.begin(), ::toupper);
             if(key.compare("TYP") == 0)

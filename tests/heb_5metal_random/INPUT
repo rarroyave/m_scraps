@@ -1,0 +1,15 @@
+TYP            6
+GITER          500
+ELEMENT        10 10 10 10 10 100
+Cell_DIM       5 5 2
+NESTS          24
+MCSTEP         500
+TOTALIter      5
+MAXSHELLNUM    15
+WEIGHT         1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+
+# AlB2-type basis: M at position 0, B at positions 1 and 2.
+# Species ordering: 0=Hf, 1=Zr, 2=Ti, 3=Ta, 4=Nb, 5=B.
+# Boron sublattice is the spectator (compositionally fixed).
+SPECTATOR_BASIS_SPECIES 1 5
+SPECTATOR_BASIS_SPECIES 2 5

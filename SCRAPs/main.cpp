@@ -98,13 +98,37 @@ void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector
     //
     // For spectator-aware (HEB) runs, N_total -> N^M (non-spectator atoms),
     // N_i, N_j -> N_i^M, N_j^M (per-sublattice species counts), and z_shell
-    // is the *M-only* coordination passed through coordination_per_shell()
-    // with initialPlacement supplied. Rows/columns of the alpha matrix
-    // are suppressed for spectator species since they carry no SRO.
-    const vector<int> z_per_shell = lat.coordination_per_shell(initialPlacement);
+    // is the *M-M only* coordination (count of non-spectator neighbors of
+    // a non-spectator center). We compute it directly from atoms_shell_atom
+    // here rather than via Lattice::coordination_per_shell(), because that
+    // method derives from maxneighbourspershell which is truncated by
+    // numneighofeachshell()'s early-exit-on-zero behavior (an M atom
+    // whose first global shell is the B-B distance has zero entries
+    // there, so its maxneighbourspershell vector terminates after one
+    // element and we lose the M-M shells that come later).
+    //
+    // Rows/columns of the alpha matrix are suppressed for spectator
+    // species since they carry no SRO.
+    int ref_idx = 0;
+    while (ref_idx < numofatoms &&
+           ref_idx < (int)initialPlacement.size() &&
+           initialPlacement[ref_idx] >= 0) {
+        ref_idx += 1;
+    }
+    if (ref_idx >= numofatoms) return;  // all atoms are spectator; nothing to report
+
     for (int k = 0; k < numofmaxneighs; k++) {
-        int z_shell = (k < (int)z_per_shell.size()) ? z_per_shell[k] : 0;
-        if (z_shell <= 0) continue;
+        // Compute z_M for shell k: non-spectator neighbors of ref atom.
+        int z_M_shell = 0;
+        if (k < (int)lat.atoms_shell_atom[ref_idx].size()) {
+            for (int neigh_idx : lat.atoms_shell_atom[ref_idx][k]) {
+                if (neigh_idx < (int)initialPlacement.size() &&
+                    initialPlacement[neigh_idx] >= 0) continue;
+                z_M_shell += 1;
+            }
+        }
+        if (z_M_shell <= 0) continue;  // no M-M pairs in this shell; skip
+
         cout << " SRO FOR THE SHELL NO - > " << k << endl;
         for (int i = 0; i < _typesatoms; i++) {
             if (eachElement_M[i] == 0) continue;  // suppress spectator-species rows
@@ -112,7 +136,7 @@ void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector
                 if (i == j) continue;
                 if (eachElement_M[j] == 0) continue;  // suppress spectator-species cols
                 double alpha = 1.0 - (double)pairGr[i][j][k] * numofatoms_M
-                             / ((double)z_shell * eachElement_M[i] * eachElement_M[j]);
+                             / ((double)z_M_shell * eachElement_M[i] * eachElement_M[j]);
                 cout << "The pair SRO[" << i << "][" << j << "] - > is " << alpha << endl;
             }
         }
@@ -165,7 +189,12 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
     // If no atoms are spectator, numofatoms_M == numofatoms and
     // eachElement_M == eachElement, so this reduces to the prior behavior.
 
-    double errorArray[5] = {0.0};
+    // Per-shell error accumulator. Was previously a hardcoded
+    // double[5], which silently overflowed the stack for any
+    // MAXSHELLNUM > 5 (HEB-type structures hit 10+ global shells
+    // before reaching the M-M shells, so this bound bit immediately
+    // when spectator support landed).
+    vector<double> errorArray(max_num_neighs > 0 ? max_num_neighs : 1, 0.0);
     vector<vector<vector<double> > > pairGr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
     vector<vector<vector<double> > > avgGr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
     vector<vector<vector<double> > > countgr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
@@ -527,9 +556,10 @@ int main(int argc, char ** argv)
 
     // Build initialPlacement: -1 for atoms whose species is free to be
     // randomized, or a species index for atoms whose basis position is
-    // marked as a spectator-sublattice site. Atom layout in the supercell
-    // follows the convention (cell_idx * basis_size + basis_idx), so basis
-    // position bi is hit at every atom index i with (i % basis_size) == bi.
+    // marked as a spectator-sublattice site. The Lattice supercell is
+    // unrolled basis-OUTERMOST in Lattice.cpp's initializer (all atoms
+    // of basis 0 first, then all of basis 1, ...), so basis position
+    // bi covers atom indices [bi*n_cells, (bi+1)*n_cells).
     const int basis_size = (int) atoms.size();
     const int n_cells = dim[0] * dim[1] * dim[2];
     vector<int> initialPlacement(total_atoms, -1);
@@ -550,8 +580,9 @@ int main(int argc, char ** argv)
             MPI_Abort(MPI_COMM_WORLD, 1);
             return 1;
         }
-        for (int cell = 0; cell < n_cells; ++cell) {
-            const int atom_idx = cell * basis_size + basis_idx;
+        const int start = basis_idx * n_cells;
+        const int end = start + n_cells;
+        for (int atom_idx = start; atom_idx < end; ++atom_idx) {
             initialPlacement[atom_idx] = species_idx;
         }
     }
