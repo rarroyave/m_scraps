@@ -63,43 +63,56 @@ void sortthenests(vector<vector<int>> &_nests, vector<double> &_fitness, int &ma
     }
 }
 
-void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector<int> eachElement)
+void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector<int> eachElement, const vector<int> &initialPlacement)
 {
     int numofmaxneighs = lat.maxneigh;
     int numofatoms = nest.size();
-    double conc;
+
+    // Per-sublattice counts for the M-only reference. For a pure
+    // (non-HEB) run with initialPlacement all -1, these reduce to
+    // numofatoms and eachElement.
+    int numofatoms_M = 0;
+    vector<int> eachElement_M(_typesatoms, 0);
+    for (int i = 0; i < numofatoms; ++i) {
+        if (i < (int)initialPlacement.size() && initialPlacement[i] >= 0) continue;
+        numofatoms_M += 1;
+        eachElement_M[nest[i]] += 1;
+    }
+
     vector<vector<vector<double> > > pairGr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
-    vector<vector<vector<double> > > pairSRO(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
-    vector<vector<vector<double> > > countSRO(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
-    for(int i = 0; i < numofatoms; i++)
-    {
-        for(int j = 0; j < numofatoms; j++)
-        {
-            //cout << nest[i] << " Next " << nest[j] << " NEXT " << lat.neighbours[i][j] << endl;
-            if (lat.neighbours[i][j] > 0)
+    // Accumulate pair counts over non-spectator centers and non-spectator
+    // neighbors only — this is the M-M-only neighbor census.
+    for (int i = 0; i < numofatoms; ++i) {
+        if (i < (int)initialPlacement.size() && initialPlacement[i] >= 0) continue;
+        for (int j = 0; j < numofatoms; ++j) {
+            if (j < (int)initialPlacement.size() && initialPlacement[j] >= 0) continue;
+            if (lat.neighbours[i][j] > 0) {
                 pairGr[nest[i]][nest[j]][lat.neighbours[i][j] - 1] += 1;
+            }
         }
     }
+
     // Warren-Cowley parameter from pair counts:
     //   alpha_ij = 1 - P(j|i) / c_j
     //            = 1 - count_ij * N_total / (z_shell * N_i * N_j)
     //
-    // z_shell is the per-shell coordination number, computed via
-    // Lattice::coordination_per_shell() which collapses the per-atom
-    // maxneighbourspershell table to one value per shell. The collapse
-    // asserts that every atom has identical coordination in each shell
-    // (true for any single-Bravais-lattice-with-basis crystal); if the
-    // assertion fails the method MPI_Aborts with a clear message.
-    const vector<int> z_per_shell = lat.coordination_per_shell();
+    // For spectator-aware (HEB) runs, N_total -> N^M (non-spectator atoms),
+    // N_i, N_j -> N_i^M, N_j^M (per-sublattice species counts), and z_shell
+    // is the *M-only* coordination passed through coordination_per_shell()
+    // with initialPlacement supplied. Rows/columns of the alpha matrix
+    // are suppressed for spectator species since they carry no SRO.
+    const vector<int> z_per_shell = lat.coordination_per_shell(initialPlacement);
     for (int k = 0; k < numofmaxneighs; k++) {
         int z_shell = (k < (int)z_per_shell.size()) ? z_per_shell[k] : 0;
         if (z_shell <= 0) continue;
         cout << " SRO FOR THE SHELL NO - > " << k << endl;
         for (int i = 0; i < _typesatoms; i++) {
+            if (eachElement_M[i] == 0) continue;  // suppress spectator-species rows
             for (int j = 0; j < _typesatoms; j++) {
                 if (i == j) continue;
-                double alpha = 1.0 - (double)pairGr[i][j][k] * numofatoms
-                             / ((double)z_shell * eachElement[i] * eachElement[j]);
+                if (eachElement_M[j] == 0) continue;  // suppress spectator-species cols
+                double alpha = 1.0 - (double)pairGr[i][j][k] * numofatoms_M
+                             / ((double)z_shell * eachElement_M[i] * eachElement_M[j]);
                 cout << "The pair SRO[" << i << "][" << j << "] - > is " << alpha << endl;
             }
         }
@@ -117,41 +130,73 @@ void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector
 // `nest[center] != nest[surr]`, which indexed `nest` by a species index
 // rather than an atom index. The correct test for "unlike pair" is
 // `center != surr` (compare species directly).
-double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair)
+double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
+    // Spectator-aware Warren-Cowley fitness:
+    //   - center atoms with initialPlacement[i] >= 0 are skipped entirely
+    //     (no SRO is defined for fixed-sublattice positions);
+    //   - spectator neighbors are excluded from the per-shell sum, so the
+    //     effective coordination number used in the expected-count formula
+    //     becomes "number of non-spectator neighbors in this shell" rather
+    //     than the full geometric coordination;
+    //   - the reference concentration c_j becomes the per-sublattice
+    //     concentration N_j^M / N^M, where M denotes the set of non-
+    //     spectator atoms. For HEB-type structures (one designed sublattice
+    //     plus one all-spectator sublattice) this is exactly the right
+    //     reference for "M-M-only" SRO; for general partially-occupied
+    //     multi-sublattice systems it assumes every species is either
+    //     fully spectator or fully non-spectator.
     int doublepairs = (int)_typesatoms + (int)_typesatoms*((int)_typesatoms - 1)/2;
     double targetErr = 0.0, Error = 0.0, sqrError = 0.0;
     double totalGr = 0.0;
     int numofmaxneighs = lat.maxneigh;
-    //cout << "Max Neighbours are " << numofmaxneighs << endl;
     int numofatoms = nest.size();
+
+    // Per-sublattice atom counts (computed from the current nest; preserved
+    // across swaps because empty_nests rejects swaps involving spectators).
+    int numofatoms_M = 0;
+    vector<int> eachElement_M(_typesatoms, 0);
+    for (int i = 0; i < numofatoms; ++i) {
+        if (initialPlacement[i] < 0) {
+            numofatoms_M += 1;
+            eachElement_M[nest[i]] += 1;
+        }
+    }
+    // If no atoms are spectator, numofatoms_M == numofatoms and
+    // eachElement_M == eachElement, so this reduces to the prior behavior.
+
     double errorArray[5] = {0.0};
     vector<vector<vector<double> > > pairGr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
     vector<vector<vector<double> > > avgGr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
     vector<vector<vector<double> > > countgr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
-    //@vector<double> weights(5, 0.0);
     int center, surr, shellnum;
-    for(int i = 0; i < nest.size(); i++)
+    for(int i = 0; i < (int)nest.size(); i++)
     {
-        int size = lat.atoms_shell_atom.size();
+        if (initialPlacement[i] >= 0) continue;  // skip spectator centers
         for(int j = 0; j < max_num_neighs; j++)
         {
-           // cout << " The shell - - >" << j << endl;
+            // Effective coordination = non-spectator neighbors in this shell.
             shellnum = lat.atoms_shell_atom[i][j].size();
+            int shellnum_M = 0;
+            for (int k = 0; k < shellnum; ++k) {
+                if (initialPlacement[lat.atoms_shell_atom[i][j][k]] < 0) {
+                    shellnum_M += 1;
+                }
+            }
             for(int k = 0; k < shellnum; k++)
             {
+                int neigh_idx = lat.atoms_shell_atom[i][j][k];
+                if (initialPlacement[neigh_idx] >= 0) continue;  // skip spectator neighbor
                 center = nest[i];
-                surr = nest[lat.atoms_shell_atom[i][j][k]];
+                surr = nest[neigh_idx];
                 pairGr[center][surr][j] += 1;
                 if(center != surr)
                 {
                     double alphaTarget = targetSROpair[center][surr][j];
-                    avgGr[center][surr][j] += (double)eachElement[center]*(1 - alphaTarget)*shellnum*((double)eachElement[surr]/(double)numofatoms);
+                    avgGr[center][surr][j] += (double)eachElement_M[center]*(1 - alphaTarget)*shellnum_M*((double)eachElement_M[surr]/(double)numofatoms_M);
                     countgr[center][surr][j] += 1;
-
                 }
             }
-
         }
     }
     
@@ -184,7 +229,7 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
  The function based on fitness randomize and sorts the best nests for global optimization.
  
  */
-int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, vector<double> &_fitness, const Lattice &lat, int _typeatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair)
+int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, vector<double> &_fitness, const Lattice &lat, int _typeatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
     int n, indexOfBest;
     n = _nests.size();
@@ -192,7 +237,7 @@ int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, v
     sortthenests(_nests, _fitness, max_num_neighs);
     if(n == 1)
     {
-        int fitness_new = fitnessvalue(_newnests[0], lat, _typeatoms, eachElement, max_num_neighs, weights, targetSROpair);
+        int fitness_new = fitnessvalue(_newnests[0], lat, _typeatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
         if (fitness_new < _fitness[0])
         {
             _nests = _newnests;
@@ -204,7 +249,7 @@ int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, v
         for(int i = (int)(keepCuckoos*(double)n); i < n; i++)
         {
             _nests[i] = _newnests[i - (int)(keepCuckoos*(double)n)];
-            _fitness[i] = fitnessvalue(_nests[i], lat, _typeatoms, eachElement, max_num_neighs, weights, targetSROpair);
+            _fitness[i] = fitnessvalue(_nests[i], lat, _typeatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
         }
         sortthenests(_nests, _fitness, max_num_neighs);
     }
@@ -221,8 +266,12 @@ during global optimization.
 
  */
 
-int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness , const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair)
+int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness , const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
+    // initialPlacement preserves spectator-sublattice occupancy through
+    // the Cuckoo Search MCMC: swaps that would move a fixed atom are
+    // rejected, so the spectator pattern (e.g. boron sites in an HEB)
+    // stays put for the full optimization.
     double len = _nests[0].size();
     double eps = 0.001;
     std::random_device rd, rd1;
@@ -237,18 +286,21 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
     for (int i = 0; i < _nests.size(); i++) {
         prevnest = _nests[i];
         currnest = _nests[i];
-        oldFitness = fitnessvalue(_nests[i], lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
+        oldFitness = fitnessvalue(_nests[i], lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
         origfitness[i] = oldFitness;
         for(int j = 0; j < iter; j++)
         {
             atom1 = (int) dis(gen);
             atom2 = (int) dis(gen);
+            // Reject swaps involving spectator atoms (preserve sublattice).
+            if (initialPlacement[atom1] >= 0 || initialPlacement[atom2] >= 0)
+                continue;
             if(currnest[atom1] == currnest[atom2])
                 continue;
             temphold = currnest[atom1];
             currnest[atom1] = currnest[atom2];
             currnest[atom2] = temphold;
-            newFitness = fitnessvalue(currnest, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
+            newFitness = fitnessvalue(currnest, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
             if(newFitness < oldFitness)
             {
                 prevnest = currnest;
@@ -274,45 +326,57 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
     }
     return 0;
 }
-vector<double> fitnessofnests(vector<vector<int>> nests, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair)
+vector<double> fitnessofnests(vector<vector<int>> nests, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
     vector<double> fitness(nests.size(), INT_MAX);
-    //cout << "SIZE OF NESTS " << nests.size() << endl;
-    //cout << "SIZE OF NESTS {0} - > " << nests[0].size() << endl;
     for(std::size_t i = 0; i < nests.size(); i++)
     {
-        fitness[i] = fitnessvalue(nests[i], lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
-        //cout << fitness[i] << endl;
+        fitness[i] = fitnessvalue(nests[i], lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
     }
     return fitness;
 }
 
-vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size, vector<int> _maxAtomNum, int numofatoms)
+vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size, vector<int> _maxAtomNum, int numofatoms, const vector<int> &initialPlacement)
 {
-// Random Number Generator
+    // initialPlacement[i] = -1 for atoms whose species should be randomized,
+    // or a species index (>=0) for atoms whose species is fixed (spectator
+    // sublattice positions). For atoms with fixed species, _maxAtomNum is
+    // consumed upfront in the spectator pass; the random pass then only
+    // touches the free positions and may not draw spectator species.
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(0, _typeofatoms - 1);
     vector<vector<int>> nests(numofnests, vector<int>(numofatoms, 0));
     vector<int> _numofatoms(_size, 0);
     vector<int> atomNum(_typeofatoms, 0);
-    int i = 0, atom;
+    int atom;
     for (int j = 0; j < numofnests; j++) {
-        while( i < _size)
-        {
-            atom = (int)dis(gen);
-            if(atomNum[atom] < _maxAtomNum[atom])
-            {
-                _numofatoms[i] = atom;
-                i++;
-                atomNum[atom] += 1;
+        // Spectator pass: place fixed atoms at their declared species.
+        for (int k = 0; k < _size; k++) {
+            if (initialPlacement[k] >= 0) {
+                _numofatoms[k] = initialPlacement[k];
+                atomNum[initialPlacement[k]] += 1;
             }
-            else
+        }
+        // Random pass: fill free positions with non-spectator species.
+        // A draw that hits an already-maxed species (which includes any
+        // spectator species, since the spectator pass exhausted their
+        // budget) is rejected; loop until a feasible draw lands.
+        int i = 0;
+        while (i < _size) {
+            if (initialPlacement[i] >= 0) {
+                i++;  // already placed by spectator pass
                 continue;
-        
+            }
+            atom = (int)dis(gen);
+            if (atomNum[atom] < _maxAtomNum[atom]) {
+                _numofatoms[i] = atom;
+                atomNum[atom] += 1;
+                i++;
+            }
         }
         nests[j] = _numofatoms;
-        i = 0;
+        std::fill(_numofatoms.begin(), _numofatoms.end(), 0);
         std::fill(atomNum.begin(), atomNum.end(), 0);
     }
     return nests;
@@ -325,18 +389,18 @@ vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size
  
  */
 
-int get_cuckoos(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, int MCiter, const Lattice &lat, int _typesatoms, const vector<int> &eachElement, const vector<int> &maxAtomNum, int &max_num_neighs, vector<double> &weights, int nproc, const vector<vector<vector<double>>> &targetSROpair)
+int get_cuckoos(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, int MCiter, const Lattice &lat, int _typesatoms, const vector<int> &eachElement, const vector<int> &maxAtomNum, int &max_num_neighs, vector<double> &weights, int nproc, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
     int numofatoms = _nests[0].size();
     int numofnests = _nests.size();
     int localiter = (36 + numofnests)/(int)nproc; // This decides the number of MC steps for local optimization
-    vector<vector<int> > localnests(randomizeLattice(localiter, _typesatoms, numofatoms, maxAtomNum, numofatoms));
+    vector<vector<int> > localnests(randomizeLattice(localiter, _typesatoms, numofatoms, maxAtomNum, numofatoms, initialPlacement));
     vector<double> localfitness(localiter, INT_MAX);
     vector<double> fitness(numofnests, INT_MAX);
-    empty_nests(localnests, localnests, 8*MCiter, localfitness, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
+    empty_nests(localnests, localnests, 8*MCiter, localfitness, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
     sortthenests(localnests, localfitness, max_num_neighs);
     std::copy ( localnests.begin(), localnests.begin() + numofnests, _newnests.begin());
-    empty_nests(_newnests, _newnests, iter, fitness, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair);
+    empty_nests(_newnests, _newnests, iter, fitness, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
     sortthenests(_newnests, fitness, max_num_neighs);
     cout << " NEW NESTS FITNESS =<----1----> " << fitness[0] << " <----2----> " << fitness[1] << " <----3----> " << fitness[2] << endl;
     return 0;
@@ -420,10 +484,12 @@ int main(int argc, char ** argv)
 
     // Validate lattice supports the Warren-Cowley formulation before
     // running optimization. coordination_per_shell() aborts with a
-    // sublattice-guidance diagnostic if any atom's per-shell coordination
-    // differs from atom 0's (sigma, Laves, fluorite, layered, etc.).
-    // Running this here lets us fail fast rather than after MCMC compute.
-    (void) templat.coordination_per_shell();
+    // sublattice-guidance diagnostic if any non-spectator atom's per-shell
+    // coordination differs from the reference (sigma, Laves, fluorite-
+    // without-SPECTATOR_BASIS_SPECIES, layered, etc.). Running this here
+    // lets us fail fast rather than after MCMC compute. The check is
+    // delayed until after we build initialPlacement below, so spectator
+    // atoms can be excluded.
 
 // Switch to maximum shell number if exceeds MAXIMUM allowed in given lattice
     if(templat.maxneigh < max_num_neighs)
@@ -459,9 +525,66 @@ int main(int argc, char ** argv)
         return 1;
     }
 
+    // Build initialPlacement: -1 for atoms whose species is free to be
+    // randomized, or a species index for atoms whose basis position is
+    // marked as a spectator-sublattice site. Atom layout in the supercell
+    // follows the convention (cell_idx * basis_size + basis_idx), so basis
+    // position bi is hit at every atom index i with (i % basis_size) == bi.
+    const int basis_size = (int) atoms.size();
+    const int n_cells = dim[0] * dim[1] * dim[2];
+    vector<int> initialPlacement(total_atoms, -1);
+    for (const auto &spec : inputfile.spectatorBasisSpecies) {
+        const int basis_idx = spec.first;
+        const int species_idx = spec.second;
+        if (basis_idx < 0 || basis_idx >= basis_size) {
+            cout << "ERROR: SPECTATOR_BASIS_SPECIES basis index "
+                 << basis_idx << " out of range [0, " << basis_size
+                 << "). Aborting." << endl;
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1;
+        }
+        if (species_idx < 0 || species_idx >= typeofatoms) {
+            cout << "ERROR: SPECTATOR_BASIS_SPECIES species index "
+                 << species_idx << " out of range [0, " << typeofatoms
+                 << "). Aborting." << endl;
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1;
+        }
+        for (int cell = 0; cell < n_cells; ++cell) {
+            const int atom_idx = cell * basis_size + basis_idx;
+            initialPlacement[atom_idx] = species_idx;
+        }
+    }
+    // Cross-check: per-species ELEMENT counts must accommodate the
+    // spectator placements (each spectator species needs at least
+    // n_cells * num_spectator_basis_positions_for_that_species atoms).
+    {
+        vector<int> spectatorCount(typeofatoms, 0);
+        for (int v : initialPlacement) {
+            if (v >= 0) spectatorCount[v] += 1;
+        }
+        for (int s = 0; s < typeofatoms; ++s) {
+            if (spectatorCount[s] > eachElement[s]) {
+                cout << "ERROR: spectator placement requires "
+                     << spectatorCount[s] << " atoms of species " << s
+                     << " but ELEMENT only allocates " << eachElement[s]
+                     << ". Aborting." << endl;
+                MPI_Abort(MPI_COMM_WORLD, 1);
+                return 1;
+            }
+        }
+    }
+
+    // Validate lattice supports the Warren-Cowley formulation on the
+    // *designed* (non-spectator) sublattice. Aborts with a sublattice-
+    // guidance diagnostic if non-spectator atoms have non-uniform per-shell
+    // coordination. Runs after initialPlacement is built so HEB-type cases
+    // can declare their spectator sublattice and pass.
+    (void) templat.coordination_per_shell(initialPlacement);
+
     vector<int> maxAtomNum(typeofatoms, 0);
     vector<int> atomNum(typeofatoms, 0);
-    
+
     std::uniform_int_distribution<> dis(0, typeofatoms - 1);
     for(int i = 0; i < typeofatoms; i++)
     {
@@ -477,23 +600,23 @@ int main(int argc, char ** argv)
     int startval = num_of_nests*id/nproc + 1;
     int endval = num_of_nests*(id + 1)/nproc;
     int nestsperproc = endval - startval + 1;
-    vector<vector<int>> nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms));
-    vector<vector<int >> new_nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms));
+    vector<vector<int>> nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms, initialPlacement));
+    vector<vector<int >> new_nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms, initialPlacement));
     vector<double> fitness(nestsperproc, INT_MAX);
-    fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+    fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
     vector<int> best(total_atoms, 0), bestnest(total_atoms, 0);
-    best_max = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+    best_max = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
 
 //    empty_nests(nests, new_nests, MCiter, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
     while (iters < iterTotal && error > epsi)
     {
 // The Cuckoo search algorithm: set up cuckoo search, finds best nests, do fitness test until fins the best nest
-        get_cuckoos(nests, new_nests, globalIter, MCiter, templat, typeofatoms, eachElement, maxAtomNum, max_num_neighs, weights, nproc, targetSROpair);
-        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
-        best_new = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
-        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
-        empty_nests(nests, new_nests, MCiter, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
-        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+        get_cuckoos(nests, new_nests, globalIter, MCiter, templat, typeofatoms, eachElement, maxAtomNum, max_num_neighs, weights, nproc, targetSROpair, initialPlacement);
+        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
+        best_new = get_best_nest(nests, new_nests, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
+        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
+        empty_nests(nests, new_nests, MCiter, fitness, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
+        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
         globalIter = globalIter + (iters+1)*MCiter;
         sortthenests(nests, fitness, max_num_neighs);
         error = fitness[0];
@@ -523,9 +646,9 @@ int main(int argc, char ** argv)
                 nests.push_back(temp);
             }
         }
-        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair);
+        fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
         sortthenests(nests, fitness, max_num_neighs);
-        printtoscreen(nests[0], templat, typeofatoms, eachElement);
+        printtoscreen(nests[0], templat, typeofatoms, eachElement, initialPlacement);
         printFinalCoords2File(nests[0], templat, typeofatoms, eachElement);
     //cout << "HELOO" << endl;
         auto done = std::chrono::high_resolution_clock::now();

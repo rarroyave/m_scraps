@@ -220,6 +220,19 @@ void readInput::input() {
                     cout << "Warning: malformed SRO line ignored: " << line << endl;
                 }
             }
+            if(key.compare("SPECTATOR_BASIS_SPECIES") == 0)
+            {
+                int basis_idx, species_idx;
+                if(ss >> basis_idx >> species_idx)
+                {
+                    spectatorBasisSpecies.emplace_back(basis_idx, species_idx);
+                }
+                else
+                {
+                    cout << "Warning: malformed SPECTATOR_BASIS_SPECIES line ignored: "
+                         << line << endl;
+                }
+            }
             ss.clear();
         }
     }
@@ -228,6 +241,15 @@ void readInput::input() {
 
         std::cout << " INPUT FILE DOES NOT EXIST " << endl;
         return;
+    }
+
+    // Resolve spectator-sublattice configuration. Build fast-lookup sets for
+    // basis positions and species. Validation against atoms.size() (basis
+    // size from POSCAR) and ELEMENT counts happens in main() once both are
+    // known; here we just structure the data.
+    for (const auto &p : spectatorBasisSpecies) {
+        spectatorBasisPositions.insert(p.first);
+        spectatorSpecies.insert(p.second);
     }
 
     // Resolve per-pair, per-shell SRO targets. Default to zeros; symmetrize

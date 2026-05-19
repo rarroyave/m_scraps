@@ -42,6 +42,8 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <set>
+#include <utility>
 #include "Lattice.hpp"
 
 using namespace std;
@@ -63,6 +65,18 @@ public:
     // Defaults to all zeros (random / SQS) when no SRO lines appear in INPUT.
     // Populated by readInput::input() after TYP and MAXSHELLNUM are known.
     vector<vector<vector<double>>> targetSROpair;
+
+    // Spectator sublattice handling for structures like AlB2-type diborides
+    // (high-entropy diborides), where one sublattice has no compositional
+    // disorder and just acts as a fixed structural scaffold. Each entry is
+    // a (basis_position, species_index) pair declaring that the given basis
+    // position is always occupied by the given species and is not swapped
+    // during optimization. Empty when no SPECTATOR_BASIS_SPECIES lines
+    // appear in INPUT (single-sublattice / standard substitutional alloy).
+    vector<pair<int,int>> spectatorBasisSpecies;
+    // Derived: fast lookups built once after parsing.
+    set<int> spectatorBasisPositions;  // basis positions in the spectator set
+    set<int> spectatorSpecies;         // species marked as spectator
 // Lattice Variables
     int totalatoms;
     point3d a, b, c;

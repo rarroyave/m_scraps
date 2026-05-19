@@ -393,58 +393,73 @@ vector<vector<int>> Lattice::numneighofeachshell()
     return numofneighs;
 }
 
-vector<int> Lattice::coordination_per_shell() const
+vector<int> Lattice::coordination_per_shell(const vector<int> &initialPlacement) const
 {
-    // Returns the per-shell coordination number z_shell, taken from
-    // atom 0 as the canonical reference. The original code accessed
-    // maxneighbourspershell[species_index][shell] by accident (species
-    // and atom indices both happened to be in range), which silently
-    // worked only because most callers used species 0 or 1.
+    // Returns the per-shell coordination number z_shell, computed over
+    // non-spectator atoms only (or all atoms if initialPlacement is empty
+    // or contains no spectator entries). The reference atom is the first
+    // non-spectator atom; remaining non-spectator atoms must agree in
+    // every shell or we abort with a sublattice diagnostic.
     //
     // After neighbourMatrix() was rewritten with global shell numbering
-    // (commit 4f2172b), any non-uniformity detected here reflects a
-    // genuine sublattice non-uniformity in the lattice, not numerical
-    // jitter. The SCRAPS Warren-Cowley formulation assumes a uniform
-    // geometric reference (every atom has identical coordination in
-    // each shell), so we abort cleanly with a diagnostic that points
-    // the user to a tool that handles sublattice-resolved SRO.
+    // (commit 4f2172b), any non-uniformity detected here within the
+    // non-spectator subset reflects a genuine sublattice non-uniformity
+    // among the *designed* atoms (e.g. mixed Wyckoff positions with
+    // different coordination), not numerical jitter. The SCRAPS
+    // Warren-Cowley formulation assumes a uniform geometric reference
+    // for the designed sublattice, so we abort with a diagnostic that
+    // points to a tool that handles sublattice-resolved SRO.
     //
     // See README "Supported lattice types" for the full list of
     // supported (single-Bravais-with-basis: FCC, BCC, HCP, B2, L1_2,
-    // D0_3, ...) and unsupported (sigma, Laves, fluorite, layered,
-    // interstitial sublattices) lattice classes.
+    // D0_3, AlB_2 + spectator B, ...) and unsupported (sigma, Laves,
+    // fluorite without spectator declaration, mixed-Wyckoff metals on
+    // a single sublattice, etc.) lattice classes.
     if (maxneighbourspershell.empty()) {
         return {};
     }
     const std::size_t n_sites = maxneighbourspershell.size();
-    const std::size_t n_shells = maxneighbourspershell[0].size();
+    auto isSpectator = [&](std::size_t i) -> bool {
+        return i < initialPlacement.size() && initialPlacement[i] >= 0;
+    };
+
+    // Find the first non-spectator atom to use as the reference.
+    std::size_t ref = 0;
+    while (ref < n_sites && isSpectator(ref)) ref++;
+    if (ref == n_sites) {
+        // No non-spectator atoms at all — degenerate, return empty.
+        return {};
+    }
+    const std::size_t n_shells = maxneighbourspershell[ref].size();
     for (std::size_t s = 0; s < n_shells; ++s) {
-        const int z0 = maxneighbourspershell[0][s];
-        for (std::size_t i = 1; i < n_sites; ++i) {
+        const int z0 = maxneighbourspershell[ref][s];
+        for (std::size_t i = ref + 1; i < n_sites; ++i) {
+            if (isSpectator(i)) continue;
             const int zi = (s < maxneighbourspershell[i].size())
                            ? maxneighbourspershell[i][s] : -1;
             if (zi != z0) {
                 cout << "ERROR: non-uniform coordination across atoms "
-                     << "(shell " << s << ": atom 0 z=" << z0
+                     << "(shell " << s << ": atom " << ref << " z=" << z0
                      << ", atom " << i << " z=" << zi << ")." << endl
                      << "  This indicates a multi-sublattice structure "
                      << "with physically distinct site environments" << endl
-                     << "  (sigma phase, Laves, fluorite, layered, "
-                     << "interstitial, etc.). The Warren-Cowley" << endl
-                     << "  formulation in SCRAPS assumes uniform "
-                     << "coordination across atoms, so per-pair alpha" << endl
-                     << "  defined against a single global concentration "
-                     << "is not the right reference for this lattice." << endl
-                     << "  See README 'Supported lattice types' for the "
-                     << "supported regime. For sublattice-resolved" << endl
-                     << "  SRO, use ATAT's mcsqs "
-                     << "(www.brown.edu/Departments/Engineering/Labs/avdw/atat/)."
+                     << "  among the designed atoms (sigma phase, Laves, "
+                     << "fluorite without SPECTATOR_BASIS_SPECIES," << endl
+                     << "  layered, etc.). The Warren-Cowley formulation "
+                     << "in SCRAPS assumes uniform coordination" << endl
+                     << "  across designed atoms. For AlB_2-type "
+                     << "diborides with a fixed boron sublattice, declare" << endl
+                     << "  the boron basis positions via "
+                     << "SPECTATOR_BASIS_SPECIES." << endl
+                     << "  Otherwise, for sublattice-resolved SRO use "
+                     << "ATAT's mcsqs " << endl
+                     << "  (www.brown.edu/Departments/Engineering/Labs/avdw/atat/)."
                      << endl;
                 MPI_Abort(MPI_COMM_WORLD, 1);
             }
         }
     }
-    return maxneighbourspershell[0];
+    return maxneighbourspershell[ref];
 }
 void Lattice::maxneighshell()
 {

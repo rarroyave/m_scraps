@@ -124,11 +124,18 @@ public:
     vector<vector<int>> maxneighbourspershell;  // [atom_index][shell]
     vector<vector<int>> numneighofeachshell();
     // Per-shell coordination number, derived from maxneighbourspershell.
-    // Asserts that every atom has identical coordination in each shell
-    // (true for any single-Bravais-lattice-with-basis crystal: FCC, BCC,
-    // HCP, B2, L1_2, D0_3, etc.). Aborts via MPI_Abort if a non-uniform
-    // lattice is detected, since the SRO-fitness machinery assumes uniformity.
-    vector<int> coordination_per_shell() const;
+    // Asserts that every non-spectator atom has identical coordination in
+    // each shell (true for any single-Bravais-lattice-with-basis crystal:
+    // FCC, BCC, HCP, B2, L1_2, D0_3, etc.). Aborts via MPI_Abort if a
+    // non-uniform lattice is detected, since the SRO-fitness machinery
+    // assumes uniformity across the *designed* sublattice.
+    //
+    // For HEB-type structures with a spectator sublattice (B atoms in
+    // AlB_2-type diborides), pass initialPlacement so spectator atoms are
+    // excluded from the uniformity check; they legitimately have a
+    // different coordination structure from the metal sublattice and
+    // shouldn't trigger the abort.
+    vector<int> coordination_per_shell(const vector<int> &initialPlacement = {}) const;
     friend Lattice operator+(const Lattice &lat1, Lattice &lat2);
     void maxneighshell();
 };
