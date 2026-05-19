@@ -611,7 +611,75 @@ int main(int argc, char ** argv)
     // guidance diagnostic if non-spectator atoms have non-uniform per-shell
     // coordination. Runs after initialPlacement is built so HEB-type cases
     // can declare their spectator sublattice and pass.
-    (void) templat.coordination_per_shell(initialPlacement);
+    vector<int> z_per_shell = templat.coordination_per_shell(initialPlacement);
+
+    // Feasibility check (rank 0 only): warn the user if the configured
+    // ELEMENT counts make any weighted target pair count non-integer, in
+    // which case the SCRAPS fitness has a strictly positive lower bound
+    // and the optimizer will plateau above zero no matter how long it
+    // runs. This is a number-theoretic property of (N_i, z_k, N_j, N),
+    // not a search-time issue.
+    //
+    // For the default SQS target (no SRO keyword, all alpha = 0), the
+    // expected pair count is T_ij^k = N_i * z_k * N_j / N. If T_ij^k is
+    // not integer, the best achievable error^2 for that pair is
+    // (round(T) - T)^2 * 2 (factor of 2: pair[i][j] = pair[j][i]).
+    //
+    // Per-pair SRO targets shift T by (1 - alpha_ij) but the integer-
+    // divisibility constraint still applies; the warning is printed
+    // assuming alpha=0 since that's the common case for which the
+    // floor is most surprising to users.
+    if (id == 0) {
+        // M = non-spectator subset: start from ELEMENT and subtract spectator allocations.
+        vector<int> eachElement_M = eachElement;
+        for (int v : initialPlacement) {
+            if (v >= 0) eachElement_M[v] -= 1;
+        }
+        int numofatoms_M = 0;
+        for (int s = 0; s < typeofatoms; ++s) numofatoms_M += eachElement_M[s];
+
+        double fit2_floor = 0.0;
+        int n_nonint = 0;
+        int n_shells_check = std::min(max_num_neighs, (int) z_per_shell.size());
+        for (int k = 0; k < n_shells_check; ++k) {
+            double w = (k < (int) weights.size()) ? weights[k] : 1.0;
+            if (w == 0.0) continue;
+            const double z = (double) z_per_shell[k];
+            if (z <= 0) continue;
+            for (int i = 0; i < typeofatoms; ++i) {
+                if (eachElement_M[i] == 0) continue;
+                for (int j = 0; j < typeofatoms; ++j) {
+                    if (i == j) continue;
+                    if (eachElement_M[j] == 0) continue;
+                    double target = (double) eachElement_M[i] * z
+                                    * (double) eachElement_M[j] / (double) numofatoms_M;
+                    double gap = target - std::round(target);
+                    if (std::fabs(gap) > 1e-9) {
+                        fit2_floor += w * gap * gap;
+                        if (n_nonint < 6) {  // show up to first 6 to avoid log noise
+                            cout << "  shell " << k << " pair[" << i << "][" << j
+                                 << "]: target=" << target
+                                 << " (nearest integer " << std::round(target)
+                                 << ", off by " << gap << ")" << endl;
+                        }
+                        n_nonint += 1;
+                    }
+                }
+            }
+        }
+        if (n_nonint > 0) {
+            cout << "WARNING: " << n_nonint << " weighted target pair count(s) "
+                 << "are non-integer for this (ELEMENT, Cell_DIM, MAXSHELLNUM)." << endl
+                 << "  Minimum achievable fitness >= sqrt(" << fit2_floor
+                 << ") = " << std::sqrt(fit2_floor) << "." << endl
+                 << "  Exact SQS (fitness = 0) is mathematically unreachable on this cell."
+                 << endl
+                 << "  Use tools/suggest_cell.py to find the nearest feasible Cell_DIM"
+                 << endl
+                 << "  (no extra options needed; pass the same POSCAR + composition)."
+                 << endl;
+        }
+    }
 
     vector<int> maxAtomNum(typeofatoms, 0);
     vector<int> atomNum(typeofatoms, 0);

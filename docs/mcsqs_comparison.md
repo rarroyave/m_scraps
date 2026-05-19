@@ -197,6 +197,80 @@ cleanly into the chosen cell sizes; for harder fractions you'd need
 to either grow the cell or pass mcsqs an explicit `sqscell.out` via
 `-rc`.
 
+## Cell-size sweep at fixed composition (25:50:25 ternary on FCC)
+
+How does each tool scale as the supercell grows? FCC `Cell_DIM = k×k×k`
+conventional with composition (k³, 2k³, k³) atoms, two shells weighted
+equally, five trials per case (three at n=500 to keep runtime
+tractable). SCRAPS scales `MCSTEP ~ 7·N`; mcsqs uses `-rc` to skip
+supercell enumeration and is given a budget that grows with N. Inputs
+live under `tests/stoich_fcc_25_50_25_n*/`; the runnable sweep is
+`docs/mcsqs_fcc_n_sweep_trials.sh`.
+
+| N | tool | trials | wall_s mean±sd | max\|α\| mean±sd | best max\|α\| | scraps hit fit=0 |
+|---|---|---|---|---|---|---|
+|  32 | scraps | 5 |   0 ± 1 | 0.0000 ± 0.0000 | **0.0000** | 5 / 5 |
+|  32 | mcsqs  | 5 |  33 ± 1 | 0.1292 ± 0.0597 | 0.0625 | — |
+| 108 | scraps | 5 |  16 ± 1 | 0.0123 ± 0.0000 | **0.0123** | 0 / 5 |
+| 108 | mcsqs  | 5 |  64 ± 0 | 0.0469 ± 0.0268 | 0.0123 | — |
+| 256 | scraps | 5 |   3 ± 0 | 0.0000 ± 0.0000 | **0.0000** | 5 / 5 |
+| 256 | mcsqs  | 5 | 124 ± 1 | 0.0437 ± 0.0259 | 0.0156 | — |
+| 500 | scraps | 3 | 278 ± 5 | 0.0027 ± 0.0000 | **0.0027** | 0 / 3 |
+| 500 | mcsqs  | 3 | 149 ± 62 | 0.0307 ± 0.0209 | 0.0067 | — |
+
+**The bimodal pattern (5/5 hit at n=32 and n=256, 0/5 hit at n=108 and
+n=500) is not stochastic luck — it's a number-theoretic constraint.**
+The α=0 target requires the expected directed pair count
+
+   T_ij^k = N_i · z_k · N_j / N
+
+to be integer for every species pair (i, j) and every weighted shell.
+For 25:50:25 ternary on FCC conventional `k×k×k` with N=4k³ and
+N_A=N_C=k³, the shell-1 (z=6) A–C target evaluates to
+
+   T_AC^1 = k³ · 6 · k³ / (4k³) = 1.5 · k³
+
+which is integer iff k³ is even, i.e., iff **k is even**. When k is
+odd the AC/CA targets are half-integer and the minimum-achievable
+fitness has a strictly positive lower bound (`√0.5 ≈ 0.707` from
+2·(0.5)² for the AC/CA pair). SCRAPS lands at the same deterministic
+plateau (max|α|=0.0123 at k=3, max|α|=0.0027 at k=5) every trial — it's
+the optimum the swap-search can reach under the constraint, not a
+search-time issue.
+
+mcsqs faces the same integer constraint; its correlation-engineering
+loss distributes the unavoidable error differently, which is why its
+best max|α| at k=3 (0.0123) and k=5 (0.0067) lands near SCRAPS's
+plateau but with much higher trial-to-trial variance.
+
+### `tools/suggest_cell.py` and the C++ feasibility warning
+
+To avoid wasting a run on an infeasible cell, `tools/suggest_cell.py`
+takes a POSCAR, a composition, and a target atom count, and returns
+the nearest feasible `Cell_DIM` plus the fitness floor for any
+infeasible nearby alternatives:
+
+```
+$ tools/suggest_cell.py tests/stoich_fcc_25_50_25_n108/POSCAR \
+    --composition 0.25,0.5,0.25 --target-atoms 250 --shells 2
+
+=== FEASIBLE cells (exact-SQS achievable, fitness can reach 0) ===
+  Cell_DIM 4 4 4  ->  N=256 (+6 from target),  ELEMENT 64 128 64
+  Cell_DIM 2 2 2  ->  N=32 (-218),             ELEMENT 8 16 8
+  Cell_DIM 6 6 6  ->  N=864 (+614),            ELEMENT 216 432 216
+
+=== INFEASIBLE cells (fitness floor > 0, plateau guaranteed) ===
+  Cell_DIM 3 3 3  ->  N=108 (-142),  ELEMENT 27 54 27,   min fitness >= 0.7071
+  Cell_DIM 5 5 5  ->  N=500 (+250),  ELEMENT 125 250 125, min fitness >= 0.7071
+```
+
+SCRAPS itself now runs the same check on rank 0 before optimization
+starts. When the configured `ELEMENT/Cell_DIM/MAXSHELLNUM` makes any
+weighted target non-integer, it prints a one-line warning naming the
+offending pair(s) and the unavoidable fitness floor, then proceeds.
+Strict-mode abort can be added later via an `ABORT_IF_INFEASIBLE`
+INPUT keyword if the warning proves easy to miss in CI pipelines.
+
 ## Reproducing this comparison
 
 ATAT 3.50 source: `https://axelvandewalle.github.io/www-avdw/atat/atat3_50.tar.gz`

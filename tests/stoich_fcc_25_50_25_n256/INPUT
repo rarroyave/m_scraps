@@ -1,0 +1,13 @@
+TYP     3
+GITER   1000
+ELEMENT 64 128 64
+Cell_DIM        4 4 4
+NESTS   24
+MCSTEP  1800
+TOTALIter 10
+MAXSHELLNUM 2
+WEIGHT 1.0 1.0
+
+# 25:50:25 ternary on FCC 256-atom 4x4x4 conventional supercell.
+# ELEMENT 64/128/64 = exact 25%/50%/25%.
+# MCSTEP scaled ~7 per atom (vs 750 at 108 atoms = ~7/atom).

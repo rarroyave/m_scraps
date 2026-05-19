@@ -1,0 +1,12 @@
+TYP     3
+GITER   1000
+ELEMENT 27 54 27
+Cell_DIM        3 3 3
+NESTS   24
+MCSTEP  750
+TOTALIter 10
+MAXSHELLNUM 2
+WEIGHT 1.0 1.0
+
+# 25:50:25 ternary on FCC 108-atom 3x3x3 conventional supercell.
+# ELEMENT 27/54/27 = exact 25%/50%/25%.
