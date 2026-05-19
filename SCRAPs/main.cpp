@@ -417,7 +417,14 @@ int main(int argc, char ** argv)
     cout << "Creating Lattice....." << endl;
     Lattice templat(basis, dim, atoms);
     cout << "Lattice Built....." << endl;
-    
+
+    // Validate lattice supports the Warren-Cowley formulation before
+    // running optimization. coordination_per_shell() aborts with a
+    // sublattice-guidance diagnostic if any atom's per-shell coordination
+    // differs from atom 0's (sigma, Laves, fluorite, layered, etc.).
+    // Running this here lets us fail fast rather than after MCMC compute.
+    (void) templat.coordination_per_shell();
+
 // Switch to maximum shell number if exceeds MAXIMUM allowed in given lattice
     if(templat.maxneigh < max_num_neighs)
         max_num_neighs = templat.maxneigh;

@@ -108,6 +108,63 @@ The `tests/` directory also ships three case files (INPUT + POSCAR only
   exact SQS (every α = 0.0000).
 - `tests/nicocr_csro/` — same composition with the literature-pattern
   CSRO above.
+- `tests/fluorite_unsupported/` — **intentionally rejected case.**
+  Fluorite-like 96-atom binary supercell with non-uniform sublattice
+  coordination (cation z=8, anion z=4). Should exit with code 1 in
+  ~1 second after the multi-sublattice diagnostic; verifies the
+  detection in `Lattice::coordination_per_shell()` is wired correctly.
+  See `tests/fluorite_unsupported/README.md`.
+
+## Supported lattice types
+
+The Warren-Cowley formulation that SCRAPS implements assumes a
+**uniform geometric reference** — every atom in the supercell sees
+the same coordination structure in each neighbor shell, even if the
+chemistry on different sites differs. Two clearly-defined regimes:
+
+### Supported: single-Bravais-lattice-with-basis structures
+
+Lattices where the basis may contain multiple Wyckoff positions, but
+all positions share the same nearest-neighbor coordination. This
+covers nearly all standard substitutional-alloy contexts:
+
+- Pure FCC, BCC, HCP (ideal c/a)
+- Ordered intermetallics with uniform coordination: **B2** (CsCl, e.g.
+  NiAl), **L1₂** (Cu₃Au, e.g. Ni₃Al), **D0₃** (Fe₃Al), **B19′** in
+  most regimes
+- Any random or partially-ordered solid solution on FCC/BCC/HCP
+
+For these, the Warren-Cowley α_ij = 1 − P(j|i)/c_j defined against the
+global concentration c_j is the right reference, and SCRAPS computes
+it correctly. The validated test cases (`tests/bcc_binary`,
+`tests/nicocr_random`, `tests/nicocr_csro`, plus the pytest reference
+structures B2 NiAl and L1₂ Ni₃Al) all fall in this regime.
+
+### Not supported: multi-sublattice structures with non-uniform coordination
+
+Lattices where different sublattice sites have **physically different
+coordination numbers**:
+
+- **Sigma phase** (σ, 5 Wyckoff positions with z = 12–15)
+- **Laves phases** (C14, C15, C36)
+- **Cage structures** (NaZn₁₃, Th₆Mn₂₃, A15)
+- **Fluorite** (CaF₂-type, cation z=8 vs anion z=4)
+- **Layered structures** with in-plane vs out-of-plane coordination
+  asymmetry (graphite, hBN, MAX phases)
+- Lattices with **interstitial sublattices** (C in austenite, H in
+  metals)
+
+For these, the meaningful quantity is **sublattice-conditional SRO**
+α^(σ,τ)_ij defined per sublattice pair, against per-sublattice
+concentrations c_j^(τ). scraps-perpair does not currently implement
+sublattice resolution, and `Lattice::coordination_per_shell()` will
+abort with a diagnostic if it detects truly non-uniform coordination
+across atoms (the soft warning previously emitted has been upgraded
+to a hard abort).
+
+For these lattice types, use ATAT's `mcsqs`
+(<https://www.brown.edu/Departments/Engineering/Labs/avdw/atat/>),
+which supports sublattice-resolved SQS construction natively.
 
 ## Credits
 

@@ -399,44 +399,48 @@ vector<int> Lattice::coordination_per_shell() const
     // atom 0 as the canonical reference. The original code accessed
     // maxneighbourspershell[species_index][shell] by accident (species
     // and atom indices both happened to be in range), which silently
-    // worked only because most callers used species 0 or 1. This method
-    // replaces that with an explicit, semantically-correct accessor.
+    // worked only because most callers used species 0 or 1.
     //
-    // KNOWN UPSTREAM ISSUE: neighbourMatrix() assigns shell numbers
-    // per-atom (each atom builds its own distance->shell map via
-    // removedublicates()), so floating-point precision near shell
-    // boundaries can shuffle neighbors across shells between different
-    // atoms. As a result, maxneighbourspershell can be non-uniform
-    // across atoms even for geometrically uniform lattices like a
-    // cubic 3x3x3 BCC. We surface this with a warning the first time
-    // it occurs in a run, then proceed using atom 0's values --- the
-    // canonical neighbor list for the Bravais origin (0,0,0).
+    // After neighbourMatrix() was rewritten with global shell numbering
+    // (commit 4f2172b), any non-uniformity detected here reflects a
+    // genuine sublattice non-uniformity in the lattice, not numerical
+    // jitter. The SCRAPS Warren-Cowley formulation assumes a uniform
+    // geometric reference (every atom has identical coordination in
+    // each shell), so we abort cleanly with a diagnostic that points
+    // the user to a tool that handles sublattice-resolved SRO.
     //
-    // A complete fix requires reworking neighbourMatrix() to use a
-    // global shell numbering (sort all unique pairwise distances across
-    // the whole supercell, assign shell indices globally), tracked as
-    // an open item in the project README.
+    // See README "Supported lattice types" for the full list of
+    // supported (single-Bravais-with-basis: FCC, BCC, HCP, B2, L1_2,
+    // D0_3, ...) and unsupported (sigma, Laves, fluorite, layered,
+    // interstitial sublattices) lattice classes.
     if (maxneighbourspershell.empty()) {
         return {};
     }
     const std::size_t n_sites = maxneighbourspershell.size();
     const std::size_t n_shells = maxneighbourspershell[0].size();
-    static bool warned = false;
-    for (std::size_t s = 0; s < n_shells && !warned; ++s) {
+    for (std::size_t s = 0; s < n_shells; ++s) {
         const int z0 = maxneighbourspershell[0][s];
         for (std::size_t i = 1; i < n_sites; ++i) {
-            if (s >= maxneighbourspershell[i].size() ||
-                maxneighbourspershell[i][s] != z0) {
-                cout << "WARNING: non-uniform coordination detected "
-                     << "(shell " << s << ", atom 0 z=" << z0
-                     << ", atom " << i << " z="
-                     << (s < maxneighbourspershell[i].size()
-                         ? maxneighbourspershell[i][s] : -1)
-                     << "). This is a known upstream limitation in "
-                     << "neighbourMatrix() shell numbering. Using atom 0's "
-                     << "values as canonical." << endl;
-                warned = true;
-                break;
+            const int zi = (s < maxneighbourspershell[i].size())
+                           ? maxneighbourspershell[i][s] : -1;
+            if (zi != z0) {
+                cout << "ERROR: non-uniform coordination across atoms "
+                     << "(shell " << s << ": atom 0 z=" << z0
+                     << ", atom " << i << " z=" << zi << ")." << endl
+                     << "  This indicates a multi-sublattice structure "
+                     << "with physically distinct site environments" << endl
+                     << "  (sigma phase, Laves, fluorite, layered, "
+                     << "interstitial, etc.). The Warren-Cowley" << endl
+                     << "  formulation in SCRAPS assumes uniform "
+                     << "coordination across atoms, so per-pair alpha" << endl
+                     << "  defined against a single global concentration "
+                     << "is not the right reference for this lattice." << endl
+                     << "  See README 'Supported lattice types' for the "
+                     << "supported regime. For sublattice-resolved" << endl
+                     << "  SRO, use ATAT's mcsqs "
+                     << "(www.brown.edu/Departments/Engineering/Labs/avdw/atat/)."
+                     << endl;
+                MPI_Abort(MPI_COMM_WORLD, 1);
             }
         }
     }
