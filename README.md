@@ -164,6 +164,52 @@ tuning. SCRAPS' main loop also prints a warning at startup if the
 chosen `(ELEMENT, Cell_DIM, MAXSHELLNUM)` makes any target
 non-integer, naming the offending pair and the floor.
 
+## ASE interoperability
+
+For users in the ASE ecosystem (`ase`-based workflows, MD codes,
+DFT frontends, etc.), `tools/scraps_ase.py` is a thin wrapper that
+lets you stay in ASE Atoms-land end to end:
+
+```python
+from ase.build import bulk
+from scraps_ase import run_sqs_from_atoms
+
+# Start with an ASE primitive cell (any way you like; ase.build, ase.io.read, ...)
+primitive = bulk("Cu", "fcc", a=3.6, cubic=True)
+
+# Run SCRAPS and get a SQS as an ASE Atoms back
+sqs = run_sqs_from_atoms(
+    primitive,
+    species=["Ni", "Co", "Cr"],         # symbols matching ELEMENT order
+    element_counts=[36, 36, 36],        # exact integer occupation
+    cell_dim=(3, 3, 3),                 # supercell tiling
+    max_shellnum=2, weights=[1, 1],
+    rng_seed=42,
+)
+print(sqs)                              # standard ASE Atoms
+sqs.write("ni_co_cr_sqs.cif")           # ASE I/O
+print(sqs.info["scraps_final_fitness"]) # 0 -> exact SQS
+
+# For ordered targets, pass sro_targets=[(i, j, shell, alpha), ...]:
+b2 = run_sqs_from_atoms(
+    bulk("Cu", "bcc", a=3.0, cubic=True),
+    species=["Cu", "Zn"],
+    element_counts=[16, 16],
+    cell_dim=(2, 2, 4),
+    max_shellnum=2,
+    sro_targets=[(0, 1, 0, -1.0), (0, 1, 1, +1.0)],  # B2/CsCl
+)
+```
+
+Two lower-level helpers are also exported:
+- `read_scraps_output(path, species=[...])` -- read SCRAPS.vasp into
+  an ASE Atoms with proper species relabeling (SCRAPS' output POSCAR
+  lacks a species line, so you supply the list).
+- `make_scraps_inputs(work_dir, atoms, element_counts, cell_dim, ...)`
+  -- generate POSCAR + INPUT from an ASE Atoms primitive; useful when
+  you want to launch scraps yourself (e.g. from a job script) instead
+  of via the wrapper.
+
 ## Verification
 
 `tools/verify_sro.py` computes the Warren-Cowley α matrix directly from
