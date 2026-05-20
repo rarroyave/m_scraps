@@ -1,0 +1,592 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
+\documentclass[
+  11pt,
+]{article}
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+  \setmainfont[]{STIX Two Text}
+  \setmonofont[]{Menlo}
+  \setmathfont[]{STIX Two Math}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  colorlinks=true,
+  linkcolor={blue},
+  filecolor={Maroon},
+  citecolor={Blue},
+  urlcolor={blue},
+  pdfcreator={LaTeX via pandoc}}
+
+\title{scraps-perpair: project overview}
+\author{Raymundo Arroyave}
+\date{2026-05-20}
+
+\begin{document}
+\maketitle
+
+{
+\setcounter{tocdepth}{2}
+\tableofcontents
+}
+\section{scraps-perpair: project
+overview}\label{scraps-perpair-project-overview}
+
+This document describes (a) what SCRAPS is, (b) what was extended in
+this fork, and (c) how to use the resulting tool. It is meant as a
+technical map of the codebase for a new collaborator or for our future
+selves. For installation and quick-start usage see the top-level
+\texttt{README.md}; for benchmarks against ATAT mcsqs see
+\texttt{docs/mcsqs\_comparison.md}.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{1. What SCRAPS is}\label{what-scraps-is}
+
+SCRAPS --- \textbf{S}uper\textbf{C}ell \textbf{R}andom
+\textbf{AP}proximate\textbf{s} --- is a combinatorial-optimization code
+for generating special quasi-random structures (SQS) and
+short-range-ordered (SRO) supercells of multicomponent alloys. The
+upstream version was developed at Iowa State by Rahul Singh, Prashant
+Singh, Aayush Sharma, Ganesh Balasubramanian, and Duane D. Johnson, and
+is published in:
+
+\begin{quote}
+R. Singh et al., \emph{Nature Computational Science} \textbf{1}, 54
+(2021). DOI: 10.1038/s43588-020-00006-7
+\end{quote}
+
+The upstream repository is
+\href{https://github.com/DuaneDJohnson/Hybrid-Cuckoo-Search}{\texttt{DuaneDJohnson/Hybrid-Cuckoo-Search}}.
+The MIT license has been preserved with dual copyright (Iowa State +
+Arroyave fork).
+
+\subsubsection{1.1 The Warren--Cowley
+formulation}\label{the-warrencowley-formulation}
+
+For a multicomponent alloy on a single sublattice, the Warren--Cowley
+short-range-order parameter is
+
+\[\alpha_{ij}^{(k)} = 1 - \frac{P(j \mid i, k)}{c_j}\]
+
+where \(P(j \mid i, k)\) is the conditional probability that the
+neighbor of an atom of species \(i\) at the \(k\)-th coordination shell
+is of species \(j\), and \(c_j\) is the bulk concentration of species
+\(j\). The ``random'' limit (an exact SQS) has \(\alpha_{ij}^{(k)} = 0\)
+for all \((i, j, k)\). Ordered structures (B2, L1₂, etc.) have
+characteristic non-zero \(\alpha\) signatures at specific shells.
+
+SCRAPS' loss function on a candidate supercell is
+
+\[E = \sum_{k=1}^{K_\mathrm{max}} w_k \sum_{i \neq j} \big( N_{ij}^{(k)} - T_{ij}^{(k)} \big)^2\]
+
+where \(N_{ij}^{(k)}\) is the actual count of \((i, j)\) pairs at shell
+\(k\) in the candidate and
+
+\[T_{ij}^{(k)} = N_i \cdot (1 - \alpha_{ij}^{(k),\,\mathrm{target}}) \cdot z_k \cdot N_j / N\]
+
+is the target. The fitness reported in the log is \(\sqrt{E}\).
+
+\subsubsection{1.2 The Hybrid Cuckoo
+Search}\label{the-hybrid-cuckoo-search}
+
+SCRAPS minimizes \(E\) over the discrete space of atomic arrangements
+using a metaheuristic combining:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{A population of ``nests''} (candidate supercells), each
+  independently evolving through MC swap moves (\texttt{empty\_nests}).
+\item
+  \textbf{A ``cuckoo'' step} that probabilistically replaces low-fitness
+  nests with new randomized ones (\texttt{get\_cuckoos}), giving the
+  search a way to escape local minima.
+\item
+  \textbf{Global ranking} across MPI ranks at the end
+  (\texttt{get\_best\_nest} plus the merge step in \texttt{main}).
+\end{itemize}
+
+Per-rank MC swap moves are: pick two atom positions, swap their species,
+evaluate fitness, accept if it improved (with a small
+\(\varepsilon\)-band stochastic acceptance to allow neutral moves).
+
+\subsubsection{1.3 Original assumptions and
+limitations}\label{original-assumptions-and-limitations}
+
+\begin{itemize}
+\tightlist
+\item
+  Single sublattice with uniform per-shell coordination.
+\item
+  A \textbf{single scalar \(\alpha\) target} applied to every species
+  pair at every shell (no per-pair targeting).
+\item
+  POSCAR + INPUT file format (a SCRAPS-specific dialect of VASP POSCAR
+  with no species labels, plus a custom INPUT keyword block).
+\item
+  MPI-parallel over nest population; no shared memory inside a rank.
+\end{itemize}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{2. What scraps-perpair adds and
+fixes}\label{what-scraps-perpair-adds-and-fixes}
+
+Six bug fixes from the upstream code, a feature extension (per-pair SRO
+targets), spectator-sublattice support for HEB-class structures,
+user-facing heuristics, an algorithmic upgrade (delta-fitness MC), a
+reproducibility layer, and a Python-side tool suite.
+
+\subsubsection{2.1 Bug fixes shipped from
+upstream}\label{bug-fixes-shipped-from-upstream}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+\#
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Location
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Description
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+1 & \texttt{readPOSCAR} & Uninitialized \texttt{totalatoms} (upstream
+issue \#3). \\
+2 & \texttt{fitnessvalue} & The pair-gating test
+\texttt{nest{[}center{]}\ !=\ nest{[}surr{]}} compared species indices
+stored at \emph{atom} indices, dropping unrelated entries. Replaced with
+\texttt{center\ !=\ surr}. \\
+3 & \texttt{printtoscreen} & Wrong Warren--Cowley formula (off by
+\textasciitilde{}\(N_i\), asymmetric in \(i \leftrightarrow j\)); the
+printed \(\alpha\) didn't match the residual the optimizer was
+minimizing. \\
+4 & \texttt{main} & \texttt{WEIGHTS} size mismatch claimed to STOP but
+read past the array end. Now \texttt{MPI\_Abort} with a clear
+message. \\
+5 & \texttt{randomizeLattice} & Infinite loop when
+\texttt{sum(ELEMENT)\ ≠\ Cell\_DIM\ ×\ atoms\_per\_basis}. Now guarded
+with a diagnostic and abort. \\
+6 & \texttt{Lattice::neighbourMatrix} & Per-atom shell numbering used a
+\texttt{removeduplicates} call inside the outer loop, so floating-point
+jitter near a shell boundary could assign the same physical neighbor to
+different shell indices for different atoms. Rewritten with
+\textbf{global shell numbering} at a 2\% relative-gap tolerance. \\
+\end{longtable}
+
+Item \#2 (the species-index gating bug) was the silent showstopper ---
+it caused the upstream fitness function to misclassify \textasciitilde40
+\% of pairs depending on memory layout, while still appearing to
+``work'' because the resulting structures looked nominally random.
+
+\subsubsection{2.2 The headline feature: per-pair SRO
+targets}\label{the-headline-feature-per-pair-sro-targets}
+
+New INPUT keyword:
+
+\begin{verbatim}
+SRO  <species_i>  <species_j>  <shell_index>  <alpha_target>
+\end{verbatim}
+
+Sets \(\alpha_{ij}^{(k)\,\mathrm{target}}\) for one \((i, j, k)\)
+triple. Lines may repeat; entries are automatically symmetrized
+\(\alpha_{ji} = \alpha_{ij}\). Pairs not mentioned default to
+\(\alpha = 0\) (the SQS target).
+
+The targetSROpair tensor is threaded through \texttt{fitnessvalue},
+\texttt{fitnessofnests}, \texttt{get\_best\_nest},
+\texttt{empty\_nests}, \texttt{empty\_nests\_fast},
+\texttt{get\_cuckoos}, and \texttt{main}. Upstream only supported a
+single scalar \(\alpha\) applied uniformly; this fork lets each species
+pair at each shell have its own target.
+
+This is what makes targeting \textbf{classical ordered structures} in a
+single SCRAPS run possible. See
+\texttt{tests/\{b2\_bcc\_binary,l12\_fcc\_a3b,\ l10\_fcc\_ab,d03\_bcc\_a3b,l11\_fcc\_ab,l21\_bcc\_x2yz\}/}
+for the six worked cases (B2, L1₂, L1₀, D0₃, L1₁, L2₁/Heusler).
+
+\subsubsection{2.3 Spectator sublattice (HEB-class
+structures)}\label{spectator-sublattice-heb-class-structures}
+
+For structures like AlB₂-type (Hf,Zr,Ti,Ta,Nb)B₂ high-entropy diborides,
+one sublattice is compositionally fixed (boron) and the other carries
+the chemical disorder. New INPUT keyword:
+
+\begin{verbatim}
+SPECTATOR_BASIS_SPECIES  <basis_index>  <species_index>
+\end{verbatim}
+
+declares that all atoms at the given POSCAR basis position are fixed at
+the given species and not touched by MC. The fitness function becomes
+``M-sublattice only'' --- pairs involving a spectator atom are excluded,
+the reference concentration becomes \(N_j^M / N^M\), and the effective
+coordination is the count of non-spectator neighbors per non-spectator
+atom.
+
+A coordination check (\texttt{Lattice::coordination\_per\_shell}) is run
+at startup on the non-spectator subset; if it's non-uniform, SCRAPS
+aborts with a diagnostic pointing to ATAT mcsqs for the truly
+multi-sublattice cases SCRAPS can't handle.
+
+See \texttt{tests/heb\_5metal\_random/} and
+\texttt{tests/heb\_5metal\_csro/} for worked HEB cases.
+
+\subsubsection{2.4 User-facing heuristics}\label{user-facing-heuristics}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.5000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.5000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Keyword
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Purpose
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{AUTO\_MCSTEP\ \textless{}k\textgreater{}} & Override
+\texttt{MCSTEP} with \texttt{max(50,\ k\ ·\ N)} once supercell size is
+known, removing the manual tuning. Default factor 7. \\
+\texttt{EARLY\_STOP\_PATIENCE\ \textless{}n\textgreater{}} & Stop the
+outer optimization loop once the per-rank best fitness has not improved
+by more than \texttt{EARLY\_STOP\_TOL} for \texttt{n} consecutive
+iterations. Default 0 = disabled. \\
+\texttt{EARLY\_STOP\_TOL\ \textless{}tol\textgreater{}} & Improvement
+threshold for the patience counter. Default 1e-6. \\
+\texttt{FAST\_SWAPS\ \textless{}0\textbar{}1\textgreater{}} &
+Delta-fitness MC path (see 2.5). Default 1. \\
+\texttt{TARGETED\_SWAPS\ \textless{}0\textbar{}1\textgreater{}} &
+Residual-biased swap proposals (see 2.5). Default 0 (opt-in). \\
+\texttt{TARGETED\_SWAP\_PROB\ \textless{}p\textgreater{}} & Bias level
+for targeted swaps. Default 0.7. \\
+\texttt{RNG\_SEED\ \textless{}n\textgreater{}} & Reproducible per-rank
+seeding via \(n \oplus (\mathrm{rank} \cdot \phi_{64})\). Default 0 =
+use \texttt{std::random\_device}. \\
+\texttt{RANDOM\_ONLY\ \textless{}0\textbar{}1\textgreater{}} & Skip the
+MC loop and return the best of the initial random nest pool. Default
+0. \\
+\texttt{CONVERGENCE\_LOG\ \textless{}path\textgreater{}} & Rank-0
+per-iteration CSV log:
+\texttt{iteration,\ best\_fitness,\ wall\_seconds}. Iteration
+\texttt{-1} is the pre-MC baseline. \\
+\end{longtable}
+
+The first three let users get to a sensible result without per-cell
+tuning. The reproducibility / ablation knobs (RNG\_SEED, RANDOM\_ONLY,
+CONVERGENCE\_LOG) exist primarily to make the optimizer \emph{auditable}
+--- see §3.
+
+\subsubsection{2.5 Algorithmic upgrades}\label{algorithmic-upgrades}
+
+\textbf{Delta-fitness MC (\texttt{empty\_nests\_fast}, default on).} The
+legacy \texttt{empty\_nests} recomputed the full \(O(N \cdot z)\)
+fitness on every swap proposal. The fast path precomputes the constant
+target matrix \(T_{ij}^{(k)}\) once per nest, maintains the pair-count
+tensor \(N_{ij}^{(k)}\) as state, and applies an \(O(z)\) delta per swap
+(touching only the neighbors of the two swapped atoms; the swapped pair
+itself contributes zero net delta by symmetry). On RNG-pinned A/B tests
+against the legacy path, this yields \textbf{2--18× speedup on
+loop-bound cases} with identical final fitness:
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule\noalign{}
+Case & Legacy wall & Fast wall & Speedup \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+25:50:25 n=108 (plateau) & 15.2 s & 0.8 s & 18.6× \\
+25:50:25 n=256 & 3.1 s & 0.4 s & 8.2× \\
+BCC 50:50 n=54 & 4.8 s & 0.6 s & 7.4× \\
+\end{longtable}
+
+\textbf{Targeted swap proposals (\texttt{empty\_nests\_fast}, off by
+default).} With probability \texttt{TARGETED\_SWAP\_PROB}, propose swaps
+biased toward the species pair \((i, j, k)\) with the largest weighted
+residual². The remaining fraction stays uniform-random for exploration.
+\textbf{Honest finding from our benchmarks: on the test cases we
+measured (cell sizes up to n=500, B2 / L1₂ / L1₀ / D0₃ / L1₁ ordered
+targets, infeasibility plateaus), uniform-random already converges fast
+enough that the bias adds overhead without speedup.} Kept as an opt-in
+for workloads where uniform random would genuinely struggle (very large
+supercells, complex multi-pair SRO, highly non-convex landscapes) and as
+a starting point for further algorithmic experimentation.
+
+\subsubsection{2.6 Feasibility check (the ``is fitness=0 even
+achievable?''
+math)}\label{feasibility-check-the-is-fitness0-even-achievable-math}
+
+For an SQS target (\(\alpha = 0\)), the expected pair count
+\(T_{ij}^{(k)} = N_i \cdot z_k \cdot N_j / N\) must be \textbf{integer}
+for every weighted shell-pair. If it isn't, the fitness has a strictly
+positive lower bound --- the optimizer plateaus at a non-zero value no
+matter how long it runs.
+
+This caught us by surprise during the cell-size benchmark: 25:50:25 on
+FCC \texttt{k×k×k} is feasible for \texttt{k} even and infeasible for
+\texttt{k} odd (at shell 1, \(T_{AC} = 3k^2/2\)), explaining the
+deterministic \texttt{fitness\ =\ √2.5\ ≈\ 1.58} plateau at n=108 and
+n=500.
+
+\texttt{tools/suggest\_cell.py} walks candidate cell sizes (including
+non-cubic supercells) and returns the closest feasible
+\texttt{Cell\_DIM}, plus the fitness floor for infeasible candidates. It
+handles HEB-style spectator sublattices via the same \texttt{M}-only
+math SCRAPS uses internally. The C++ runtime also runs the feasibility
+check at startup and prints a warning naming the offending pair(s) when
+the configured \texttt{(ELEMENT,\ Cell\_DIM,\ MAXSHELLNUM)} is
+infeasible.
+
+\subsubsection{2.7 MPI singleton-mode
+diagnosis}\label{mpi-singleton-mode-diagnosis}
+
+The macOS-with-Homebrew-Open-MPI setup commonly fails to form a real
+multi-rank communicator when \texttt{mpirun} from a different MPI
+install (e.g.~anaconda's MPICH Hydra \texttt{mpirun}) is first on
+\texttt{\$PATH}. Each process then runs as a singleton with rank 0 and
+\texttt{nproc=1}, the 4 ``ranks'' do independent searches, and only
+one's \texttt{SCRAPS.vasp} survives (the last to write).
+
+Three coordinated fixes: 1. \textbf{C++ runtime detects the condition}
+(\texttt{nproc==1} but
+\texttt{\$OMPI\_COMM\_WORLD\_SIZE\ \textgreater{}\ 1}) and prints a loud
+one-shot warning with the fix. 2. \textbf{\texttt{tools/tests} and
+\texttt{tools/run\_sqs.py} auto-resolve} the matching \texttt{mpirun} by
+looking next to the \texttt{mpic++} from \texttt{build.sh}
+(\texttt{\$MPICXX}) before falling back to PATH. 3. \textbf{README
+section} documenting the gotcha.
+
+When real multi-rank can't be achieved, the conv-log path is suffixed
+with the OS PID so concurrent singletons don't race-and- interleave
+their writes (the test helper handles both modes).
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{3. ``Is SCRAPS lucky, or is it actually
+optimizing?''}\label{is-scraps-lucky-or-is-it-actually-optimizing}
+
+The reproducibility / ablation keywords in §2.4 exist mainly to answer
+this question rigorously. The experiment:
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 8\tabcolsep) * \real{0.2000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Case
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+metric
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Random-only (best of 96)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+SCRAPS (full MC)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+improvement
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+25:50:25 n=108 SQS plateau & fitness & \textasciitilde20 ± 3 & 1.58 (all
+3 seeds) & \textbf{\textasciitilde12×} \\
+25:50:25 n=108 & max\textbar α\textbar{} & 0.14--0.26 & 0.012 &
+\textbf{\textasciitilde15×} \\
+B2 n=128 ordered & fitness & 369--403 & 0 (perfect B2) &
+\textbf{\(\infty\)} \\
+B2 n=128 & search-space prob & \(\sim10^{-35}\) per nest & finds in
+\textasciitilde1 s & qualitative \\
+\end{longtable}
+
+The B2 case is the clincher: random search has \(\sim10^{-37}\) chance
+per random nest of containing a B2 ordering. SCRAPS finds it
+deterministically. The MC search is doing real combinatorial
+optimization, not just shuffling.
+
+Reproducible via \texttt{docs/baseline\_vs\_scraps.sh}.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{\texorpdfstring{4. The Python tool suite
+(\texttt{tools/})}{4. The Python tool suite (tools/)}}\label{the-python-tool-suite-tools}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.5000}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.5000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Script / module
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Purpose
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{verify\_sro.py} & Independent pymatgen-based α-matrix verifier.
+Supports multi-shell, spectator-aware HEB mode, target-file pass/fail
+comparison, JSON output for CI. Used as the cross-check on every
+\texttt{SCRAPS.vasp} we generate. \\
+\texttt{suggest\_cell.py} & Picks the smallest feasible Cell\_DIM near a
+user-supplied target atom count for a given composition. Supports
+cubic-only or non-cubic search, HEB spectator sublattices, and diagnose
+mode for a single \texttt{(ELEMENT,\ Cell\_DIM)} configuration. \\
+\texttt{run\_sqs.py} & One-shot wrapper: composition + target atoms
+\(\to\) suggest\_cell pick \(\to\) INPUT with sensible heuristic
+defaults \(\to\) mpirun \(\to\) result. Handles HEB targets via
+\texttt{-\/-spectator-basis-species}. \\
+\texttt{scraps\_ase.py} & ASE interoperability:
+\texttt{run\_sqs\_from\_atoms} takes an ASE \texttt{Atoms} primitive in
+and returns an SQS \texttt{Atoms} out; \texttt{read\_scraps\_output} /
+\texttt{write\_scraps\_poscar} / \texttt{make\_scraps\_inputs} are
+lower-level helpers. Handles the SCRAPS vs canonical-VASP POSCAR layout
+difference internally. \\
+\end{longtable}
+
+All four are pymatgen-and/or-ASE-based and run completely outside the
+C++ code. \texttt{verify\_sro.py} is in particular the canonical ``did
+SCRAPS actually achieve what it claims?'' cross-check.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{5. Test suite}\label{test-suite}
+
+\texttt{tools/tests/}, run with \texttt{pytest}. \textbf{48 tests,
+\textasciitilde34 s locally}, all with \texttt{RNG\_SEED} pinned so the
+optimizer behavior is reproducible:
+
+\begin{itemize}
+\tightlist
+\item
+  \texttt{test\_verify\_sro.py} (19 tests): verifier against
+  analytically-known structures (B2 NiAl, L1₂ Ni₃Al, random binary, HEB
+  random and CSRO).
+\item
+  \texttt{test\_suggest\_cell.py} (16 tests): feasibility math across
+  cubic and non-cubic FCC/BCC supercells, HEB spectator-aware cases.
+\item
+  \texttt{test\_run\_sqs.py} (4 tests): end-to-end smoke + INPUT
+  generation.
+\item
+  \texttt{test\_scraps\_optimization.py} (10 tests): full mpirun-based
+  optimization regressions --- feasible SQS hits 0, infeasible plateau
+  hits the predicted floor, B2 SRO target reaches max ordering,
+  RANDOM\_ONLY worse than SCRAPS, FAST\_SWAPS matches legacy fitness,
+  convergence trajectory is monotone non-increasing, spectator HEB
+  completes correctly.
+\item
+  \texttt{test\_scraps\_ase.py} (8 tests): ASE I/O round-tripping and
+  the end-to-end ASE wrapper on FCC SQS and BCC B2.
+\end{itemize}
+
+End-to-end tests skip gracefully when the scraps binary or mpirun isn't
+available, so a fresh checkout passes \texttt{pytest} even before
+\texttt{./build.sh}. CI (\texttt{.github/workflows/test.yml}) installs
+\texttt{openmpi-dev} and \texttt{libeigen3-dev}, builds scraps, and runs
+the full suite on Ubuntu against Python 3.11 and 3.12 --- so the
+regression net catches optimizer changes, not just verifier-math
+changes.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{6. Validation against ATAT
+mcsqs}\label{validation-against-atat-mcsqs}
+
+\texttt{docs/mcsqs\_comparison.md} documents head-to-head comparisons
+against ATAT 3.50's mcsqs across three system classes:
+
+\begin{itemize}
+\tightlist
+\item
+  108-atom NiCoCr FCC SQS (multi-shell), single-sublattice stoichiometry
+  sweep (50:50 / 75:25 / ternary on FCC and BCC),
+\item
+  FCC cell-size sweep (32 / 108 / 256 / 500 atoms) at 25:50:25 ternary,
+\item
+  HEB (Hf,Zr,Ti,Ta,Nb)B₂ at 150 and 600 atoms.
+\end{itemize}
+
+Summary verdict: SCRAPS matches or beats mcsqs in α-matrix quality on
+every case at comparable wall budgets, and is consistently faster
+(5--60× wall time, 1.5--15× CPU time) because of the explicit α-residual
+loss versus mcsqs's correlation-engineering approach.
+
+The per-pair SRO targeting (§2.2) is the unique value-add --- mcsqs has
+no direct API for per-species-pair \(\alpha\) targets.
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsection{7. What's next}\label{whats-next}
+
+Open items at this commit: - \textbf{Apply to a real research case.}
+Refractory HEB with literature CSRO targets, DFT validation. The
+infrastructure to do this is in place; the work to do it is not. -
+\textbf{Warm-start API.} Pass an initial nest in INPUT for steep-target
+cases like full L2₁ where uniform random initialization plateaus far
+from the global minimum at 128 atoms. - \textbf{Upstream a subset of
+fixes.} The six C++ bug fixes (§2.1) are upstreamable as a PR to
+\texttt{DuaneDJohnson/Hybrid-Cuckoo-Search}. The per-pair SRO API is the
+more contentious change because it expands the INPUT keyword space.
+
+See the \texttt{\#\#\ 13.\ scraps-perpair} entry in the project memory
+catalog for the live status of these items.
+
+\end{document}
