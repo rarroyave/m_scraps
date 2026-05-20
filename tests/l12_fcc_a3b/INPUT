@@ -1,0 +1,24 @@
+TYP     2
+GITER   1000
+ELEMENT 81 27
+Cell_DIM        3 3 3
+NESTS   24
+MCSTEP  100
+AUTO_MCSTEP 10
+TOTALIter 40
+MAXSHELLNUM 2
+WEIGHT 1 1
+EARLY_STOP_PATIENCE 5
+EARLY_STOP_TOL 1e-6
+
+# L1_2 (Cu3Au-type) ordering target on FCC 3x3x3 = 108 atoms.
+# Species: 0 = A (3 face-centers), 1 = B (corners).
+#
+# In L1_2 each B atom has 12 NN, all A. So:
+#   shell 0 (NN, z=12): alpha_AB = 1 - P(B|A)/c_B = 1 - (1/3)/0.25 = -1/3
+#                       alpha_BA = 1 - P(A|B)/c_A = 1 - 1/0.75 = -1/3
+#   shell 1 (2NN, z=6): A's and B's 2NN are all same species (sublattice
+#                       offset places them on same sublattice line).
+#                       alpha_AB = 1 - 0/0.25 = +1
+SRO 0 1 0 -0.333333
+SRO 0 1 1 +1.0
