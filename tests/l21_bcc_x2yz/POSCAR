@@ -1,0 +1,9 @@
+BCC conventional cell (L2_1 Heusler target: X_2YZ, e.g. Cu_2MnAl)
+ 1.0
+ 1.0 0.0 0.0
+ 0.0 1.0 0.0
+ 0.0 0.0 1.0
+ 2
+direct
+ 0.0 0.0 0.0
+ 0.5 0.5 0.5

@@ -1,0 +1,52 @@
+TYP     3
+GITER   1000
+ELEMENT 64 32 32
+Cell_DIM        4 4 4
+NESTS   24
+MCSTEP  100
+AUTO_MCSTEP 12
+TOTALIter 80
+MAXSHELLNUM 2
+WEIGHT 1 0
+EARLY_STOP_PATIENCE 10
+EARLY_STOP_TOL 1e-6
+
+# L2_1 (Heusler X_2YZ) ordering target on BCC 4x4x4 = 128 atoms.
+# Species: 0 = X (8c, 50%), 1 = Y (4a, 25%), 2 = Z (4b, 25%).
+# 16-atom Heusler cubic cell; ours holds 8 such cells.
+#
+# In Heusler the X atoms sit on the "tetrahedral" 8c BCC sublattice
+# and have 4 Y + 4 Z as NN. Y and Z each have 8 X as NN -- no Y-Y,
+# no Z-Z, no Y-Z at NN (Y and Z are on opposite simple-cubic sub-
+# lattices and only see X between them at the NN distance).
+#
+# Per-pair NN signatures:
+#   alpha_XY^NN = 1 - 0.5/0.25 = -1  (X's NN are 50% Y, c_Y = 0.25)
+#   alpha_XZ^NN = 1 - 0.5/0.25 = -1  (analogous)
+#   alpha_YZ^NN = 1 - 0/0.25   = +1  (no Y-Z contacts at NN)
+#
+# Three independent per-pair targets at the same shell -- this is the
+# class of problem upstream's single-alpha SCRAPS API cannot express
+# (it can only set one alpha value, applied to every species pair).
+# Each target is integer-feasible: with N_X=64, N_Y=N_Z=32, z=8,
+# N=128: T_XY = 64*2*8*32/128 = 256 = N_X * 4 (each X has 4 Y NN).
+SRO 0 1 0 -1.0
+SRO 0 2 0 -1.0
+SRO 1 2 0 +1.0
+
+# Note on full L2_1 vs B2-Heusler. The NN targets above pin X onto
+# the 8c sublattice (every X has 4 Y + 4 Z NN) but do not distinguish
+# Y/Z assignment between the 4a and 4b simple-cubic sublattices --
+# Y and Z can swap freely without changing any NN signature. So with
+# WEIGHT 1 0 SCRAPS reaches "B2-Heusler" disorder (sometimes called
+# A2-disordered Heusler): correct X-sublattice ordering, random Y/Z
+# on the {4a, 4b} sites. This is the result we ship -- a real ordered
+# class on its own (B2-like Heusler is the disordered limit of many
+# magnetic Heusler compounds).
+#
+# True full L2_1 requires also pinning alpha_YZ^2NN = -3 (every Y's
+# 2NN are all Z). That target is feasible (lies within achievable pair
+# counts) but creates a much steeper loss landscape -- in our trials
+# at 128 atoms with MCSTEP=12*N, TOTALIter=80 the optimizer plateaued
+# at fitness ~150 rather than converging. Worth revisiting with a
+# larger MC budget or a warm-started near-L2_1 initialization.
