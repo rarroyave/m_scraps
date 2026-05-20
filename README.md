@@ -164,6 +164,23 @@ tuning. SCRAPS' main loop also prints a warning at startup if the
 chosen `(ELEMENT, Cell_DIM, MAXSHELLNUM)` makes any target
 non-integer, naming the offending pair and the floor.
 
+## Tutorials
+
+Three end-to-end Jupyter notebooks under `notebooks/`:
+
+1. **`01_first_scraps_run.ipynb`** — shortest path from "I have an ASE
+   primitive cell" to "I have a NiCoCr SQS supercell".
+2. **`02_targeting_csro.ipynb`** — per-pair SRO targets reproducing a
+   literature-style CSRO pattern on NiCoCr, with a random-SQS baseline
+   to compare against.
+3. **`03_heb_end_to_end.ipynb`** — AlB₂-type high-entropy diboride with
+   the boron spectator sublattice, using `suggest_cell.py` to pick the
+   cell and `verify_sro.py --spectator-species B` to validate.
+
+Generated programmatically from `notebooks/build_notebooks.py`;
+regenerate with `python3 notebooks/build_notebooks.py` and
+`jupyter nbconvert --execute --inplace notebooks/*.ipynb`.
+
 ## ASE interoperability
 
 For users in the ASE ecosystem (`ase`-based workflows, MD codes,

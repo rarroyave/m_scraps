@@ -133,26 +133,35 @@ def _relabel(atoms, species, counts):
 def write_scraps_poscar(atoms: Atoms, path: os.PathLike) -> None:
     """Write an ASE Atoms object as a SCRAPS-compatible POSCAR.
 
-    SCRAPS's `readPOSCAR` expects the canonical pre-VASP 5 layout where
-    line 6 is the per-species *count* line, with no species-label line
-    above it. ASE's standard writer inserts the species line (canonical
-    VASP 5+), so we generate the file directly here to keep SCRAPS
-    happy. Species labels are irrelevant for SCRAPS -- `ELEMENT` counts
-    in INPUT control the per-species occupation -- so we just write
-    "X" placeholder counts as a single group.
+    Two SCRAPS-specific quirks we work around:
+
+    1. `readPOSCAR` expects the canonical pre-VASP 5 layout where line
+       6 is the per-species *count* line, with no species-label line
+       above it. ASE's standard writer inserts the species line
+       (canonical VASP 5+), so we generate the file directly here.
+       Species labels are irrelevant for SCRAPS -- `ELEMENT` counts in
+       INPUT control the per-species occupation.
+
+    2. `readPOSCAR` does NOT honor the "direct" / "Cartesian" keyword
+       on line 7 -- it reads basis positions as the raw numbers
+       regardless. For the existing tests this is hidden because they
+       use unit lattice vectors (so fractional = Cartesian). For
+       general ASE inputs with realistic lattice parameters, we have
+       to write the basis in Cartesian explicitly.
     """
     path = Path(path)
     cell = atoms.get_cell()
-    sp = atoms.get_scaled_positions()
+    cart = atoms.get_positions()  # Cartesian Angstroms
     lines = []
     lines.append("SCRAPS POSCAR generated from ASE Atoms")
     lines.append(" 1.0")
     for row in cell:
         lines.append(f" {row[0]:.16f} {row[1]:.16f} {row[2]:.16f}")
-    # Single count group: SCRAPS will partition into species via ELEMENT.
     lines.append(f" {len(atoms)}")
-    lines.append("direct")
-    for r in sp:
+    # We write "Cartesian" to be self-documenting even though SCRAPS
+    # ignores the keyword and would treat the numbers the same either way.
+    lines.append("Cartesian")
+    for r in cart:
         lines.append(f" {r[0]:.16f} {r[1]:.16f} {r[2]:.16f}")
     path.write_text("\n".join(lines) + "\n")
 
