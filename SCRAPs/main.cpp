@@ -44,6 +44,12 @@ THE SOFTWARE.
 #include <mpi.h>
 #include <math.h>
 
+// Process-level RNG seed base for reproducibility. Set in main()
+// from inputfile.rngSeed (xor'd with rank). All thread-local RNGs
+// in empty_nests / randomizeLattice seed from this on first use.
+// Value 0 falls back to std::random_device for non-reproducible runs.
+static unsigned long g_rng_seed_base = 0;
+
 
 void sortthenests(vector<vector<int>> &_nests, vector<double> &_fitness, int &max_num_neighs)
 {
@@ -303,9 +309,23 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
     // stays put for the full optimization.
     double len = _nests[0].size();
     double eps = 0.001;
-    std::random_device rd, rd1;
-    std::mt19937 gen(rd());
-    std::mt19937 gen1(rd1());
+    // Reproducible-seed-aware RNGs. First call seeds from g_rng_seed_base
+    // (set in main from RNG_SEED, xor'd with rank); subsequent calls reuse
+    // the advanced state so we don't keep restarting the stream and waste
+    // entropy.
+    static thread_local std::mt19937 gen, gen1;
+    static thread_local bool seeded = false;
+    if (!seeded) {
+        if (g_rng_seed_base != 0) {
+            gen.seed(g_rng_seed_base);
+            gen1.seed(g_rng_seed_base ^ 0xA5A5A5A5UL);
+        } else {
+            std::random_device rd, rd1;
+            gen.seed(rd());
+            gen1.seed(rd1());
+        }
+        seeded = true;
+    }
     std::uniform_int_distribution<> dis(0, len - 1);
     std::uniform_int_distribution<> dis1(1, 100);
     double oldFitness, newFitness;
@@ -372,8 +392,18 @@ vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size
     // sublattice positions). For atoms with fixed species, _maxAtomNum is
     // consumed upfront in the spectator pass; the random pass then only
     // touches the free positions and may not draw spectator species.
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    // Reproducible-seed-aware RNG, same pattern as in empty_nests.
+    static thread_local std::mt19937 gen;
+    static thread_local bool seeded = false;
+    if (!seeded) {
+        if (g_rng_seed_base != 0) {
+            gen.seed(g_rng_seed_base ^ 0x5A5A5A5AUL);
+        } else {
+            std::random_device rd;
+            gen.seed(rd());
+        }
+        seeded = true;
+    }
     std::uniform_int_distribution<> dis(0, _typeofatoms - 1);
     vector<vector<int>> nests(numofnests, vector<int>(numofatoms, 0));
     vector<int> _numofatoms(_size, 0);
@@ -478,6 +508,18 @@ int main(int argc, char ** argv)
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);  // get number of total nodes
     MPI_Comm_rank(MPI_COMM_WORLD, &id); // get id of mynode
 
+    // Reproducibility: if RNG_SEED was set in INPUT, derive a per-rank
+    // seed and stash it in the file-scope `g_rng_seed_base` that
+    // empty_nests / randomizeLattice consult on first use. The xor with
+    // a multiplier of `id` keeps ranks decorrelated under the same
+    // base seed.
+    if (inputfile.rngSeed != 0) {
+        g_rng_seed_base = inputfile.rngSeed ^ (static_cast<unsigned long>(id) * 0x9E3779B97F4A7C15UL);
+        if (id == 0) {
+            std::cout << "RNG_SEED=" << inputfile.rngSeed
+                      << " (per-rank seed = base XOR rank*phi64)" << std::endl;
+        }
+    }
 
 //  *****READ INPUT FROM "INPUT" and "POSCAR" FILES******
     
@@ -743,6 +785,31 @@ int main(int argc, char ** argv)
     const double early_stop_tol = inputfile.earlyStopTol;
     double best_seen = INT_MAX;
     int no_improve_count = 0;
+
+    // Convergence telemetry: rank-0 writes per-iteration best fitness to
+    // a CSV file (path from CONVERGENCE_LOG INPUT keyword). Lets users
+    // plot the optimization trajectory and check whether the MC loop is
+    // genuinely descending vs sitting at the initial-pool best.
+    std::ofstream conv_log;
+    auto t_loop_start = std::chrono::high_resolution_clock::now();
+    if (id == 0 && !inputfile.convergenceLog.empty()) {
+        conv_log.open(inputfile.convergenceLog);
+        conv_log << "iteration,best_fitness,wall_seconds" << std::endl;
+        // Record the pre-MC starting point (iteration -1) for the random
+        // baseline comparison.
+        conv_log << -1 << "," << error << "," << 0.0 << std::endl;
+    }
+
+    // Ablation / baseline mode: skip the entire MC loop and return the
+    // best of the initial random pool. Used to measure how much the
+    // cuckoo-search MC is improving over pure random search.
+    if (inputfile.randomOnly) {
+        if (id == 0) {
+            cout << "RANDOM_ONLY mode: skipping MC loop, returning best "
+                 << "of the initial random nest pool." << endl;
+        }
+        iterTotal = 0;  // make the while() condition fall through
+    }
     while (iters < iterTotal && error > epsi)
     {
 // The Cuckoo search algorithm: set up cuckoo search, finds best nests, do fitness test until fins the best nest
@@ -756,6 +823,11 @@ int main(int argc, char ** argv)
         sortthenests(nests, fitness, max_num_neighs);
         error = fitness[0];
         cout << " FITNESS - > " << fitness[0] << "<-- iter -->" << iters << endl;
+        if (id == 0 && conv_log.is_open()) {
+            auto now = std::chrono::high_resolution_clock::now();
+            double secs = std::chrono::duration<double>(now - t_loop_start).count();
+            conv_log << iters << "," << fitness[0] << "," << secs << std::endl;
+        }
         iters += 1;
 
         if (early_stop_patience > 0) {

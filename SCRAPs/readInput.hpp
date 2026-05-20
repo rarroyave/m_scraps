@@ -38,6 +38,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <string>
 #include <ostream>
 #include <fstream>
 #include <sstream>
@@ -71,6 +72,19 @@ public:
     // overridden by max(50, autoMcstepFactor * total_atoms) once the
     // supercell size is known. Default 0 leaves MCiter as parsed.
     int autoMcstepFactor;
+    // Reproducibility: seed for std::mt19937. 0 = use std::random_device
+    // (default, non-reproducible). Non-zero gives deterministic runs per
+    // rank: each rank uses (rngSeed XOR rank_salt) so different ranks
+    // still explore different streams.
+    unsigned long rngSeed;
+    // Baseline / ablation: if 1, skip the entire MC optimization loop
+    // and return the best of the initial random pool. Used to measure
+    // how much the cuckoo-search MC is improving over random search.
+    int randomOnly;
+    // Convergence telemetry: per-iteration fitness log path. Empty
+    // disables logging. Written by rank 0 only; CSV with columns
+    // iteration, best_fitness_rank0, wall_seconds.
+    std::string convergenceLog;
     // Per-pair, per-shell Warren-Cowley SRO targets: targetSROpair[i][j][shell].
     // Defaults to all zeros (random / SQS) when no SRO lines appear in INPUT.
     // Populated by readInput::input() after TYP and MAXSHELLNUM are known.

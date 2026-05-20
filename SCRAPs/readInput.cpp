@@ -43,6 +43,7 @@ readInput::readInput()
     : typeofatoms(0), globalIter(0), num_of_nests(0), MCiter(0),
       iterTotal(0), num_of_shells(0),
       earlyStopPatience(0), earlyStopTol(1e-6), autoMcstepFactor(0),
+      rngSeed(0), randomOnly(0), convergenceLog(""),
       totalatoms(0)
 {
     input();
@@ -233,6 +234,18 @@ void readInput::input() {
             if(key.compare("AUTO_MCSTEP") == 0)
             {
                 ss >> autoMcstepFactor;
+            }
+            if(key.compare("RNG_SEED") == 0)
+            {
+                ss >> rngSeed;
+            }
+            if(key.compare("RANDOM_ONLY") == 0)
+            {
+                ss >> randomOnly;
+            }
+            if(key.compare("CONVERGENCE_LOG") == 0)
+            {
+                ss >> convergenceLog;
             }
             if(key.compare("EARLY_STOP_PATIENCE") == 0)
             {
