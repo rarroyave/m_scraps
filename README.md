@@ -35,6 +35,26 @@ Intel Mac with system MPI, edit `build.sh` to use plain `mpic++`.
 
 Output binary: `SCRAPs/scraps`.
 
+### Launching: use the matching `mpirun`
+
+PATH-resolved `mpirun` is wrong when multiple MPI installations are
+present (a common case on macOS: anaconda ships MPICH's Hydra `mpirun`
+and ends up in `$PATH` ahead of Homebrew's Open MPI). Launching an
+Open-MPI-built `scraps` with MPICH's Hydra `mpirun` (or vice versa)
+silently falls back to **singleton mode**: each process believes it is
+the lone rank 0, the four "ranks" can't communicate, each does an
+independent search, and only one rank's output survives. SCRAPS now
+detects this and prints a loud warning at startup, but the cleanest
+fix is to launch with the matching mpirun:
+
+```bash
+/opt/homebrew/bin/mpirun -np 4 SCRAPs/scraps     # macOS Homebrew
+```
+
+`tools/run_sqs.py` and the pytest suite auto-resolve the right
+`mpirun` by looking for it next to the `mpic++` from `build.sh`
+(controlled by the `MPICXX` env var) before falling back to PATH.
+
 ## INPUT file format
 
 All upstream keywords are unchanged. New directives:

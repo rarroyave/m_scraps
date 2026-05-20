@@ -81,8 +81,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--scraps", type=Path,
                    default=REPO_ROOT / "SCRAPs" / "scraps",
                    help="Path to scraps binary")
-    p.add_argument("--mpirun", type=str, default="mpirun",
-                   help="mpirun executable (default mpirun)")
+    p.add_argument("--mpirun", type=str, default=None,
+                   help="mpirun executable (default: sibling of mpic++ used in build.sh, "
+                        "then $MPIRUN, then PATH `mpirun`). PATH-resolved `mpirun` is unsafe "
+                        "when multiple MPIs are installed -- mixing (e.g.) MPICH's Hydra "
+                        "with an Open-MPI-linked scraps gives silent singleton fallback.")
     p.add_argument("--dry-run", action="store_true",
                    help="Generate the work directory and INPUT but skip mpirun")
     return p.parse_args()
@@ -253,6 +256,14 @@ def main() -> int:
         print(f"  (dry run; INPUT and POSCAR are in {args.work_dir})")
         return 0
 
+    if args.mpirun is None:
+        # Same resolution as tools/tests/test_scraps_optimization.py
+        mpirun = os.environ.get("MPIRUN")
+        if not mpirun or not Path(mpirun).exists():
+            mpicxx = os.environ.get("MPICXX", "/opt/homebrew/bin/mpic++")
+            sibling = Path(mpicxx).parent / "mpirun"
+            mpirun = str(sibling) if sibling.exists() else (shutil.which("mpirun") or "mpirun")
+        args.mpirun = mpirun
     cmd = [args.mpirun, "-np", str(args.ranks), "./scraps"]
     print(f"Step 3/3: {' '.join(cmd)}  (cwd={args.work_dir})")
     t0 = time.time()

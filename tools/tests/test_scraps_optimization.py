@@ -32,11 +32,35 @@ REPO = Path(__file__).resolve().parent.parent.parent
 SCRAPS_BIN = REPO / "SCRAPs" / "scraps"
 TOOLS = REPO / "tools"
 VERIFY = TOOLS / "verify_sro.py"
-MPIRUN = "mpirun"  # rely on PATH; macOS installs at /opt/homebrew/bin/mpirun
+
+
+def find_mpirun() -> str | None:
+    """Find the mpirun matching the MPI used to build scraps.
+
+    PATH-first `mpirun` is wrong when multiple MPIs are installed (a
+    common case on macOS: anaconda ships MPICH's Hydra mpirun, while
+    SCRAPS may be built against Homebrew's Open MPI). Mixing them gives
+    silent singleton fallback. Prefer:
+      1. $MPIRUN env var
+      2. sibling of the mpic++ used in build.sh (default
+         /opt/homebrew/bin/mpic++ on macOS, mpic++ on PATH on Linux)
+      3. PATH `mpirun` (last resort)
+    """
+    if env := os.environ.get("MPIRUN"):
+        if Path(env).exists():
+            return env
+    mpicxx = os.environ.get("MPICXX", "/opt/homebrew/bin/mpic++")
+    sibling = Path(mpicxx).parent / "mpirun"
+    if sibling.exists():
+        return str(sibling)
+    return shutil.which("mpirun")
+
+
+MPIRUN = find_mpirun()
 
 pytestmark = pytest.mark.skipif(
-    not SCRAPS_BIN.exists() or shutil.which(MPIRUN) is None,
-    reason="scraps binary not built or mpirun not on PATH",
+    not SCRAPS_BIN.exists() or MPIRUN is None,
+    reason="scraps binary not built or no mpirun found",
 )
 
 

@@ -44,6 +44,7 @@ THE SOFTWARE.
 #include <mpi.h>
 #include <math.h>
 #include <unistd.h>
+#include <cstdlib>
 
 // Process-level RNG seed base for reproducibility. Set in main()
 // from inputfile.rngSeed (xor'd with rank). All thread-local RNGs
@@ -721,6 +722,36 @@ int main(int argc, char ** argv)
     MPI_Init(&argc,&argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);  // get number of total nodes
     MPI_Comm_rank(MPI_COMM_WORLD, &id); // get id of mynode
+
+    // Singleton-mode detection: if this process reports nproc == 1 but
+    // the OMPI bootstrap env vars say more were spawned, we're running
+    // as one of N silently-uncoordinated singletons (typical when the
+    // user launched via a mpirun from a *different* MPI than the one
+    // SCRAPS was linked against -- e.g. anaconda's MPICH Hydra mpirun
+    // with a SCRAPS built against Homebrew Open MPI). Each "rank" then
+    // runs an independent search, the final SCRAPS.vasp is whichever
+    // process writes last, and all but one rank's compute is wasted.
+    // Print a loud, one-shot warning so the user can fix the launcher.
+    if (nproc == 1) {
+        const char *ompi_size = getenv("OMPI_COMM_WORLD_SIZE");
+        const char *pmi_size = getenv("PMI_SIZE");
+        const char *expected = ompi_size ? ompi_size : pmi_size;
+        if (expected && std::atoi(expected) > 1) {
+            std::cout << "==================================================\n"
+                      << "WARNING: SCRAPS is running in SINGLETON MODE.\n"
+                      << "  This process reports nproc=1 but the launcher\n"
+                      << "  spawned " << expected << " processes. They cannot\n"
+                      << "  communicate via MPI -- each is doing an\n"
+                      << "  independent search; only one's output is kept.\n"
+                      << "  Likely cause: SCRAPS was built against one MPI\n"
+                      << "  (e.g. Homebrew Open MPI) and launched with a\n"
+                      << "  different mpirun (e.g. anaconda's MPICH Hydra).\n"
+                      << "  Fix: use the mpirun shipped with the same MPI\n"
+                      << "  as the mpic++ in build.sh. On Homebrew macOS\n"
+                      << "  that is /opt/homebrew/bin/mpirun.\n"
+                      << "==================================================" << std::endl;
+        }
+    }
 
     // Reproducibility: if RNG_SEED was set in INPUT, derive a per-rank
     // seed and stash it in the file-scope `g_rng_seed_base` that
