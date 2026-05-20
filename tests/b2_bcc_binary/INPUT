@@ -1,0 +1,28 @@
+TYP     2
+GITER   1000
+ELEMENT 64 64
+Cell_DIM        4 4 4
+NESTS   24
+MCSTEP  100
+AUTO_MCSTEP 10
+TOTALIter 30
+MAXSHELLNUM 2
+WEIGHT 1 1
+EARLY_STOP_PATIENCE 5
+EARLY_STOP_TOL 1e-6
+
+# B2 (CsCl) ordering target on BCC 4x4x4 = 128 atoms.
+# Species: 0 = A, 1 = B.
+#
+# Warren-Cowley signature of B2:
+#   shell 0 (NN, z=8): all unlike pairs (A's NN are all B and vice versa)
+#                      -> alpha_AB = 1 - P(B|A)/c_B = 1 - 1/0.5 = -1
+#   shell 1 (2NN, z=6): all like pairs (A's 2NN are all A; same sublattice)
+#                      -> alpha_AB = 1 - 0/0.5 = +1
+#
+# Targeting both shells locks in B2 uniquely. Targeting only shell 0
+# would also work since maximally-ordered NN for 50:50 BCC is unique
+# (up to A<->B swap), but two-shell targeting helps the optimizer
+# escape near-B2 antiphase boundaries faster.
+SRO 0 1 0 -1.0
+SRO 0 1 1 +1.0
