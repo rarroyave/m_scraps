@@ -43,6 +43,7 @@ THE SOFTWARE.
 #include "readInput.hpp"
 #include <mpi.h>
 #include <math.h>
+#include <unistd.h>
 
 // Process-level RNG seed base for reproducibility. Set in main()
 // from inputfile.rngSeed (xor'd with rank). All thread-local RNGs
@@ -1010,11 +1011,28 @@ int main(int argc, char ** argv)
     std::ofstream conv_log;
     auto t_loop_start = std::chrono::high_resolution_clock::now();
     if (id == 0 && !inputfile.convergenceLog.empty()) {
-        conv_log.open(inputfile.convergenceLog);
+        // On systems where MPI launches multiple singletons (each
+        // believing it is the lone rank 0 -- common with Open MPI on
+        // macOS when PMIx isn't available), opening a single shared
+        // log path would race-and-interleave across processes. When
+        // we detect singleton mode (nproc_world == 1) we suffix the
+        // log filename with the OS PID so each process writes its
+        // own clean trajectory. In real multi-rank MPI mode, only
+        // rank 0 reaches this block and writes the canonical path.
+        int nproc_world = 0;
+        MPI_Comm_size(MPI_COMM_WORLD, &nproc_world);
+        std::string log_path = inputfile.convergenceLog;
+        if (nproc_world == 1) {
+            log_path += "." + std::to_string(getpid());
+        }
+        conv_log.open(log_path);
         conv_log << "iteration,best_fitness,wall_seconds" << std::endl;
         // Record the pre-MC starting point (iteration -1) for the random
-        // baseline comparison.
-        conv_log << -1 << "," << error << "," << 0.0 << std::endl;
+        // baseline comparison. Use fitness[0] (best of rank-0's random
+        // pool after the initial fitnessofnests+get_best_nest sort) --
+        // not `error`, which is still INT_MAX at this point (only
+        // updated inside the MC loop).
+        conv_log << -1 << "," << fitness[0] << "," << 0.0 << std::endl;
     }
 
     // Ablation / baseline mode: skip the entire MC loop and return the

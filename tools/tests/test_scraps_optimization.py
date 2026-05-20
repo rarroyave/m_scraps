@@ -315,6 +315,103 @@ def test_spectator_heb_runs_and_alpha_excludes_b(tmp_path):
     assert out["fitness"] < 0.5, f"fitness too high: {out['fitness']}"
 
 
+def _read_conv(work_dir: Path, base_name: str = "conv.csv") -> list[tuple[int, float]]:
+    """Return list of (iteration, best_fitness) tuples from any
+    convergence log under work_dir. Handles both the real-MPI case
+    (single file named base_name) and the macOS singleton case
+    (multiple files base_name.<pid> -- pick the longest trajectory)."""
+    candidates = list(work_dir.glob(f"{base_name}*"))
+    assert candidates, f"no convergence log found in {work_dir}"
+    best_rows = None
+    for p in candidates:
+        lines = p.read_text().strip().splitlines()
+        if not lines or not lines[0].startswith("iteration"):
+            continue
+        rows = []
+        for line in lines[1:]:
+            parts = line.split(",")
+            if len(parts) < 2:
+                continue
+            try:
+                rows.append((int(parts[0]), float(parts[1])))
+            except ValueError:
+                continue
+        if best_rows is None or len(rows) > len(best_rows):
+            best_rows = rows
+    assert best_rows, f"no parseable rows in any of {candidates}"
+    return best_rows
+
+
+def test_convergence_is_monotone_nonincreasing(tmp_path):
+    """Verify the cuckoo-search MC trajectory descends, not stumbles.
+
+    Runs the infeasible-plateau case (25:50:25 n=108) with
+    CONVERGENCE_LOG, parses the per-iteration best fitness, and
+    asserts it monotonically decreases (or stays the same) from one
+    outer iteration to the next.
+
+    A small epsilon allows for the ε-band stochastic acceptance in
+    empty_nests, which can transiently move to an equal-fitness
+    neighbor. But a true increase by more than `tol` would mean the
+    optimizer is going backwards -- not what a descent search should
+    do.
+    """
+    inp = textwrap.dedent("""\
+        TYP     3
+        GITER   1000
+        ELEMENT 27 54 27
+        Cell_DIM        3 3 3
+        NESTS   12
+        MCSTEP  100
+        AUTO_MCSTEP 7
+        TOTALIter 15
+        MAXSHELLNUM 2
+        WEIGHT 1 1
+        RNG_SEED 12345
+        EARLY_STOP_PATIENCE 100
+        CONVERGENCE_LOG conv.csv
+        """)
+    out = run_scraps(tmp_path, FCC_POSCAR, inp)
+    rows = _read_conv(tmp_path)
+    fitnesses = [f for _, f in rows]
+    assert len(fitnesses) >= 3, f"too few iterations: {len(fitnesses)}"
+    tol = 1e-6
+    for prev, curr in zip(fitnesses, fitnesses[1:]):
+        assert curr <= prev + tol, (
+            f"fitness went UP: {prev} -> {curr} (delta = {curr - prev}). "
+            f"Full trajectory: {fitnesses}")
+    assert fitnesses[-1] < fitnesses[0], (
+        f"no progress: initial {fitnesses[0]} == final {fitnesses[-1]}")
+
+
+def test_convergence_log_records_pre_mc_baseline(tmp_path):
+    """The convergence CSV's iteration=-1 row is the pre-MC best of the
+    initial random pool. Confirms the baseline anchor exists and that
+    SCRAPS' MC drove the fitness below it."""
+    inp = textwrap.dedent("""\
+        TYP     2
+        GITER   1000
+        ELEMENT 16 16
+        Cell_DIM        2 2 2
+        NESTS   12
+        MCSTEP  100
+        AUTO_MCSTEP 7
+        TOTALIter 10
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 12345
+        CONVERGENCE_LOG conv.csv
+        """)
+    out = run_scraps(tmp_path, FCC_POSCAR, inp)
+    rows = _read_conv(tmp_path)
+    iters = [i for i, _ in rows]
+    fitnesses = [f for _, f in rows]
+    assert iters[0] == -1, f"expected iter -1 first, got {iters[0]}"
+    assert fitnesses[-1] <= fitnesses[0], (
+        "SCRAPS final not <= pre-MC baseline: "
+        f"baseline={fitnesses[0]}, final={fitnesses[-1]}")
+
+
 def test_random_only_skips_mc_loop(tmp_path):
     """RANDOM_ONLY 1 should print the skip message and never print a
     'FITNESS - >' line (which only appears inside the MC loop)."""
