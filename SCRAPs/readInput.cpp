@@ -39,6 +39,7 @@ THE SOFTWARE.
 #include <cctype>
 #include <cstdlib>
 #include <cmath>
+#include <set>
 #include <mpi.h>
 
 using namespace std;
@@ -232,6 +233,28 @@ void readInput::readPOSCAR()
 }
 
 
+// Centralized abort used by both POSCAR and INPUT validation. Same
+// MPI-aware error path as poscar_abort, but with an INPUT prefix.
+namespace {
+[[noreturn]] void input_abort(const std::string &msg) {
+    std::cout << "ERROR: INPUT: " << msg << std::endl;
+    MPI_Abort(MPI_COMM_WORLD, 1);
+    std::exit(1);
+}
+
+// Recognized INPUT keywords. Anything else (other than blank lines and
+// '#' comments) is logged as a warning so users get a chance to notice
+// typos like EARLY_STOP_PATEINCE.
+const std::set<std::string> KNOWN_KEYS = {
+    "TYP", "GITER", "ELEMENT", "CELL_DIM", "NESTS", "MCSTEP",
+    "TOTALITER", "MAXSHELLNUM", "WEIGHT", "SRO",
+    "AUTO_MCSTEP", "RNG_SEED", "RANDOM_ONLY", "CONVERGENCE_LOG",
+    "FAST_SWAPS", "TARGETED_SWAPS", "TARGETED_SWAP_PROB",
+    "EARLY_STOP_PATIENCE", "EARLY_STOP_TOL",
+    "SPECTATOR_BASIS_SPECIES",
+};
+}  // namespace
+
 void readInput::input() {
     stringstream ss;
     string line, key;
@@ -243,6 +266,17 @@ void readInput::input() {
     if (inp.is_open()) {
         while (inp.good()) {
             getline(inp, line);
+            // Skip blank lines and '#' comments before doing anything --
+            // they would otherwise trigger the unrecognized-keyword warning.
+            {
+                std::size_t first_non_ws = line.find_first_not_of(" \t");
+                if (first_non_ws == std::string::npos) {
+                    continue;  // blank line
+                }
+                if (line[first_non_ws] == '#') {
+                    continue;  // full-line comment
+                }
+            }
             ss.str(line);
             // Clear `key` before each extraction. Without this, an empty
             // line at end-of-file (where getline returns "" but inp.good()
@@ -252,6 +286,10 @@ void readInput::input() {
             key.clear();
             ss >> key;
             transform(key.begin(), key.end(), key.begin(), ::toupper);
+            if (!key.empty() && KNOWN_KEYS.count(key) == 0) {
+                std::cout << "Warning: unrecognized INPUT keyword \""
+                          << key << "\" (line ignored)" << std::endl;
+            }
             if(key.compare("TYP") == 0)
             {
                 ss >> typeofatoms;
@@ -368,6 +406,52 @@ void readInput::input() {
 
         std::cout << " INPUT FILE DOES NOT EXIST " << endl;
         return;
+    }
+
+    // ---- Required-keyword and value-range validation ----
+    // Catches "I forgot to write TYP" / "NESTS got read as 0 because the
+    // value field was missing" failure modes that previously gave silent
+    // optimizer misbehavior. Aborts via MPI_Abort + clear message rather
+    // than crashing with a vector index OOB later.
+    auto require_positive = [](int v, const char *name) {
+        if (v < 1) {
+            input_abort(std::string("keyword ") + name
+                        + " missing or non-positive (got " + std::to_string(v)
+                        + "); required to start optimization.");
+        }
+    };
+    require_positive(typeofatoms, "TYP");
+    require_positive(num_of_nests, "NESTS");
+    require_positive(MCiter, "MCSTEP");
+    require_positive(iterTotal, "TOTALIter");
+    require_positive(num_of_shells, "MAXSHELLNUM");
+    if ((int) eachElement.size() != typeofatoms) {
+        input_abort("ELEMENT lists " + std::to_string(eachElement.size())
+                    + " counts but TYP says " + std::to_string(typeofatoms)
+                    + " species; counts must match TYP.");
+    }
+    if (cell_dim.size() != 3) {
+        input_abort("Cell_DIM must have exactly 3 integers; got "
+                    + std::to_string(cell_dim.size()) + ".");
+    }
+    for (std::size_t i = 0; i < cell_dim.size(); ++i) {
+        if (cell_dim[i] < 1) {
+            input_abort("Cell_DIM[" + std::to_string(i) + "] = "
+                        + std::to_string(cell_dim[i])
+                        + "; all dimensions must be >= 1.");
+        }
+    }
+    if ((int) weights.size() < num_of_shells) {
+        input_abort("WEIGHT has " + std::to_string(weights.size())
+                    + " entries but MAXSHELLNUM = " + std::to_string(num_of_shells)
+                    + "; need at least MAXSHELLNUM weights.");
+    }
+    for (std::size_t i = 0; i < weights.size(); ++i) {
+        if (weights[i] < 0.0) {
+            input_abort("WEIGHT[" + std::to_string(i) + "] = "
+                        + std::to_string(weights[i])
+                        + " is negative; weights must be >= 0.");
+        }
     }
 
     // Resolve spectator-sublattice configuration. Build fast-lookup sets for

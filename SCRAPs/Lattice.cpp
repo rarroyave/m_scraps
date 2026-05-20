@@ -187,35 +187,15 @@ double Lattice::imageDistance(point3d latpoint1, point3d latpoint2)
     realdis = realdisp(0)*realdisp(0) + realdisp(1)*realdisp(1) + realdisp(2)*realdisp(2);
     return sqrt(realdis);
 }
-unordered_map<int, int> Lattice::removedublicates(vector<double> temp)
-{
-    std::vector<double>::iterator it;
-    unordered_map<int, int> disttoshell;
-    int shell = 0;
-    vector<double> new_temp;
-    double prev, curr;
-    int len = temp.size();
-    prev = temp[0];
-    disttoshell[prev] = 0;
-    if(len < 2)
-        return disttoshell;
-    new_temp.push_back(prev);
-    for (it = temp.begin() + 1; it != temp.end(); it++) {
-        curr = *it;
-        if(fabs(curr - prev) < 0.01)
-        {
-            disttoshell[int(100*curr)] = shell;
-            continue;
-        }
-        else
-        {
-            shell += 1;
-            prev = curr;
-        }
-          //  cout << curr << "  -- shell -- " << shell << endl;
-    }
-    return disttoshell;
-}
+
+// removedublicates(): a per-atom shell-distance deduplicator that was
+// used by the original neighbourMatrix() (one call per atom inside an
+// O(N^2) loop). It conflated near-identical floating-point distances via
+// a lossy int(100*d) hash, which gave the same physical neighbor
+// different shell indices on different atoms (bug #6 in the fork notes;
+// fixed by switching to global shell numbering in 4f2172b). The function
+// is no longer called from anywhere; deleted along with its declaration
+// in Lattice.hpp.
 
 vector<vector<double>> Lattice::distanceMatrix(){
         int latticeSites = supercell.size();

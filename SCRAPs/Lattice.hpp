@@ -120,7 +120,6 @@ public:
     double mindist();
     int neighmax();
     double imageDistance(point3d latpoint1, point3d latpoint2);
-    unordered_map<int, int> removedublicates(vector<double> temp);
     vector<vector<int>> maxneighbourspershell;  // [atom_index][shell]
     vector<vector<int>> numneighofeachshell();
     // Per-shell coordination number, derived from maxneighbourspershell.
