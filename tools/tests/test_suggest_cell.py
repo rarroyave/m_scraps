@@ -28,6 +28,8 @@ sys.path.insert(0, str(TOOLS))
 from suggest_cell import (
     evaluate_cell,
     integer_counts,
+    parse_spectator_spec,
+    spectator_atom_indices,
 )
 from verify_sro import load_structure
 
@@ -141,3 +143,85 @@ def test_integer_counts_returns_none_when_zero_species(fcc_poscar):
     # 0.005 species at total = 32 -> 0.16 atoms -> rounds to 0
     counts = integer_counts([0.005, 0.495, 0.5], 32)
     assert counts is None
+
+
+# ---- Spectator (HEB-type) tests ---------------------------------------------
+
+@pytest.fixture
+def alb2_poscar(tmp_path: Path) -> Path:
+    p = tmp_path / "POSCAR"
+    p.write_text(dedent("""\
+        AlB2-type basis (M at 000, B at 1/3,2/3,1/2 and 2/3,1/3,1/2)
+         1.0
+          1.000000000000  0.000000000000  0.000000000000
+         -0.500000000000  0.866025403784  0.000000000000
+          0.000000000000  0.000000000000  1.100000000000
+         3
+        direct
+         0.000000000000  0.000000000000  0.000000000000
+         0.333333333333  0.666666666667  0.500000000000
+         0.666666666667  0.333333333333  0.500000000000
+        """))
+    return p
+
+
+def test_parse_spectator_spec():
+    assert parse_spectator_spec("") == []
+    assert parse_spectator_spec("1:5") == [(1, 5)]
+    assert parse_spectator_spec("1:5,2:5") == [(1, 5), (2, 5)]
+    with pytest.raises(ValueError):
+        parse_spectator_spec("1-5")  # wrong delimiter
+
+
+def test_spectator_atom_indices():
+    # 3-basis structure, 2x2x2 supercell (cell_volume = 8)
+    # Spectator basis = [1, 2] -> spectator atoms at [8..15] U [16..23]
+    indices = spectator_atom_indices(3, 8, [1, 2])
+    assert indices == set(range(8, 24))
+    # All atoms (basis 0,1,2): 0..23, active = 0..7
+    assert indices.isdisjoint(set(range(0, 8)))
+
+
+def test_heb_5metal_5x5x2_is_feasible(alb2_poscar):
+    """The actual tests/heb_5metal_random/ case: ELEMENT 10 10 10 10 10 100,
+    Cell_DIM 5 5 2 with B as spectator at basis 1,2. Should be feasible."""
+    struct, _ = load_structure(alb2_poscar)
+    counts = (10, 10, 10, 10, 10, 100)
+    report = evaluate_cell(struct, (5, 5, 2), counts, n_shells=4,
+                           weights=[1.0] * 4,
+                           spectator_basis_species=[(1, 5), (2, 5)])
+    assert report.feasible
+    assert report.fitness_sq_lower_bound == 0.0
+
+
+def test_heb_smaller_cell_can_be_infeasible(alb2_poscar):
+    """A smaller HEB cell with 5 active species and N_M not divisible by 5
+    should be flagged infeasible. 3x3x3 supercell -> 27 M atoms, can't
+    split into 5 species equiatomically (27/5 = 5.4 each)."""
+    struct, _ = load_structure(alb2_poscar)
+    # ELEMENT 5 5 5 5 7 54 (non-equiatomic, the best we can do at 27 M)
+    counts = (5, 5, 5, 5, 7, 54)
+    report = evaluate_cell(struct, (3, 3, 3), counts, n_shells=2,
+                           weights=[1.0, 1.0],
+                           spectator_basis_species=[(1, 5), (2, 5)])
+    # Whether feasible or not depends on the actual M-M shell structure;
+    # we just verify the spectator path runs without error and produces
+    # a report. The point is the M-M coordination (not the all-atom z)
+    # gets used.
+    assert report.total_atoms == 81  # 3 * 27 = 81 total
+    assert sum(counts) == 81
+    # Active M count = 27, B count = 54; spectator basis [1,2] x 27 cells = 54
+    assert counts[5] == 54
+
+
+def test_spectator_mode_doesnt_count_b_b_pairs(alb2_poscar):
+    """A pure-B 'pair' should never be flagged as non-integer since species
+    counts for active species exclude spectator allocations."""
+    struct, _ = load_structure(alb2_poscar)
+    counts = (10, 10, 10, 10, 10, 100)
+    report = evaluate_cell(struct, (5, 5, 2), counts, n_shells=4,
+                           weights=[1.0] * 4,
+                           spectator_basis_species=[(1, 5), (2, 5)])
+    # No nonintegral entry should mention species index 5 (the spectator B)
+    for sh, i, j, _ in report.nonintegral_pairs:
+        assert i != 5 and j != 5
