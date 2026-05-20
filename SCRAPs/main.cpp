@@ -55,6 +55,12 @@ static unsigned long g_rng_seed_base = 0;
 // from inputfile.fastSwaps. When true, empty_nests dispatches to
 // empty_nests_fast at the top.
 static bool g_fast_swaps = true;
+// Process-level controls for targeted (residual-biased) swap proposals.
+// When g_targeted_swaps is true, empty_nests_fast proposes
+// g_targeted_swap_prob of swaps biased toward the species pair (i,j,k)
+// with the largest residual^2; the rest stay uniform-random.
+static bool g_targeted_swaps = false;
+static double g_targeted_swap_prob = 0.7;
 
 // Forward decl so empty_nests can dispatch to it.
 int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
@@ -509,16 +515,84 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
     vector<vector<vector<double>>> pairGr(_typesatoms,
         vector<vector<double>>(_typesatoms, vector<double>(max_num_neighs, 0.0)));
 
+    // For targeted swap proposals: maintain per-species atom lists with
+    // O(1) swap-remove (atom_pos[idx] points into species_atoms[species]).
+    vector<vector<int>> species_atoms(_typesatoms);
+    vector<int> atom_pos(n_atoms, -1);
+    std::uniform_real_distribution<double> dis_real(0.0, 1.0);
+
     for (int i = 0; i < (int) _nests.size(); i++) {
         vector<int> currnest = _nests[i];
         build_pairGr_full(currnest, pairGr);
         double oldFitness = fitness_from_pairGr(pairGr);
         origfitness[i] = oldFitness;
 
-        // Scratch buffer for proposed-swap pairGr (avoids alloc inside loop)
+        // (Re)build species_atoms for this nest. Cheap O(N) once per cuckoo.
+        for (auto &v : species_atoms) v.clear();
+        for (int idx = 0; idx < n_atoms; idx++) {
+            if (initialPlacement[idx] >= 0) continue;
+            atom_pos[idx] = (int) species_atoms[currnest[idx]].size();
+            species_atoms[currnest[idx]].push_back(idx);
+        }
+
         for (int step = 0; step < iter; step++) {
-            int a = dis(gen_f);
-            int b = dis(gen_f);
+            int a, b;
+            bool use_targeted = g_targeted_swaps
+                && dis_real(gen_f) < g_targeted_swap_prob;
+            if (use_targeted) {
+                // Pick (i, j, k) with prob ~ w_k * (pairGr - expected)^2.
+                // Falls back to uniform if no non-zero residual exists yet.
+                double total_score = 0.0;
+                for (int k = 0; k < max_num_neighs; k++) {
+                    double w = (k < (int) weights.size()) ? weights[k] : 1.0;
+                    if (w == 0.0) continue;
+                    for (int p = 0; p < _typesatoms; p++) {
+                        if (species_atoms[p].empty()) continue;
+                        for (int q = 0; q < _typesatoms; q++) {
+                            if (p == q) continue;
+                            if (species_atoms[q].empty()) continue;
+                            double r = pairGr[p][q][k] - expected[p][q][k];
+                            total_score += w * r * r;
+                        }
+                    }
+                }
+                if (total_score > 0.0) {
+                    double pick = dis_real(gen_f) * total_score;
+                    double acc = 0.0;
+                    int chosen_p = -1, chosen_q = -1;
+                    for (int k = 0; k < max_num_neighs && chosen_p < 0; k++) {
+                        double w = (k < (int) weights.size()) ? weights[k] : 1.0;
+                        if (w == 0.0) continue;
+                        for (int p = 0; p < _typesatoms && chosen_p < 0; p++) {
+                            if (species_atoms[p].empty()) continue;
+                            for (int q = 0; q < _typesatoms; q++) {
+                                if (p == q) continue;
+                                if (species_atoms[q].empty()) continue;
+                                double r = pairGr[p][q][k] - expected[p][q][k];
+                                acc += w * r * r;
+                                if (acc >= pick) {
+                                    chosen_p = p; chosen_q = q;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (chosen_p >= 0 && chosen_q >= 0) {
+                        a = species_atoms[chosen_p][
+                            std::uniform_int_distribution<>(0, (int)species_atoms[chosen_p].size() - 1)(gen_f)];
+                        b = species_atoms[chosen_q][
+                            std::uniform_int_distribution<>(0, (int)species_atoms[chosen_q].size() - 1)(gen_f)];
+                    } else {
+                        a = dis(gen_f); b = dis(gen_f);
+                    }
+                } else {
+                    // Already at zero residual everywhere; nothing to bias.
+                    a = dis(gen_f); b = dis(gen_f);
+                }
+            } else {
+                a = dis(gen_f);
+                b = dis(gen_f);
+            }
             if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) continue;
             int sa = currnest[a], sb = currnest[b];
             if (sa == sb) continue;
@@ -556,6 +630,28 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
             }
 
             if (accept) {
+                // Update species_atoms via swap-remove. After the swap,
+                // atom a has species sb and atom b has species sa.
+                if (g_targeted_swaps) {
+                    auto remove_from = [&](int s, int idx) {
+                        int pos = atom_pos[idx];
+                        int last = (int) species_atoms[s].size() - 1;
+                        if (pos != last) {
+                            species_atoms[s][pos] = species_atoms[s][last];
+                            atom_pos[species_atoms[s][pos]] = pos;
+                        }
+                        species_atoms[s].pop_back();
+                        atom_pos[idx] = -1;
+                    };
+                    auto add_to = [&](int s, int idx) {
+                        atom_pos[idx] = (int) species_atoms[s].size();
+                        species_atoms[s].push_back(idx);
+                    };
+                    remove_from(sa, a);
+                    remove_from(sb, b);
+                    add_to(sb, a);
+                    add_to(sa, b);
+                }
                 currnest[a] = sb;
                 currnest[b] = sa;
                 oldFitness = newFitness;
@@ -768,6 +864,18 @@ int main(int argc, char ** argv)
     g_fast_swaps = (inputfile.fastSwaps != 0);
     if (id == 0 && !g_fast_swaps) {
         std::cout << "FAST_SWAPS=0: using legacy full-recompute MC path" << std::endl;
+    }
+    g_targeted_swaps = (inputfile.targetedSwaps != 0);
+    g_targeted_swap_prob = inputfile.targetedSwapProb;
+    if (id == 0 && g_targeted_swaps) {
+        std::cout << "TARGETED_SWAPS=1 (bias prob = " << g_targeted_swap_prob
+                  << "): proposing biased swaps for the worst-residual species pair"
+                  << std::endl;
+        std::cout << "  NOTE: uniform-random swap proposal already converges fast on most"
+                     "\n  test cases; targeted swaps may add overhead without speedup."
+                     "\n  Recommended only for very large supercells or complex multi-pair"
+                     "\n  SRO targets where uniform random struggles to find improving swaps."
+                  << std::endl;
     }
 
 //  *****READ INPUT FROM "INPUT" and "POSCAR" FILES******

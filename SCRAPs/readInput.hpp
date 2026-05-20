@@ -92,6 +92,16 @@ public:
     // optimization. Default 1 (on); set 0 to use the legacy
     // recompute-each-swap path for direct A/B comparison.
     int fastSwaps;
+    // Targeted swap proposals: with probability targetedSwapProb, propose
+    // swaps biased toward the species pair (i, j, shell k) with the
+    // largest residual^2, instead of fully uniform-random atom pairs.
+    // The remaining fraction stays uniform-random for exploration.
+    // Default off (0) -- preserves the existing optimization trajectory
+    // and lets you A/B benchmark the win on your workload. Set
+    // targetedSwaps=1 to enable; targetedSwapProb tunes the bias level
+    // (0.0 = pure random, 1.0 = pure greedy).
+    int targetedSwaps;
+    double targetedSwapProb;
     // Per-pair, per-shell Warren-Cowley SRO targets: targetSROpair[i][j][shell].
     // Defaults to all zeros (random / SQS) when no SRO lines appear in INPUT.
     // Populated by readInput::input() after TYP and MAXSHELLNUM are known.

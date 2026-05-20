@@ -83,6 +83,23 @@ consecutive outer iterations. Default 0 = disabled (run to TOTALIter).
 Use `patience=3` for typical SQS runs; `patience=5` for harder cases
 where you want a few extra iterations to confirm a plateau.
 
+`FAST_SWAPS`, `TARGETED_SWAPS`, `TARGETED_SWAP_PROB`: MC-loop tuning.
+- `FAST_SWAPS 1` (default) uses the delta-fitness MC path: maintain
+  `pairGr` as state across swaps and apply an O(z) delta per proposal
+  instead of recomputing the full O(N·z) fitness. 2-18× speedup on
+  loop-bound cases, identical convergence to legacy. Set 0 for the
+  legacy full-recompute path (kept for A/B comparison).
+- `TARGETED_SWAPS 1` biases swap proposals toward the species pair
+  (i, j, shell k) with the largest residual², instead of always
+  uniform-random atom pairs. Off by default: on the test cases we
+  measured (binary/ternary SQS, B2/L1₂/L1₀/D0₃/L1₁ ordered targets,
+  cell sizes up to n=500) uniform-random already converges fast and
+  the bias adds overhead without speedup. May help on very large
+  supercells or complex multi-pair SRO targets where uniform random
+  struggles to find improving swaps. `TARGETED_SWAP_PROB <0.0-1.0>`
+  controls the bias level (default 0.7 = 70% targeted, 30% uniform
+  for exploration).
+
 `RNG_SEED`, `RANDOM_ONLY`, `CONVERGENCE_LOG`: reproducibility and
 ablation knobs.
 - `RNG_SEED <n>` sets the RNG; per-rank seeds are derived as `n XOR

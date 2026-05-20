@@ -44,7 +44,7 @@ readInput::readInput()
       iterTotal(0), num_of_shells(0),
       earlyStopPatience(0), earlyStopTol(1e-6), autoMcstepFactor(0),
       rngSeed(0), randomOnly(0), convergenceLog(""),
-      fastSwaps(1),
+      fastSwaps(1), targetedSwaps(0), targetedSwapProb(0.7),
       totalatoms(0)
 {
     input();
@@ -251,6 +251,14 @@ void readInput::input() {
             if(key.compare("FAST_SWAPS") == 0)
             {
                 ss >> fastSwaps;
+            }
+            if(key.compare("TARGETED_SWAPS") == 0)
+            {
+                ss >> targetedSwaps;
+            }
+            if(key.compare("TARGETED_SWAP_PROB") == 0)
+            {
+                ss >> targetedSwapProb;
             }
             if(key.compare("EARLY_STOP_PATIENCE") == 0)
             {
