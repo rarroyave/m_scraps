@@ -36,6 +36,10 @@ THE SOFTWARE.
 
 #include "readInput.hpp"
 #include  <iostream>
+#include <cctype>
+#include <cstdlib>
+#include <cmath>
+#include <mpi.h>
 
 using namespace std;
 
@@ -50,105 +54,180 @@ readInput::readInput()
     input();
     readPOSCAR();
 }
+// Defensive VASP POSCAR parser. The upstream readPOSCAR honored the
+// SCRAPS-internal POSCAR dialect (unit lattice, scale=1, single count
+// line, no species labels, "direct" keyword treated as Cartesian) but
+// silently mis-read any of the standard VASP variants. This rewrite
+// handles the full POSCAR spec we care about:
+//
+//   line 1: comment (ignored)
+//   line 2: scale factor (positive multiplier; negative = target volume)
+//   line 3-5: three lattice vectors
+//   line 6: OPTIONAL species labels (e.g. "Ni Co Cr") -- detected by
+//           failure of int-parse on the first token
+//   line 6 or 7: per-species counts ("36" or "36 36 36" -- summed)
+//   OPTIONAL line: "Selective dynamics" (presence detected by leading
+//           S/s); skipped along with the per-atom T/F flags
+//   next line: "Direct"/"d" or "Cartesian"/"C" coordinate-type keyword
+//   next totalatoms lines: per-atom positions (x y z [T T T])
+//
+// Aborts via MPI_Abort + clear message on any malformed file rather
+// than silently producing wrong basis positions. Stores `atoms` as
+// Cartesian-Angstrom regardless of input mode.
+namespace {
+
+[[noreturn]] void poscar_abort(const std::string &msg) {
+    std::cout << "ERROR: POSCAR: " << msg << std::endl;
+    MPI_Abort(MPI_COMM_WORLD, 1);
+    std::exit(1);  // unreachable, but quiets compilers
+}
+
+bool starts_with_letter(const std::string &line, char up, char lo) {
+    for (char c : line) {
+        if (c == ' ' || c == '\t') continue;
+        return c == up || c == lo;
+    }
+    return false;
+}
+
+bool first_token_is_integer(const std::string &line) {
+    std::stringstream ss(line);
+    std::string token;
+    if (!(ss >> token)) return false;
+    if (token.empty()) return false;
+    std::size_t i = (token[0] == '+' || token[0] == '-') ? 1 : 0;
+    if (i >= token.size()) return false;
+    for (; i < token.size(); ++i) {
+        if (!std::isdigit(static_cast<unsigned char>(token[i]))) return false;
+    }
+    return true;
+}
+
+}  // namespace
+
 void readInput::readPOSCAR()
 {
     totalatoms = 0;
-    stringstream ss;
-    int linnumb = 1;
-    string line, key;
-    std::ifstream inp ("./POSCAR");
-    if (inp.is_open()) {
-        while (inp.good()) {
-            getline(inp, line);
-            ss.str(line);
-            if (linnumb == 1)
-            {
-                linnumb += 1;
-                ss.clear();
-                continue;
-            }
-            if (linnumb == 2) {
-                double scale;
-                ss >> scale;
-                if(ss.fail())
-                {
-                    cout << "POSCAR not in correct format, Provide Correct POSCAR";
-                    break;
-                
-                }
-            }
-            if (linnumb == 3)
-            {
-                double x, y, z;
-                ss >> x >> y >> z;
-                if(ss.fail())
-                {
-                    cout << "POSCAR not in correct format, Provide Correct POSCAR";
-                    break;
-                    
-                }
-                a.x = x;
-                a.y = y;
-                a.z = z;
-            }
-            if (linnumb == 4)
-            {
-                double x, y, z;
-                ss >> x >> y >> z;
-                if(ss.fail())
-                {
-                    cout << "POSCAR not in correct format, Provide Correct POSCAR";
-                    break;
-                    
-                }
-                b.x = x;
-                b.y = y;
-                b.z = z;
-            }
-            if (linnumb == 5)
-            {
-                double x, y, z;
-                ss >> x >> y >> z;
-                if(ss.fail())
-                {
-                    cout << "POSCAR not in correct format, Provide Correct POSCAR";
-                    break;
-                    
-                }
-                c.x = x;
-                c.y = y;
-                c.z = z;
-            }
-            if (linnumb == 6)
-                ss >> totalatoms;
-            
-            if (linnumb > 7 && linnumb <= 7 + totalatoms) {
-                point3d latatom;
-                double x, y, z;
-                ss >> x >> y >> z;
-                if(ss.fail())
-                {
-                    cout << "POSCAR not in correct format, Provide Correct POSCAR";
-                    break;
-                    
-                }
-                latatom.x = x;
-                latatom.y = y;
-                latatom.z = z;
-                atoms.push_back(latatom);
-                
-            }
-            if (linnumb > 7 + totalatoms)
-                break;
-            ss.clear();
-            linnumb += 1;
-        }
+    atoms.clear();
+
+    std::ifstream inp("./POSCAR");
+    if (!inp.is_open()) {
+        std::cout << " POSCAR FILE DOES NOT EXIST " << std::endl;
+        return;
     }
-    else
+    std::vector<std::string> lines;
+    std::string buf;
+    while (std::getline(inp, buf)) lines.push_back(buf);
+
+    if (lines.size() < 8) {
+        poscar_abort("file has fewer than 8 lines; need comment + scale + 3 vectors "
+                     "+ counts + coord-type + at least one atom.");
+    }
+
+    // ---- Line 2: scale factor ----
+    // Positive value = uniform multiplier on lattice vectors and (if used)
+    // Cartesian coordinates. Negative value = target |unit-cell volume|.
+    double raw_scale = 0.0;
     {
-        
-        std::cout << " POSCAR FILE DOES NOT EXIST " << endl;
-        
+        std::stringstream ss(lines[1]);
+        if (!(ss >> raw_scale)) poscar_abort("line 2 (scale factor) not a number.");
+    }
+    const bool scale_by_volume = (raw_scale < 0.0);
+
+    // ---- Lines 3-5: lattice vectors (pre-scale) ----
+    auto read_vec = [&](std::size_t li, const char *name) -> point3d {
+        std::stringstream ss(lines[li]);
+        double x, y, z;
+        if (!(ss >> x >> y >> z))
+            poscar_abort(std::string("line ") + std::to_string(li + 1)
+                         + " (" + name + " vector) not 3 numbers.");
+        return point3d(x, y, z);
+    };
+    point3d va = read_vec(2, "first lattice");
+    point3d vb = read_vec(3, "second lattice");
+    point3d vc = read_vec(4, "third lattice");
+
+    // Apply scale factor uniformly. Volume mode: solve linear_scale so the
+    // resulting lattice has |det| == |raw_scale|.
+    double linear_scale = 0.0;
+    if (scale_by_volume) {
+        const double current_vol = std::abs(
+            va.x * (vb.y * vc.z - vb.z * vc.y)
+          - va.y * (vb.x * vc.z - vb.z * vc.x)
+          + va.z * (vb.x * vc.y - vb.y * vc.x));
+        if (current_vol <= 0.0) poscar_abort("degenerate lattice (zero volume).");
+        linear_scale = std::cbrt(-raw_scale / current_vol);
+    } else {
+        linear_scale = raw_scale;
+    }
+    auto scale_vec = [linear_scale](const point3d &p) {
+        return point3d(p.x * linear_scale, p.y * linear_scale, p.z * linear_scale);
+    };
+    a = scale_vec(va);
+    b = scale_vec(vb);
+    c = scale_vec(vc);
+
+    // ---- Line 6: either species labels (string tokens) or counts (ints) ----
+    std::size_t counts_line = 5;
+    if (!first_token_is_integer(lines[5])) {
+        counts_line = 6;
+        if (counts_line >= lines.size())
+            poscar_abort("species label line present but counts line missing.");
+    }
+    {
+        std::stringstream ss(lines[counts_line]);
+        int n;
+        bool any = false;
+        while (ss >> n) {
+            if (n < 0) poscar_abort("negative atom count.");
+            totalatoms += n;
+            any = true;
+        }
+        if (!any) poscar_abort("counts line had no integers.");
+    }
+    std::size_t cursor = counts_line + 1;
+
+    // ---- Optional "Selective dynamics" line ----
+    if (cursor >= lines.size()) poscar_abort("file truncated before coord-type line.");
+    if (starts_with_letter(lines[cursor], 'S', 's')) {
+        cursor += 1;
+        if (cursor >= lines.size())
+            poscar_abort("file truncated after 'Selective dynamics'.");
+    }
+
+    // ---- Coordinate-type keyword (Direct / Cartesian) ----
+    const bool is_direct    = starts_with_letter(lines[cursor], 'D', 'd');
+    const bool is_cartesian = starts_with_letter(lines[cursor], 'C', 'c');
+    if (!is_direct && !is_cartesian)
+        poscar_abort("line " + std::to_string(cursor + 1)
+                     + " must start with 'D'/'d' (Direct) or 'C'/'c' (Cartesian); got: \""
+                     + lines[cursor] + "\".");
+    cursor += 1;
+
+    // ---- totalatoms position lines ----
+    for (int i = 0; i < totalatoms; ++i) {
+        if (cursor + i >= lines.size())
+            poscar_abort("file ended after " + std::to_string(i)
+                         + " of " + std::to_string(totalatoms) + " atoms.");
+        std::stringstream ss(lines[cursor + i]);
+        double x, y, z;
+        if (!(ss >> x >> y >> z))
+            poscar_abort("position line " + std::to_string(cursor + i + 1)
+                         + " not 3 numbers.");
+        // Trailing Selective-dynamics T/F flags after the coords are ignored.
+        point3d pos;
+        if (is_direct) {
+            // Fractional -> Cartesian using the post-scale lattice.
+            pos.x = x * a.x + y * b.x + z * c.x;
+            pos.y = x * a.y + y * b.y + z * c.y;
+            pos.z = x * a.z + y * b.z + z * c.z;
+        } else {
+            // VASP-Cartesian coordinates: also multiplied by the scale factor.
+            pos.x = x * linear_scale;
+            pos.y = y * linear_scale;
+            pos.z = z * linear_scale;
+        }
+        atoms.push_back(pos);
     }
 }
 

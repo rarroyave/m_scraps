@@ -133,21 +133,19 @@ def _relabel(atoms, species, counts):
 def write_scraps_poscar(atoms: Atoms, path: os.PathLike) -> None:
     """Write an ASE Atoms object as a SCRAPS-compatible POSCAR.
 
-    Two SCRAPS-specific quirks we work around:
+    SCRAPS' rewritten POSCAR parser (SCRAPs/readInput.cpp::readPOSCAR
+    as of v0.2.0+) handles full canonical VASP 5 layout -- species
+    label lines, multi-species count groups, Direct/Cartesian keyword,
+    scale factors, Selective dynamics. So writing via ASE's standard
+    `ase.io.write(..., format="vasp")` would work in principle.
 
-    1. `readPOSCAR` expects the canonical pre-VASP 5 layout where line
-       6 is the per-species *count* line, with no species-label line
-       above it. ASE's standard writer inserts the species line
-       (canonical VASP 5+), so we generate the file directly here.
-       Species labels are irrelevant for SCRAPS -- `ELEMENT` counts in
-       INPUT control the per-species occupation.
-
-    2. `readPOSCAR` does NOT honor the "direct" / "Cartesian" keyword
-       on line 7 -- it reads basis positions as the raw numbers
-       regardless. For the existing tests this is hidden because they
-       use unit lattice vectors (so fractional = Cartesian). For
-       general ASE inputs with realistic lattice parameters, we have
-       to write the basis in Cartesian explicitly.
+    We still generate the file directly here for two reasons:
+      1. Single count group with no species labels matches the existing
+         tests/ format that we lock in via pytest, keeping the test
+         POSCARs human-diffable.
+      2. We write Cartesian positions, side-stepping any future doubt
+         about Direct-keyword handling in a downstream toolchain that
+         might still embed an older SCRAPS.
     """
     path = Path(path)
     cell = atoms.get_cell()
