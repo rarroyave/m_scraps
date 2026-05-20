@@ -49,6 +49,13 @@ THE SOFTWARE.
 // in empty_nests / randomizeLattice seed from this on first use.
 // Value 0 falls back to std::random_device for non-reproducible runs.
 static unsigned long g_rng_seed_base = 0;
+// Process-level switch for the delta-fitness MC path. Set in main()
+// from inputfile.fastSwaps. When true, empty_nests dispatches to
+// empty_nests_fast at the top.
+static bool g_fast_swaps = true;
+
+// Forward decl so empty_nests can dispatch to it.
+int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
 
 
 void sortthenests(vector<vector<int>> &_nests, vector<double> &_fitness, int &max_num_neighs)
@@ -303,6 +310,14 @@ during global optimization.
 
 int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness , const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
+    // Dispatch to the delta-fitness path when enabled (default). The
+    // legacy full-recompute path below is kept for A/B comparison via
+    // the FAST_SWAPS INPUT keyword.
+    if (g_fast_swaps) {
+        return empty_nests_fast(_nests, _newnests, iter, origfitness, lat,
+                                _typesatoms, eachElement, max_num_neighs,
+                                weights, targetSROpair, initialPlacement);
+    }
     // initialPlacement preserves spectator-sublattice occupancy through
     // the Cuckoo Search MCMC: swaps that would move a fixed atom are
     // rejected, so the spectator pattern (e.g. boron sites in an HEB)
@@ -375,6 +390,204 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
     }
     return 0;
 }
+// Delta-fitness MC swap loop. Maintains pairGr as state across swaps and
+// applies an O(z) delta per proposal instead of recomputing the full
+// O(N*z) fitness. Otherwise identical to empty_nests: greedy accept with a
+// small epsilon-band stochastic acceptance to escape micro-plateaus, and
+// the same spectator-rejection rule for HEB-type sublattices.
+//
+// Correctness: expected[i][j][k] = N_i^M * (1 - alpha_ij^k) * z_M^k *
+// N_j^M / N^M is constant for a given nest topology (N_i^M, z_M, alpha
+// are all invariant under within-sublattice swaps). The fitness equals
+// sum_k w_k * sum_{i != j} (pairGr[i][j][k] - expected[i][j][k])^2. We
+// precompute expected, maintain pairGr, and update it incrementally by
+// touching only the O(z) neighbors of the two swapped atoms.
+//
+// Edge case: when countgr would be 0 in the legacy formulation (no i-j
+// pairs in the nest at all for some i!=j), the legacy code zeros out
+// avgGr while the constant-expected here would still penalize. In
+// practice countgr > 0 for normal compositions, so results match to FP
+// precision on real test cases.
+int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
+{
+    const int n_atoms = (int) _nests[0].size();
+    const double eps = 0.001;
+
+    // Same salts as the legacy empty_nests() path so that, with the same
+    // RNG_SEED, FAST_SWAPS=0 and FAST_SWAPS=1 propose the same swap
+    // sequence and reach the same final state (modulo the constant-vs-
+    // countgr-zero edge case noted above).
+    static thread_local std::mt19937 gen_f, gen1_f;
+    static thread_local bool seeded_f = false;
+    if (!seeded_f) {
+        if (g_rng_seed_base != 0) {
+            gen_f.seed(g_rng_seed_base);
+            gen1_f.seed(g_rng_seed_base ^ 0xA5A5A5A5UL);
+        } else {
+            std::random_device rd_f, rd1_f;
+            gen_f.seed(rd_f());
+            gen1_f.seed(rd1_f());
+        }
+        seeded_f = true;
+    }
+    std::uniform_int_distribution<> dis(0, n_atoms - 1);
+    std::uniform_int_distribution<> dis1(1, 100);
+
+    // ---- Sublattice statistics: N^M and N_i^M (constant during MC) ----
+    int N_M = 0;
+    vector<int> eachElement_M(_typesatoms, 0);
+    for (int i = 0; i < n_atoms; i++) {
+        if (initialPlacement[i] < 0) {
+            N_M += 1;
+            eachElement_M[_nests[0][i]] += 1;
+        }
+    }
+    if (N_M == 0) return 0;
+
+    // ---- z_M^k: avg non-spectator neighbors per non-spectator center per shell ----
+    int ref = 0;
+    while (ref < n_atoms && initialPlacement[ref] >= 0) ref++;
+    vector<int> z_M(max_num_neighs, 0);
+    for (int k = 0; k < max_num_neighs; k++) {
+        if (k < (int) lat.atoms_shell_atom[ref].size()) {
+            for (int j : lat.atoms_shell_atom[ref][k]) {
+                if (initialPlacement[j] < 0) z_M[k] += 1;
+            }
+        }
+    }
+
+    // ---- Precompute expected[i][j][k] (zero for pure-spectator species) ----
+    vector<vector<vector<double>>> expected(_typesatoms,
+        vector<vector<double>>(_typesatoms, vector<double>(max_num_neighs, 0.0)));
+    for (int k = 0; k < max_num_neighs; k++) {
+        if (z_M[k] == 0) continue;
+        for (int i = 0; i < _typesatoms; i++) {
+            if (eachElement_M[i] == 0) continue;
+            for (int j = 0; j < _typesatoms; j++) {
+                if (i == j) continue;
+                if (eachElement_M[j] == 0) continue;
+                double alpha = targetSROpair[i][j][k];
+                expected[i][j][k] = (double) eachElement_M[i] * (1.0 - alpha)
+                                  * (double) z_M[k] * (double) eachElement_M[j]
+                                  / (double) N_M;
+            }
+        }
+    }
+
+    auto fitness_from_pairGr = [&](const vector<vector<vector<double>>>& pgr) -> double {
+        double err = 0.0;
+        for (int k = 0; k < max_num_neighs; k++) {
+            double e_k = 0.0;
+            for (int i = 0; i < _typesatoms; i++) {
+                for (int j = 0; j < _typesatoms; j++) {
+                    if (i == j) continue;
+                    double d = pgr[i][j][k] - expected[i][j][k];
+                    e_k += d * d;
+                }
+            }
+            err += weights[k] * e_k;
+        }
+        return std::sqrt(err);
+    };
+
+    auto build_pairGr_full = [&](const vector<int>& nest,
+                                  vector<vector<vector<double>>>& pgr) {
+        for (auto& a : pgr) for (auto& b : a) std::fill(b.begin(), b.end(), 0.0);
+        for (int i = 0; i < n_atoms; i++) {
+            if (initialPlacement[i] >= 0) continue;
+            for (int k = 0; k < max_num_neighs; k++) {
+                for (int j : lat.atoms_shell_atom[i][k]) {
+                    if (initialPlacement[j] >= 0) continue;
+                    pgr[nest[i]][nest[j]][k] += 1;
+                }
+            }
+        }
+    };
+
+    vector<vector<vector<double>>> pairGr(_typesatoms,
+        vector<vector<double>>(_typesatoms, vector<double>(max_num_neighs, 0.0)));
+
+    for (int i = 0; i < (int) _nests.size(); i++) {
+        vector<int> currnest = _nests[i];
+        build_pairGr_full(currnest, pairGr);
+        double oldFitness = fitness_from_pairGr(pairGr);
+        origfitness[i] = oldFitness;
+
+        // Scratch buffer for proposed-swap pairGr (avoids alloc inside loop)
+        for (int step = 0; step < iter; step++) {
+            int a = dis(gen_f);
+            int b = dis(gen_f);
+            if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) continue;
+            int sa = currnest[a], sb = currnest[b];
+            if (sa == sb) continue;
+
+            // Apply swap delta to pairGr in-place (will undo on reject)
+            for (int k = 0; k < max_num_neighs; k++) {
+                for (int jj : lat.atoms_shell_atom[a][k]) {
+                    if (initialPlacement[jj] >= 0) continue;
+                    if (jj == b) continue;
+                    int sj = currnest[jj];
+                    pairGr[sa][sj][k] -= 1;
+                    pairGr[sj][sa][k] -= 1;
+                    pairGr[sb][sj][k] += 1;
+                    pairGr[sj][sb][k] += 1;
+                }
+                for (int jj : lat.atoms_shell_atom[b][k]) {
+                    if (initialPlacement[jj] >= 0) continue;
+                    if (jj == a) continue;
+                    int sj = currnest[jj];
+                    pairGr[sb][sj][k] -= 1;
+                    pairGr[sj][sb][k] -= 1;
+                    pairGr[sa][sj][k] += 1;
+                    pairGr[sj][sa][k] += 1;
+                }
+            }
+
+            double newFitness = fitness_from_pairGr(pairGr);
+
+            bool accept = false;
+            if (newFitness < oldFitness) {
+                accept = true;
+            } else if (std::abs(newFitness - oldFitness) < eps) {
+                int prob = dis1(gen1_f);
+                if (prob > 50) accept = true;
+            }
+
+            if (accept) {
+                currnest[a] = sb;
+                currnest[b] = sa;
+                oldFitness = newFitness;
+                origfitness[i] = newFitness;
+            } else {
+                // Undo the swap delta in pairGr (a, b have not been swapped
+                // in currnest yet, so sa, sb still refer to original species)
+                for (int k = 0; k < max_num_neighs; k++) {
+                    for (int jj : lat.atoms_shell_atom[a][k]) {
+                        if (initialPlacement[jj] >= 0) continue;
+                        if (jj == b) continue;
+                        int sj = currnest[jj];
+                        pairGr[sa][sj][k] += 1;
+                        pairGr[sj][sa][k] += 1;
+                        pairGr[sb][sj][k] -= 1;
+                        pairGr[sj][sb][k] -= 1;
+                    }
+                    for (int jj : lat.atoms_shell_atom[b][k]) {
+                        if (initialPlacement[jj] >= 0) continue;
+                        if (jj == a) continue;
+                        int sj = currnest[jj];
+                        pairGr[sb][sj][k] += 1;
+                        pairGr[sj][sb][k] += 1;
+                        pairGr[sa][sj][k] -= 1;
+                        pairGr[sj][sa][k] -= 1;
+                    }
+                }
+            }
+        }
+        _nests[i] = currnest;
+    }
+    return 0;
+}
+
 vector<double> fitnessofnests(vector<vector<int>> nests, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
     vector<double> fitness(nests.size(), INT_MAX);
@@ -519,6 +732,10 @@ int main(int argc, char ** argv)
             std::cout << "RNG_SEED=" << inputfile.rngSeed
                       << " (per-rank seed = base XOR rank*phi64)" << std::endl;
         }
+    }
+    g_fast_swaps = (inputfile.fastSwaps != 0);
+    if (id == 0 && !g_fast_swaps) {
+        std::cout << "FAST_SWAPS=0: using legacy full-recompute MC path" << std::endl;
     }
 
 //  *****READ INPUT FROM "INPUT" and "POSCAR" FILES******

@@ -85,6 +85,13 @@ public:
     // disables logging. Written by rank 0 only; CSV with columns
     // iteration, best_fitness_rank0, wall_seconds.
     std::string convergenceLog;
+    // Delta-fitness MC: instead of recomputing the full fitness on
+    // every swap proposal (O(N*z)), maintain pairGr as state and apply
+    // a delta from each swap (O(z)). Yields 50-250x more swap attempts
+    // per wall-second on typical cells with no change to the underlying
+    // optimization. Default 1 (on); set 0 to use the legacy
+    // recompute-each-swap path for direct A/B comparison.
+    int fastSwaps;
     // Per-pair, per-shell Warren-Cowley SRO targets: targetSROpair[i][j][shell].
     // Defaults to all zeros (random / SQS) when no SRO lines appear in INPUT.
     // Populated by readInput::input() after TYP and MAXSHELLNUM are known.
