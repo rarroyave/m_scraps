@@ -1,0 +1,29 @@
+TYP     2
+GITER   1000
+ELEMENT 96 32
+Cell_DIM        4 4 4
+NESTS   24
+MCSTEP  100
+AUTO_MCSTEP 10
+TOTALIter 50
+MAXSHELLNUM 2
+WEIGHT 1 1
+EARLY_STOP_PATIENCE 8
+EARLY_STOP_TOL 1e-6
+
+# D0_3 (Fe3Al-type) ordering target on BCC 4x4x4 = 128 atoms.
+# Species: 0 = A (Fe-like, 75%), 1 = B (Al-like, 25%).
+#
+# D0_3 has a 16-atom cubic cell = 2x2x2 BCC; ours holds 8 such cells.
+# Sublattice population: A on 4a + 8c (= 12 of 16), B on 4b (= 4 of 16).
+#
+# Warren-Cowley signature averaged over the 75:25 sublattice:
+#   shell 0 (NN, z=8): every Al has 8 Fe NN; aggregate P(Al|Fe) = 1/3
+#                      -> alpha_AB = 1 - (1/3)/0.25 = -1/3 (max ordering)
+#   shell 1 (2NN, z=6): Fe_4a has 6 Al, Fe_8c has 0 Al; aggregate
+#                      P(Al|Fe) = 1/3 -> alpha_AB = -1/3 (also max ordering)
+#
+# Both shells maximally ordered (-1/3 each) is the D0_3 signature on
+# 75:25 BCC; saturates the bound at both NN and 2NN simultaneously.
+SRO 0 1 0 -0.333333
+SRO 0 1 1 -0.333333

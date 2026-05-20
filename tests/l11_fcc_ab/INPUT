@@ -1,0 +1,29 @@
+TYP     2
+GITER   1000
+ELEMENT 128 128
+Cell_DIM        4 4 4
+NESTS   24
+MCSTEP  100
+AUTO_MCSTEP 12
+TOTALIter 60
+MAXSHELLNUM 2
+WEIGHT 1 1
+EARLY_STOP_PATIENCE 8
+EARLY_STOP_TOL 1e-6
+
+# L1_1 (CuPt-type) ordering target on FCC 4x4x4 = 256 atoms.
+# Species: 0 = A, 1 = B; alternating (111) planes of pure A and pure B.
+#
+# Distinguishing feature: alpha_AB at NN is *zero* because each A in a
+# (111) layer has 6 in-plane A + 6 out-of-plane B = balanced. The
+# ordering signature appears at 2NN (= the next (111) plane, all
+# different species).
+#   shell 0 (NN, z=12): P(B|A) = 6/12 = 0.5 = c_B -> alpha_AB = 0
+#   shell 1 (2NN, z=6): P(B|A) = 1 (all 2NN are in different (111) plane)
+#                        -> alpha_AB = 1 - 1/0.5 = -1
+#
+# Targeting alpha=0 at NN + alpha=-1 at 2NN is the L1_1 fingerprint;
+# the NN target is what keeps SCRAPS from drifting toward L1_0 (which
+# would give alpha_AB^NN = -1/3 instead).
+SRO 0 1 0 0.0
+SRO 0 1 1 -1.0
