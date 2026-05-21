@@ -31,3 +31,9 @@ docs/*.aux
 docs/*.log
 docs/*.out
 docs/*.toc
+
+# JOSS paper local preview (rebuildable from paper.md + paper.bib)
+paper/paper.pdf
+paper/*.aux
+paper/*.log
+paper/*.out
