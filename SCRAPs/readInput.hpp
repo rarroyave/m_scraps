@@ -95,19 +95,26 @@ public:
     std::string initNestFile;
     // MC kernel selector: "cuckoo" (default, the upstream-derived
     // greedy + epsilon-band acceptance inside a cuckoo-search
-    // population) or "sa" (simulated annealing with exponential
-    // temperature schedule across outer iterations). Same swap
-    // proposal mechanism; different acceptance rule and cooling
-    // behavior. Built as an alternative kernel to benchmark cuckoo
-    // against and to provide a more orthodox choice for
-    // publication / comparison with ATAT mcsqs.
+    // population), "sa" (simulated annealing with exponential
+    // temperature schedule across outer iterations), or "pt"
+    // (parallel tempering: each MPI rank runs SA at a fixed
+    // log-spaced temperature, with periodic state exchange between
+    // adjacent ranks via Metropolis criterion). Same swap proposal
+    // mechanism; different acceptance rule and ensemble structure.
     std::string mcKernel;
-    // SA temperature schedule. T(outer_iter) = saTInitial *
-    // (saTFinal / saTInitial)^(outer_iter / iterTotal). Defaults
-    // are tuned so a unit-fitness barrier has ~60% acceptance at
-    // the start and ~negligible at the end.
+    // SA temperature schedule. For mcKernel="sa": T(outer_iter)
+    // decays exponentially from saTInitial to saTFinal across
+    // iterTotal. For mcKernel="pt": each rank gets a fixed
+    // log-spaced T in [saTFinal, saTInitial], rank 0 is hottest
+    // (saTInitial), rank nproc-1 is coldest (saTFinal).
     double saTInitial;
     double saTFinal;
+    // PT-only: every ptExchangeInterval outer iterations, paired
+    // adjacent ranks (0-1, 2-3, ...) attempt to swap their nests[0]
+    // state via the standard PT Metropolis criterion
+    //   min(1, exp((1/T_i - 1/T_j) * (E_j - E_i))).
+    // Default 1 = exchange every iter.
+    int ptExchangeInterval;
     // Delta-fitness MC: instead of recomputing the full fitness on
     // every swap proposal (O(N*z)), maintain pairGr as state and apply
     // a delta from each swap (O(z)). Yields 50-250x more swap attempts

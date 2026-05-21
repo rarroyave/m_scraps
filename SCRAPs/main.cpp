@@ -66,11 +66,15 @@ static double g_targeted_swap_prob = 0.7;
 // inputfile.mcKernel / saTInitial / saTFinal. g_sa_current_T is
 // recomputed at the start of each outer iteration based on a global
 // counter (g_outer_iter / g_outer_iter_total) so the temperature
-// decays exponentially across the optimization.
-static bool g_use_sa = false;          // true if MC_KERNEL == "sa"
+// decays exponentially across the optimization. PT reuses the SA
+// inner kernel but holds T fixed per rank and adds an exchange step
+// between iters.
+static bool g_use_sa = false;          // true if MC_KERNEL == "sa" or "pt"
+static bool g_use_pt = false;          // true if MC_KERNEL == "pt"
 static double g_sa_t_initial = 2.0;
 static double g_sa_t_final = 1e-3;
 static double g_sa_current_T = 1.0;
+static int g_pt_exchange_interval = 1;
 
 // Forward decls so empty_nests can dispatch to them.
 int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
@@ -1100,15 +1104,34 @@ int main(int argc, char ** argv)
                      "\n  SRO targets where uniform random struggles to find improving swaps."
                   << std::endl;
     }
-    g_use_sa = (inputfile.mcKernel == "sa");
+    g_use_pt = (inputfile.mcKernel == "pt");
+    g_use_sa = g_use_pt || (inputfile.mcKernel == "sa");
     g_sa_t_initial = inputfile.saTInitial;
     g_sa_t_final = inputfile.saTFinal;
-    g_sa_current_T = g_sa_t_initial;
-    if (id == 0 && g_use_sa) {
-        std::cout << "MC_KERNEL=sa: simulated annealing inner loop. "
-                  << "T schedule = " << g_sa_t_initial
-                  << " -> " << g_sa_t_final << " (exponential)"
-                  << std::endl;
+    g_pt_exchange_interval = inputfile.ptExchangeInterval;
+    if (g_use_pt) {
+        // Each rank gets its own fixed log-spaced T in
+        // [saTFinal, saTInitial]. Rank 0 = hottest, rank nproc-1 = coldest.
+        // With one rank, falls through to plain SA at saTInitial.
+        if (nproc <= 1) {
+            g_sa_current_T = g_sa_t_initial;
+        } else {
+            double ratio = g_sa_t_final / g_sa_t_initial;
+            double frac = (double) id / (double) (nproc - 1);
+            g_sa_current_T = g_sa_t_initial * std::pow(ratio, frac);
+        }
+        std::cout << "MC_KERNEL=pt: parallel tempering. rank " << id
+                  << " runs at fixed T = " << g_sa_current_T
+                  << "; exchange every " << g_pt_exchange_interval
+                  << " iter(s)." << std::endl;
+    } else if (g_use_sa) {
+        g_sa_current_T = g_sa_t_initial;
+        if (id == 0) {
+            std::cout << "MC_KERNEL=sa: simulated annealing inner loop. "
+                      << "T schedule = " << g_sa_t_initial
+                      << " -> " << g_sa_t_final << " (exponential)"
+                      << std::endl;
+        }
     }
 
 //  *****READ INPUT FROM "INPUT" and "POSCAR" FILES******
@@ -1499,13 +1522,27 @@ int main(int argc, char ** argv)
         }
         iterTotal = 0;  // make the while() condition fall through
     }
-    while (iters < iterTotal && error > epsi)
+    // PT requires all ranks to march in lockstep through the periodic
+    // MPI_Sendrecv exchange step. The legacy `error > epsi` per-rank
+    // early-exit would let a cold rank that found fitness=0 leave the
+    // loop while warm ranks keep iterating into an exchange call that
+    // deadlocks waiting for the missing partner. In PT mode, ignore
+    // the per-rank fitness check and rely on TOTALIter alone for
+    // termination; in cuckoo/SA mode the original behavior is kept.
+    auto loop_condition = [&]() -> bool {
+        if (iters >= iterTotal) return false;
+        if (g_use_pt) return true;  // PT: only TOTALIter terminates
+        return error > epsi;
+    };
+    while (loop_condition())
     {
         // SA temperature schedule: exponential interpolation between
         // SA_T_INITIAL (iter 0) and SA_T_FINAL (iter iterTotal-1).
         // Recomputed each outer iter so empty_nests_sa picks it up via
         // the g_sa_current_T global. No-op when MC_KERNEL=cuckoo.
-        if (g_use_sa) {
+        // PT keeps T fixed per rank (set at startup); only update when
+        // running plain SA.
+        if (g_use_sa && !g_use_pt) {
             if (iterTotal <= 1) {
                 g_sa_current_T = g_sa_t_initial;
             } else {
@@ -1541,7 +1578,87 @@ int main(int argc, char ** argv)
         }
         iters += 1;
 
-        if (early_stop_patience > 0) {
+        // Parallel tempering exchange step. Every PT_EXCHANGE_INTERVAL
+        // outer iters, pair adjacent ranks (0-1, 2-3, ...) and attempt
+        // to swap their best nest (nests[0]) using the standard PT
+        // Metropolis criterion
+        //   P_exchange = min(1, exp((1/T_i - 1/T_j) * (E_j - E_i))).
+        // The lower-id rank of each pair decides (via its own RNG)
+        // and broadcasts the decision so both ranks act consistently.
+        // No-op when MC_KERNEL != "pt", when nproc < 2, or when this
+        // rank has no nest (can happen when NESTS < nproc -- the
+        // per-rank nest partition can produce zero-nest ranks).
+        if (g_use_pt && nproc >= 2 && (iters % g_pt_exchange_interval) == 0
+            && !nests.empty()) {
+            int partner = id ^ 1;  // pair (0,1), (2,3), ...
+            if (partner < nproc) {
+                MPI_Status st;
+                double my_fit = fitness[0];
+                double partner_fit;
+                double my_T = g_sa_current_T;
+                double partner_T;
+                MPI_Sendrecv(&my_fit, 1, MPI_DOUBLE, partner, 200,
+                             &partner_fit, 1, MPI_DOUBLE, partner, 200,
+                             MPI_COMM_WORLD, &st);
+                MPI_Sendrecv(&my_T, 1, MPI_DOUBLE, partner, 201,
+                             &partner_T, 1, MPI_DOUBLE, partner, 201,
+                             MPI_COMM_WORLD, &st);
+
+                int do_exchange = 0;  // 0/1 to broadcast as int
+                if (id < partner) {
+                    // Lower-id rank decides via PT Metropolis. Reuse a
+                    // small thread_local mt19937 for the coin flip,
+                    // seeded from g_rng_seed_base for reproducibility.
+                    static thread_local std::mt19937 pt_gen;
+                    static thread_local bool pt_seeded = false;
+                    if (!pt_seeded) {
+                        unsigned long s = (g_rng_seed_base != 0)
+                            ? (g_rng_seed_base ^ 0xD0D0D0D0UL)
+                            : std::random_device{}();
+                        pt_gen.seed(s);
+                        pt_seeded = true;
+                    }
+                    double delta_inv_T = 1.0 / my_T - 1.0 / partner_T;
+                    double delta_E = partner_fit - my_fit;
+                    double arg = delta_inv_T * delta_E;
+                    bool accept = (arg >= 0.0);
+                    if (!accept) {
+                        double p = std::exp(arg);
+                        std::uniform_real_distribution<double> ud(0.0, 1.0);
+                        accept = (ud(pt_gen) < p);
+                    }
+                    do_exchange = accept ? 1 : 0;
+                    MPI_Send(&do_exchange, 1, MPI_INT, partner, 202, MPI_COMM_WORLD);
+                } else {
+                    MPI_Recv(&do_exchange, 1, MPI_INT, partner, 202,
+                             MPI_COMM_WORLD, &st);
+                }
+
+                if (do_exchange) {
+                    int n = (int) nests[0].size();
+                    std::vector<int> partner_nest(n, 0);
+                    MPI_Sendrecv(nests[0].data(), n, MPI_INT, partner, 203,
+                                 partner_nest.data(), n, MPI_INT, partner, 203,
+                                 MPI_COMM_WORLD, &st);
+                    nests[0] = std::move(partner_nest);
+                    // Recompute this rank's fitness[0] after swap;
+                    // fitness[1..] still belong to other (unswapped) nests.
+                    fitness[0] = fitnessvalue(nests[0], templat, typeofatoms,
+                                               eachElement, max_num_neighs,
+                                               weights, targetSROpair,
+                                               initialPlacement);
+                    error = fitness[0];  // refresh early-stop tracker too
+                    if (id == 0) {
+                        cout << " PT exchange: rank " << id
+                             << " <-> " << partner << " accepted." << endl;
+                    }
+                }
+            }
+        }
+
+        // Per-rank early stop is incompatible with PT (would deadlock the
+        // MPI exchange step), so we disable it when PT is enabled.
+        if (early_stop_patience > 0 && !g_use_pt) {
             if (error < best_seen - early_stop_tol) {
                 best_seen = error;
                 no_improve_count = 0;

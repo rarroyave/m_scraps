@@ -184,6 +184,64 @@ def test_sa_plateau_matches_cuckoo_on_infeasible(tmp_path):
         f"SA did not reach plateau: {fit_s}")
 
 
+def test_pt_runs_and_exchanges(tmp_path):
+    """MC_KERNEL=pt with 4 MPI ranks: each rank should report its own
+    fixed log-spaced T, and exchange attempts should happen in the
+    log. Convergence quality is not asserted -- this is a smoke test
+    for the PT plumbing.
+    """
+    inp = textwrap.dedent("""\
+        TYP     2
+        GITER   100
+        ELEMENT 16 16
+        Cell_DIM        2 2 2
+        NESTS   4
+        MCSTEP  20
+        TOTALIter 6
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 1
+        EARLY_STOP_PATIENCE 100
+        MC_KERNEL pt
+        SA_T_INITIAL 10.0
+        SA_T_FINAL 0.01
+        PT_EXCHANGE_INTERVAL 1
+        """)
+    rc, log = run_scraps(tmp_path, inp, ranks=4)
+    assert rc == 0, f"PT run failed: {log[-500:]}"
+    # Each rank should print its own T
+    pt_setup = [l for l in log.splitlines() if "MC_KERNEL=pt" in l]
+    assert len(pt_setup) == 4, f"expected 4 rank setup lines, got: {pt_setup}"
+    # And there should be at least one exchange logged (printed on rank 0 only)
+    assert "PT exchange" in log, "no PT exchange events logged"
+
+
+def test_pt_falls_back_gracefully_on_one_rank(tmp_path):
+    """With nproc=1, PT has no partner. The run should still succeed
+    (PT exchange step skipped) and produce a valid output."""
+    inp = textwrap.dedent("""\
+        TYP     2
+        GITER   100
+        ELEMENT 16 16
+        Cell_DIM        2 2 2
+        NESTS   1
+        MCSTEP  20
+        TOTALIter 3
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 1
+        MC_KERNEL pt
+        SA_T_INITIAL 2.0
+        SA_T_FINAL 0.01
+        """)
+    rc, log = run_scraps(tmp_path, inp, ranks=1)
+    assert rc == 0
+    # No PT exchange events expected with 1 rank
+    assert "PT exchange" not in log
+    fit = final_fitness(log)
+    assert fit is not None
+
+
 def test_sa_preserves_warm_start(tmp_path):
     """MC_KERNEL=sa with a perfect B2 warm-start should keep fit=0
     (cool temperature doesn't introduce uphill drift past the floor)."""

@@ -271,6 +271,41 @@ offending pair(s) and the unavoidable fitness floor, then proceeds.
 Strict-mode abort can be added later via an `ABORT_IF_INFEASIBLE`
 INPUT keyword if the warning proves easy to miss in CI pipelines.
 
+## Internal benchmark: cuckoo vs simulated annealing
+
+The default `MC_KERNEL=cuckoo` (the upstream-derived greedy +
+ε-band Metropolis-like acceptance inside a cuckoo-search
+population) can be swapped for `MC_KERNEL=sa` (standard
+simulated annealing with `exp(-ΔE/T)` Metropolis acceptance and
+an exponential temperature schedule from `SA_T_INITIAL` to
+`SA_T_FINAL` across the outer-iteration loop). Same initial
+random pool with `RNG_SEED=42`, same `MCSTEP`/`TOTALIter`,
+4-rank MPI:
+
+| case | cuckoo final | SA final |
+|---|---|---|
+| FCC SQS 50:50 (n=108) | 0 | 0 |
+| FCC SQS 25:50:25 (n=108, infeasible) | 1.58114 | 1.58114 |
+| B2 ordered (n=128, α_AB^NN=−1) | 0 | 0 |
+| L1₂ ordered (n=108) | 0.0001 | 0.0001 |
+| L2₁ full target (n=128, α_YZ^2NN=−3, cold start) | 148.236 | 148.236 |
+
+**Both kernels reach identical final fitness on every case we tested.**
+SA is slightly slower per outer iter (its acceptance check is a
+`std::exp` instead of a comparison) but otherwise indistinguishable.
+
+The L2₁ cold-start plateau is the only case where either kernel
+visibly fails — and it fails for *both*. That tells us the plateau
+isn't a cuckoo-specific artifact of the population-replacement
+dynamics or the ε-band acceptance; it's a real algorithmic barrier
+in the swap-MC search itself. Escaping it likely needs cluster
+moves (Wolff/Swendsen–Wang) or parallel tempering with high-T
+replicas. The L2₁ warm-start (via `INIT_NEST`) works around it
+by handing the optimizer the answer.
+
+The benchmark script lives at `docs/sa_vs_cuckoo.sh` and is
+runnable with `bash docs/sa_vs_cuckoo.sh`.
+
 ## Reproducing this comparison
 
 ATAT 3.50 source: `https://axelvandewalle.github.io/www-avdw/atat/atat3_50.tar.gz`
