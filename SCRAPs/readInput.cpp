@@ -52,7 +52,7 @@ readInput::readInput()
       fastSwaps(1), targetedSwaps(0), targetedSwapProb(0.7),
       initNestFile(""),
       mcKernel("cuckoo"), saTInitial(2.0), saTFinal(1e-3),
-      ptExchangeInterval(1),
+      ptExchangeInterval(1), clusterSwapK(1),
       totalatoms(0)
 {
     input();
@@ -257,7 +257,7 @@ const std::set<std::string> KNOWN_KEYS = {
     "SPECTATOR_BASIS_SPECIES",
     "INIT_NEST",
     "MC_KERNEL", "SA_T_INITIAL", "SA_T_FINAL",
-    "PT_EXCHANGE_INTERVAL",
+    "PT_EXCHANGE_INTERVAL", "CLUSTER_SWAP_K",
 };
 }  // namespace
 
@@ -403,6 +403,10 @@ void readInput::input() {
             if(key.compare("PT_EXCHANGE_INTERVAL") == 0)
             {
                 ss >> ptExchangeInterval;
+            }
+            if(key.compare("CLUSTER_SWAP_K") == 0)
+            {
+                ss >> clusterSwapK;
             }
             if(key.compare("EARLY_STOP_PATIENCE") == 0)
             {

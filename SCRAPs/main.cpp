@@ -75,6 +75,7 @@ static double g_sa_t_initial = 2.0;
 static double g_sa_t_final = 1e-3;
 static double g_sa_current_T = 1.0;
 static int g_pt_exchange_interval = 1;
+static int g_cluster_swap_K = 1;       // 1 = single-swap MC (default)
 
 // Forward decls so empty_nests can dispatch to them.
 int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
@@ -570,6 +571,76 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
         }
 
         for (int step = 0; step < iter; step++) {
+            // Cluster swap: K simultaneous atom-pair swaps accepted as
+            // one move. When K > 1, this branch sequentially applies K
+            // single-swap deltas to pairGr (updating currnest between
+            // them so subsequent delta calcs see the correct local
+            // species), computes the joint newFitness, and either
+            // accepts (currnest + pairGr already in the new state) or
+            // rejects by restoring currnest and rebuilding pairGr from
+            // scratch -- O(N*z) per reject, which is the price of the
+            // larger move set.
+            if (g_cluster_swap_K > 1) {
+                vector<int> saved = currnest;
+                bool any_invalid = false;
+                for (int k_step = 0; k_step < g_cluster_swap_K; k_step++) {
+                    int a = dis(gen_f);
+                    int b = dis(gen_f);
+                    if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) {
+                        any_invalid = true; break;
+                    }
+                    int sa_l = currnest[a], sb_l = currnest[b];
+                    if (sa_l == sb_l) { any_invalid = true; break; }
+                    for (int k = 0; k < max_num_neighs; k++) {
+                        for (int jj : lat.atoms_shell_atom[a][k]) {
+                            if (initialPlacement[jj] >= 0) continue;
+                            if (jj == b) continue;
+                            int sj = currnest[jj];
+                            pairGr[sa_l][sj][k] -= 1;
+                            pairGr[sj][sa_l][k] -= 1;
+                            pairGr[sb_l][sj][k] += 1;
+                            pairGr[sj][sb_l][k] += 1;
+                        }
+                        for (int jj : lat.atoms_shell_atom[b][k]) {
+                            if (initialPlacement[jj] >= 0) continue;
+                            if (jj == a) continue;
+                            int sj = currnest[jj];
+                            pairGr[sb_l][sj][k] -= 1;
+                            pairGr[sj][sb_l][k] -= 1;
+                            pairGr[sa_l][sj][k] += 1;
+                            pairGr[sj][sa_l][k] += 1;
+                        }
+                    }
+                    currnest[a] = sb_l;
+                    currnest[b] = sa_l;
+                }
+                if (any_invalid) {
+                    currnest = std::move(saved);
+                    build_pairGr_full(currnest, pairGr);
+                    continue;
+                }
+                double newFit = fitness_from_pairGr(pairGr);
+                bool accept = false;
+                if (newFit < oldFitness) {
+                    accept = true;
+                } else if (std::abs(newFit - oldFitness) < eps) {
+                    int prob = dis1(gen1_f);
+                    if (prob > 50) accept = true;
+                }
+                if (accept) {
+                    oldFitness = newFit;
+                    origfitness[i] = newFit;
+                    // species_atoms not used in this path -- it's only
+                    // for targeted swap proposals (g_targeted_swaps), and
+                    // we keep cluster swaps + targeted swaps as
+                    // independent features (don't mix in v0.3.x).
+                } else {
+                    currnest = std::move(saved);
+                    build_pairGr_full(currnest, pairGr);
+                }
+                continue;
+            }
+
             int a, b;
             bool use_targeted = g_targeted_swaps
                 && dis_real(gen_f) < g_targeted_swap_prob;
@@ -1109,6 +1180,12 @@ int main(int argc, char ** argv)
     g_sa_t_initial = inputfile.saTInitial;
     g_sa_t_final = inputfile.saTFinal;
     g_pt_exchange_interval = inputfile.ptExchangeInterval;
+    g_cluster_swap_K = std::max(1, inputfile.clusterSwapK);
+    if (id == 0 && g_cluster_swap_K > 1) {
+        std::cout << "CLUSTER_SWAP_K=" << g_cluster_swap_K
+                  << ": each MC step proposes " << g_cluster_swap_K
+                  << " simultaneous atom-pair swaps." << std::endl;
+    }
     if (g_use_pt) {
         // Each rank gets its own fixed log-spaced T in
         // [saTFinal, saTInitial]. Rank 0 = hottest, rank nproc-1 = coldest.

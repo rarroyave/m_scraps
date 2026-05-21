@@ -115,6 +115,16 @@ public:
     //   min(1, exp((1/T_i - 1/T_j) * (E_j - E_i))).
     // Default 1 = exchange every iter.
     int ptExchangeInterval;
+    // Cluster swap: each MC step proposes clusterSwapK simultaneous
+    // atom-pair swaps and accepts/rejects the joint move. K = 1
+    // (default) reduces to the standard single-swap MC. K > 1
+    // explores larger moves that can escape local minima single-swap
+    // MC can't cross -- e.g., the L2_1 cold-start plateau where the
+    // ground state requires multiple correlated swaps. Tradeoff: each
+    // cluster move costs ~K * O(z) to apply and an O(N*z) rebuild on
+    // reject, so the per-step cost grows roughly linearly in K. Sweet
+    // spot is usually K in {2, 3, 4} for hard targets.
+    int clusterSwapK;
     // Delta-fitness MC: instead of recomputing the full fitness on
     // every swap proposal (O(N*z)), maintain pairGr as state and apply
     // a delta from each swap (O(z)). Yields 50-250x more swap attempts
