@@ -92,6 +92,21 @@ static int g_cluster_swap_K = 1;       // 1 = single-swap MC (default)
 static std::vector<int> g_atom_to_sublattice;
 static std::vector<int> g_species_to_sublattice;
 static std::vector<std::vector<int>> g_allowed_species_by_sublattice;
+// Per-sublattice atom count: g_sub_count[sigma] = total atoms on sublattice sigma.
+static std::vector<int> g_sub_count;
+// Per-sublattice-pair coordination tensor:
+//   g_z_sub_sub_shell[sigma][tau][k]
+//     = average count of tau-sublattice neighbors at shell k for a
+//       sigma-sublattice center.
+// Used by the per-sublattice fitness formula:
+//   expected_pair_count(i, j, k) = N_i * (1 - alpha) * z[sigma][tau][k]
+//                                  * N_j / N_tau
+// where sigma = g_species_to_sublattice[i], tau = same for j. For the
+// legacy single-sublattice / HEB-spectator path this reduces exactly to
+// the prior formula N_i * (1 - alpha) * z_M[k] * N_j / N_M because the
+// default-synthesized single sublattice has sigma == tau, N_tau == N_M,
+// and z[0][0][k] == z_M[k].
+static std::vector<std::vector<std::vector<double>>> g_z_sub_sub_shell;
 
 // Forward decls so empty_nests can dispatch to them.
 int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
@@ -275,7 +290,34 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
                 if(center != surr)
                 {
                     double alphaTarget = targetSROpair[center][surr][j];
-                    avgGr[center][surr][j] += (double)eachElement_M[center]*(1 - alphaTarget)*shellnum_M*((double)eachElement_M[surr]/(double)numofatoms_M);
+                    // Per-sublattice expected pair count:
+                    //   target = N_i * (1-alpha) * z[sigma->tau][k] * N_j / N_tau
+                    // where sigma = species(center)'s sublattice, tau = same for
+                    // neighbor. For the single-sublattice / HEB-spectator path
+                    // the partition has one sublattice with N_tau = numofatoms_M
+                    // and z[0][0][k] = shellnum_M, reducing exactly to the
+                    // legacy formula. For multi-sublattice the per-sublattice
+                    // N_j / N_tau replaces the (incorrect) global N_j / N_M.
+                    int sig = g_species_to_sublattice[center];
+                    int tau = g_species_to_sublattice[surr];
+                    double z_st;
+                    double N_tau;
+                    if (sig >= 0 && tau >= 0
+                        && (int) g_z_sub_sub_shell.size() > sig
+                        && (int) g_z_sub_sub_shell[sig].size() > tau) {
+                        z_st = g_z_sub_sub_shell[sig][tau][j];
+                        N_tau = (double) g_sub_count[tau];
+                    } else {
+                        // Spectator species (sig or tau == -1) or pre-init
+                        // call: fall back to the legacy per-center counts.
+                        z_st = (double) shellnum_M;
+                        N_tau = (double) numofatoms_M;
+                    }
+                    if (N_tau > 0.0) {
+                        avgGr[center][surr][j] += (double)eachElement_M[center]
+                            * (1 - alphaTarget) * z_st
+                            * ((double)eachElement_M[surr] / N_tau);
+                    }
                     countgr[center][surr][j] += 1;
                 }
             }
@@ -510,19 +552,32 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
     }
 
     // ---- Precompute expected[i][j][k] (zero for pure-spectator species) ----
+    // Per-sublattice expected count:
+    //   expected[i][j][k] = N_i * (1 - alpha) * z[sigma->tau][k] * N_j / N_tau
+    // where sigma = sublattice of species i, tau = same for j. For the
+    // legacy single-sublattice / HEB-spectator case the partition has one
+    // sublattice with N_tau = N_M and z[0][0][k] = z_M[k], so this is
+    // identical to the prior formula. For multi-sublattice the per-
+    // sublattice reference replaces the (incorrect) global N_j / N_M.
     vector<vector<vector<double>>> expected(_typesatoms,
         vector<vector<double>>(_typesatoms, vector<double>(max_num_neighs, 0.0)));
     for (int k = 0; k < max_num_neighs; k++) {
-        if (z_M[k] == 0) continue;
         for (int i = 0; i < _typesatoms; i++) {
             if (eachElement_M[i] == 0) continue;
+            int sig = g_species_to_sublattice[i];
+            if (sig < 0) continue;
             for (int j = 0; j < _typesatoms; j++) {
                 if (i == j) continue;
                 if (eachElement_M[j] == 0) continue;
+                int tau = g_species_to_sublattice[j];
+                if (tau < 0) continue;
+                double z_st = g_z_sub_sub_shell[sig][tau][k];
+                if (z_st <= 0.0) continue;
+                double N_tau = (double) g_sub_count[tau];
+                if (N_tau <= 0.0) continue;
                 double alpha = targetSROpair[i][j][k];
                 expected[i][j][k] = (double) eachElement_M[i] * (1.0 - alpha)
-                                  * (double) z_M[k] * (double) eachElement_M[j]
-                                  / (double) N_M;
+                                  * z_st * (double) eachElement_M[j] / N_tau;
             }
         }
     }
@@ -883,19 +938,27 @@ int empty_nests_sa(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, 
         }
     }
 
+    // Per-sublattice expected count (see empty_nests_fast for the rationale
+    // and the backward-compat argument).
     vector<vector<vector<double>>> expected(_typesatoms,
         vector<vector<double>>(_typesatoms, vector<double>(max_num_neighs, 0.0)));
     for (int k = 0; k < max_num_neighs; k++) {
-        if (z_M[k] == 0) continue;
         for (int i = 0; i < _typesatoms; i++) {
             if (eachElement_M[i] == 0) continue;
+            int sig = g_species_to_sublattice[i];
+            if (sig < 0) continue;
             for (int j = 0; j < _typesatoms; j++) {
                 if (i == j) continue;
                 if (eachElement_M[j] == 0) continue;
+                int tau = g_species_to_sublattice[j];
+                if (tau < 0) continue;
+                double z_st = g_z_sub_sub_shell[sig][tau][k];
+                if (z_st <= 0.0) continue;
+                double N_tau = (double) g_sub_count[tau];
+                if (N_tau <= 0.0) continue;
                 double alpha = targetSROpair[i][j][k];
                 expected[i][j][k] = (double) eachElement_M[i] * (1.0 - alpha)
-                                  * (double) z_M[k] * (double) eachElement_M[j]
-                                  / (double) N_M;
+                                  * z_st * (double) eachElement_M[j] / N_tau;
             }
         }
     }
@@ -1499,6 +1562,41 @@ int main(int argc, char ** argv)
         cout << "[SUBLATTICE] active partition: "
              << inputfile.sublattices.size() << " sublattices, "
              << total_atoms << " atoms total" << endl;
+    }
+
+    // ---- Per-sublattice atom counts and per-sublattice-pair coordination ----
+    // Computed from a representative atom on each sublattice, assuming
+    // uniform coordination within each sublattice (the user's job to
+    // ensure -- e.g. by giving each Wyckoff orbit its own SUBLATTICE
+    // block). The fitness function consumes these via the per-sublattice
+    // expected-count formula; backward compat is preserved exactly for
+    // single-sublattice and HEB-spectator cases because the synthesized
+    // default partition has one sublattice and the formula reduces to
+    // the legacy z_M[k] / N_M form.
+    const int n_sub = (int) inputfile.sublattices.size();
+    g_sub_count.assign(n_sub, 0);
+    for (int i = 0; i < total_atoms; ++i) {
+        int s = g_atom_to_sublattice[i];
+        if (s >= 0) g_sub_count[s] += 1;
+    }
+    g_z_sub_sub_shell.assign(
+        n_sub, std::vector<std::vector<double>>(
+            n_sub, std::vector<double>(max_num_neighs, 0.0)));
+    std::vector<int> rep_atom(n_sub, -1);
+    for (int i = 0; i < total_atoms; ++i) {
+        int s = g_atom_to_sublattice[i];
+        if (s >= 0 && rep_atom[s] == -1) rep_atom[s] = i;
+    }
+    for (int s = 0; s < n_sub; ++s) {
+        if (rep_atom[s] < 0) continue;
+        int ref = rep_atom[s];
+        for (int k = 0; k < max_num_neighs; ++k) {
+            if (k >= (int) templat.atoms_shell_atom[ref].size()) continue;
+            for (int j : templat.atoms_shell_atom[ref][k]) {
+                int t = g_atom_to_sublattice[j];
+                if (t >= 0) g_z_sub_sub_shell[s][t][k] += 1.0;
+            }
+        }
     }
 
     // Validate lattice supports the Warren-Cowley formulation on the
