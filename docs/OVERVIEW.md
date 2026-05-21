@@ -223,7 +223,55 @@ SCRAPS uses internally. The C++ runtime also runs the feasibility
 check at startup and prints a warning naming the offending pair(s)
 when the configured `(ELEMENT, Cell_DIM, MAXSHELLNUM)` is infeasible.
 
-### 2.7 MPI singleton-mode diagnosis
+### 2.7 Multi-sublattice SQS (the v0.4.0 headline)
+
+For structures with two or more chemically-disordered sublattices
+(rocksalt HEA-carbides, double perovskites, full Heusler with
+independent X/Y/Z mixing, spinels), upstream SCRAPS had no API for
+designing per-sublattice compositions — `ELEMENT` is a single flat
+species count over all positions and `randomizeLattice` did a flat
+shuffle. The fork adds a `SUBLATTICE` INPUT keyword that partitions
+basis positions and species into disjoint sublattices, with every
+swap-proposal site gated so atoms only swap within a sublattice.
+
+```
+SUBLATTICE <id> BASIS <b1> <b2> ... SPECIES <s1> <s2> ...
+```
+
+Disjoint species per sublattice means `pairGr[i][j][shell]` and
+`targetSROpair[i][j][shell]` need no new dimension — cross-sublattice
+pair counts (e.g. metal–carbon nearest-neighbor in HEA carbides)
+naturally fall in the right bins because species `i` and `j` only
+live on one sublattice each.
+
+INPUT-level validation in the parser (disjoint species, disjoint
+basis, in-range, non-empty blocks); POSCAR-level validation in
+`main.cpp` (BASIS bound, spectator-vs-sublattice conflict, ELEMENT
+sum matches per-sublattice capacity, full basis coverage). When no
+`SUBLATTICE` keyword is given, `main.cpp` synthesizes a default
+single-sublattice spec covering all non-spectator basis positions
+and species, so every downstream path (randomizeLattice, all five
+swap-proposal sites, the targeted-swap residual scorer) uses one
+uniform code path regardless of single- vs multi-sublattice mode —
+no `if/else` branching. The legacy `SPECTATOR_BASIS_SPECIES` for
+fixed-species sublattices continues to work alongside (and is, in
+effect, a special case of "sublattice with one allowed species").
+
+Sublattice detection helper: `tools/sublattice_detect.py` reads a
+POSCAR via pymatgen, runs Wyckoff-orbit analysis (spglib under the
+hood), and emits draft `SUBLATTICE` blocks with `<fill in>`
+placeholders for SPECIES. Two basis positions in the same Wyckoff
+orbit have identical pair-correlation environments, so the orbit
+partition is the unique coarsest partition that respects the
+lattice symmetry — the right default for multi-sublattice SQS.
+Users can override the auto-detected partition by writing
+`SUBLATTICE` blocks by hand (e.g. to break symmetry intentionally).
+
+Validated against rocksalt and Heusler L2₁ POSCARs:
+`sublattice_detect.py` reproduces the textbook orbit assignments
+(NaCl → 4a + 4b; Cu₂MnAl → 4a Mn + 4b Al + 8c Cu).
+
+### 2.8 MPI singleton-mode diagnosis
 
 The macOS-with-Homebrew-Open-MPI setup commonly fails to form a real
 multi-rank communicator when `mpirun` from a different MPI install
@@ -276,8 +324,10 @@ Reproducible via `docs/baseline_vs_scraps.sh`.
 | `suggest_cell.py` | Picks the smallest feasible Cell_DIM near a user-supplied target atom count for a given composition. Supports cubic-only or non-cubic search, HEB spectator sublattices, and diagnose mode for a single `(ELEMENT, Cell_DIM)` configuration. |
 | `run_sqs.py` | One-shot wrapper: composition + target atoms → suggest_cell pick → INPUT with sensible heuristic defaults → mpirun → result. Handles HEB targets via `--spectator-basis-species`. |
 | `scraps_ase.py` | ASE interoperability: `run_sqs_from_atoms` takes an ASE `Atoms` primitive in and returns an SQS `Atoms` out; `read_scraps_output` / `write_scraps_poscar` / `make_scraps_inputs` are lower-level helpers. Handles the SCRAPS vs canonical-VASP POSCAR layout difference internally. |
+| `sublattice_detect.py` | Wyckoff-orbit-based sublattice detection. Reads a POSCAR via pymatgen, runs `SpacegroupAnalyzer` (spglib), groups basis positions by orbit, emits draft `SUBLATTICE` blocks for INPUT. `--write` appends to an existing INPUT (with `<fill in>` SPECIES placeholders); `--json` emits machine-readable output. Defaults `symprec=1e-3`; loosen for noisy POSCARs. |
+| `plot_convergence.py` | Plots `CONVERGENCE_LOG` fitness-vs-iteration trajectories (single or multi-run overlay). |
 
-All four are pymatgen-and/or-ASE-based and run completely outside the
+All are pymatgen-and/or-ASE-based and run completely outside the
 C++ code. `verify_sro.py` is in particular the canonical "did SCRAPS
 actually achieve what it claims?" cross-check.
 
@@ -285,10 +335,10 @@ actually achieve what it claims?" cross-check.
 
 ## 5. Test suite
 
-`tools/tests/`, run with `pytest`. **48 tests, ~34 s locally**, all
+`tools/tests/`, run with `pytest`. **122 tests, ~70 s locally**, all
 with `RNG_SEED` pinned so the optimizer behavior is reproducible:
 
-- `test_verify_sro.py` (19 tests): verifier against analytically-known
+- `test_verify_sro.py` (10 tests): verifier against analytically-known
   structures (B2 NiAl, L1₂ Ni₃Al, random binary, HEB random and CSRO).
 - `test_suggest_cell.py` (16 tests): feasibility math across cubic and
   non-cubic FCC/BCC supercells, HEB spectator-aware cases.
@@ -301,6 +351,35 @@ with `RNG_SEED` pinned so the optimizer behavior is reproducible:
   completes correctly.
 - `test_scraps_ase.py` (8 tests): ASE I/O round-tripping and the
   end-to-end ASE wrapper on FCC SQS and BCC B2.
+- `test_input_parser.py` (13 tests): INPUT keyword parser hardening —
+  required-keyword aborts, ELEMENT-vs-TYP cross-check, Cell_DIM
+  validation, comment/blank-line handling, unrecognized-keyword
+  warnings.
+- `test_poscar_parser.py` (12 tests): defensive VASP POSCAR parser
+  on every dialect (scale-as-volume, species-label line, Selective
+  dynamics, Cartesian vs Direct, multi-species counts).
+- `test_warm_start.py` (7 tests): `INIT_NEST` warm-start round-trips
+  and preserves an already-optimal nest.
+- `test_sa_kernel.py` (6 tests): `MC_KERNEL=sa` reaches zero on
+  feasible SQS, plateau matches cuckoo on infeasible, PT exchanges
+  fire on multi-rank, PT degrades gracefully on single-rank.
+- `test_cluster_swap.py` (4 tests): `CLUSTER_SWAP_K>1` reaches zero
+  on feasible SQS, matches K=1 plateau on infeasible (negative finding
+  for L2₁), default K=1 unchanged.
+- `test_plot_convergence.py` (4 tests): convergence-log plotter smoke +
+  multi-run overlay.
+- `test_sublattice_parser.py` (12 tests): `SUBLATTICE` INPUT parser —
+  round-trip, section-order independence, disjointness errors,
+  range errors, structural errors.
+- `test_sublattice_detect.py` (8 tests): Wyckoff-orbit detection on
+  FCC, rocksalt, Heusler L2₁; JSON output; `--write` to INPUT;
+  symprec sensitivity.
+- `test_multi_sublattice.py` (8 tests): end-to-end multi-sublattice
+  optimization — banner appears, partition is preserved in output
+  POSCAR (per-position species/sublattice consistency), BASIS bound
+  abort, ELEMENT-vs-capacity abort, spectator-vs-sublattice conflict
+  abort, partial-coverage abort, spectator + sublattice coexist,
+  default-synthesis path still reaches fit=0.
 
 End-to-end tests skip gracefully when the scraps binary or mpirun
 isn't available, so a fresh checkout passes `pytest` even before
@@ -330,15 +409,40 @@ on every case at comparable wall budgets, and is consistently faster
 The per-pair SRO targeting (§2.2) is the unique value-add — mcsqs
 has no direct API for per-species-pair $\alpha$ targets.
 
+**Multi-sublattice cases.** With v0.4.0 (§2.7), SCRAPS handles
+disjoint-species multi-sublattice SQS directly via the `SUBLATTICE`
+keyword. A head-to-head comparison against mcsqs on rocksalt
+HEA-carbide and full-Heusler benchmarks is the next planned
+addition to `docs/mcsqs_comparison.md`.
+
 ---
 
 ## 7. Release history
 
-- **v0.3.0** (this commit) — warm-start API (`INIT_NEST`), JOSS
-  paper draft under `paper/`, delta-vs-legacy fitness disagreement
-  fix (the L2₁ warm-start case where the perfect Heusler nest has
-  zero X-Y and X-Z 2NN pairs, exposing a `countgr==0` edge case in
-  the legacy fitness). 80 tests passing.
+- **v0.4.0** (this commit) — multi-sublattice SQS support
+  (`SUBLATTICE` keyword + Wyckoff-orbit detector
+  `tools/sublattice_detect.py`). All swap-proposal sites gated by
+  sublattice; randomizeLattice rewritten to draw from per-sublattice
+  budgets; POSCAR-level validation (BASIS bound, ELEMENT vs
+  capacity, spectator-vs-sublattice conflict, full coverage). When
+  no `SUBLATTICE` is declared, `main.cpp` synthesizes a default
+  single-sublattice spec so legacy behavior is preserved exactly.
+  122 tests.
+- **v0.3.2** — K-atom cluster swap moves (`CLUSTER_SWAP_K`).
+  Negative finding documented: K ∈ {2, 4} also plateaus at ~148 on
+  the L2₁ cold-start case (same as cuckoo, SA, PT). The barrier is
+  move topology, not move size — `INIT_NEST` warm-start remains
+  the recommended workaround. 94 tests.
+- **v0.3.1** — Parallel-tempering MC kernel (`MC_KERNEL=pt`):
+  per-rank log-spaced temperatures, periodic Metropolis exchanges
+  between adjacent ranks. Plus `docs/sa_vs_cuckoo.sh` benchmark
+  and the SA-vs-cuckoo section of `mcsqs_comparison.md`. 90 tests.
+- **v0.3.0** — Warm-start API (`INIT_NEST`), simulated-annealing
+  kernel (`MC_KERNEL=sa`), JOSS paper draft under `paper/`,
+  delta-vs-legacy fitness disagreement fix (the L2₁ warm-start
+  case where the perfect Heusler nest has zero X-Y and X-Z 2NN
+  pairs, exposing a `countgr==0` edge case in the legacy fitness).
+  80 tests.
 - **v0.2.2** — INPUT parser hardening: unrecognized-keyword
   warnings, `#` comment/blank-line support, required-keyword
   validation, ELEMENT-vs-TYP cross-check, `Cell_DIM=3` validation;
@@ -358,22 +462,32 @@ has no direct API for per-species-pair $\alpha$ targets.
 
 ## 8. What's next
 
-Open items as of v0.3.0:
+Open items as of v0.4.0:
 - **Apply to a real research case.** Refractory HEB with literature
-  CSRO targets, DFT validation. The infrastructure is in place; the
-  work to do it is not.
+  CSRO targets, DFT validation. Now also possible: a rocksalt
+  HEA-carbide with independent metal-sublattice CSRO and a fixed C
+  sublattice (the v0.4.0 multi-sublattice path opens this up
+  directly).
+- **mcsqs comparison on multi-sublattice.** Head-to-head benchmark
+  for rocksalt HEA-carbide and full-Heusler L2₁ with the per-pair
+  CSRO API. Slots into `docs/mcsqs_comparison.md`.
+- **Multi-sublattice tutorial notebook.** A `notebooks/04_multi_sublattice.ipynb`
+  walking through `sublattice_detect.py` → SUBLATTICE INPUT → run →
+  verify. The C++ + tooling are in place; the notebook is not.
+- **Per-sublattice atom-index sampling.** The v0.4.0 swap-path
+  integration uses rejection sampling (gates after picking a
+  uniform-random pair). For heavily-skewed sublattices the
+  acceptance rate drops to (sum_S (n_S/N)²); the obvious next
+  optimization is sampling within a single sublattice's atom-index
+  list directly. Code complexity tradeoff, not a correctness issue.
 - **Make the repo public + submit JOSS paper.** The manuscript draft
   under `paper/` is submission-ready; gating items are flipping the
-  repo to public visibility and ORCID verification.
-- **Sigma-phase / Heusler with independent compositions.** The only
-  remaining functional gap vs ATAT `mcsqs` is true multi-sublattice
-  with independent designed compositions on each sublattice.
-- **Upstream a subset of fixes.** The six C++ bug fixes (§2.1) and
-  the POSCAR/INPUT parser hardening are upstreamable as PRs to
-  `DuaneDJohnson/Hybrid-Cuckoo-Search`.
-- **`tools/plot_convergence.py`** — small matplotlib helper that
-  reads `CONVERGENCE_LOG` and plots fitness vs iteration. Shipped
-  with v0.3.0.
+  repo to public visibility and ORCID verification. The JOSS paper
+  needs a v0.4.0 refresh paragraph for the multi-sublattice
+  capability.
+- **Upstream a subset of fixes.** The six C++ bug fixes (§2.1),
+  POSCAR/INPUT parser hardening, and the multi-sublattice path are
+  upstreamable as PRs to `DuaneDJohnson/Hybrid-Cuckoo-Search`.
 
 See the `## 13. scraps-perpair` entry in the project memory catalog
 for the live status of these items.

@@ -394,29 +394,66 @@ When you go beyond a few hundred atoms to MLIP-friendly cell sizes
 With these two tuned, 1200-atom HEB CSRO targeting hits α to ±0.002
 in ~25 seconds on 4 ranks.
 
-### Not supported: multi-sublattice structures with non-uniform coordination
+### Supported: multi-sublattice structures with disjoint species per sublattice
+
+**New in v0.4.0.** Structures with two or more chemically-disordered
+sublattices where each species belongs to exactly one sublattice:
+
+- **Rocksalt HEA-carbides / nitrides**: 4–6 transition metals on the
+  metal sublattice, C or N on the anion sublattice.
+- **Full Heusler (L2₁) with independent X, Y, Z mixing**: e.g.
+  designed quaternary Heuslers with chemical disorder on multiple
+  Wyckoff orbits simultaneously.
+- **Double perovskites / spinels** with cation site mixing on two
+  Wyckoff positions.
+
+Use the `SUBLATTICE` INPUT keyword:
+
+```
+SUBLATTICE <id> BASIS <b1> <b2> ... SPECIES <s1> <s2> ...
+```
+
+Each block declares which basis positions and which global species
+indices belong to that sublattice. Species and basis positions must
+be disjoint across sublattices; with disjoint species,
+`pairGr[i][j][shell]` and `targetSROpair[i][j][shell]` naturally
+distinguish intra- and cross-sublattice pairs without a new
+dimension. Cross-sublattice pair counts are determined by composition
+and the optimizer leaves them alone; intra-sublattice pair counts are
+optimized via swap moves gated to stay within each sublattice.
+
+For automatic Wyckoff-orbit detection from a POSCAR (the standard
+crystallographic partition), run:
+
+```bash
+python3 tools/sublattice_detect.py POSCAR --write INPUT
+```
+
+This appends draft `SUBLATTICE` blocks for each Wyckoff orbit with
+`<fill in>` SPECIES placeholders — you then edit them to assign
+species. See `tools/sublattice_detect.py --help` for `--symprec`
+tuning and JSON output.
 
 ### Not supported: multi-sublattice structures with non-uniform coordination
 
-Lattices where different sublattice sites have **physically different
-coordination numbers**:
+Lattices where atoms on a single sublattice have **physically
+different coordination numbers** (the SCRAPs Warren-Cowley formulation
+assumes uniform z within each designed sublattice):
 
 - **Sigma phase** (σ, 5 Wyckoff positions with z = 12–15)
 - **Laves phases** (C14, C15, C36)
 - **Cage structures** (NaZn₁₃, Th₆Mn₂₃, A15)
-- **Fluorite** (CaF₂-type, cation z=8 vs anion z=4)
 - **Layered structures** with in-plane vs out-of-plane coordination
   asymmetry (graphite, hBN, MAX phases)
-- Lattices with **interstitial sublattices** (C in austenite, H in
-  metals)
 
-For these, the meaningful quantity is **sublattice-conditional SRO**
-α^(σ,τ)_ij defined per sublattice pair, against per-sublattice
-concentrations c_j^(τ). scraps-perpair does not currently implement
-sublattice resolution, and `Lattice::coordination_per_shell()` will
-abort with a diagnostic if it detects truly non-uniform coordination
-across atoms (the soft warning previously emitted has been upgraded
-to a hard abort).
+In principle the v0.4.0 multi-sublattice path lets you split each
+Wyckoff position into its own `SUBLATTICE` block (so coordination is
+uniform within each), but `Lattice::coordination_per_shell()` currently
+checks across all non-spectator atoms and aborts before that
+configuration runs. Generalizing the coordination check to be
+per-sublattice is a tracked future-work item; until then, these
+structures must be handled via ATAT mcsqs's correlation-engineering
+approach.
 
 For these lattice types, use ATAT's `mcsqs`
 (<https://www.brown.edu/Departments/Engineering/Labs/avdw/atat/>),
