@@ -77,6 +77,22 @@ static double g_sa_current_T = 1.0;
 static int g_pt_exchange_interval = 1;
 static int g_cluster_swap_K = 1;       // 1 = single-swap MC (default)
 
+// Multi-sublattice partition. Indices are *internal* contiguous IDs
+// (0..K-1 in INPUT declaration order), not the user's SUBLATTICE id
+// labels (which are diagnostic-only). Built in main() after POSCAR is
+// parsed; when no SUBLATTICE keyword is present in INPUT, main()
+// synthesizes a default single-sublattice spec covering all non-
+// spectator basis positions and species, so every kernel can assume a
+// non-empty partition. g_atom_to_sublattice[i] = -1 means atom i is a
+// spectator. g_species_to_sublattice[s] = -1 means species s is a
+// spectator species. g_allowed_species_by_sublattice[sub] is the set
+// of global species indices that may occupy positions in sublattice
+// `sub` (used by randomizeLattice and the targeted-swap residual
+// scoring).
+static std::vector<int> g_atom_to_sublattice;
+static std::vector<int> g_species_to_sublattice;
+static std::vector<std::vector<int>> g_allowed_species_by_sublattice;
+
 // Forward decls so empty_nests can dispatch to them.
 int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
 int empty_nests_sa(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
@@ -392,6 +408,10 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
             // Reject swaps involving spectator atoms (preserve sublattice).
             if (initialPlacement[atom1] >= 0 || initialPlacement[atom2] >= 0)
                 continue;
+            // Reject cross-sublattice swaps (preserve per-sublattice
+            // chemistry under multi-sublattice partitions).
+            if (g_atom_to_sublattice[atom1] != g_atom_to_sublattice[atom2])
+                continue;
             if(currnest[atom1] == currnest[atom2])
                 continue;
             temphold = currnest[atom1];
@@ -589,6 +609,9 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
                     if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) {
                         any_invalid = true; break;
                     }
+                    if (g_atom_to_sublattice[a] != g_atom_to_sublattice[b]) {
+                        any_invalid = true; break;
+                    }
                     int sa_l = currnest[a], sb_l = currnest[b];
                     if (sa_l == sb_l) { any_invalid = true; break; }
                     for (int k = 0; k < max_num_neighs; k++) {
@@ -647,6 +670,12 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
             if (use_targeted) {
                 // Pick (i, j, k) with prob ~ w_k * (pairGr - expected)^2.
                 // Falls back to uniform if no non-zero residual exists yet.
+                // Score only species pairs (p, q) that can actually be
+                // swapped -- i.e., live on the same sublattice. Cross-
+                // sublattice pair counts are determined by composition
+                // (no swap can change them) so including them in the
+                // residual scoring would propose moves that are
+                // immediately rejected downstream by the sublattice gate.
                 double total_score = 0.0;
                 for (int k = 0; k < max_num_neighs; k++) {
                     double w = (k < (int) weights.size()) ? weights[k] : 1.0;
@@ -656,6 +685,8 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
                         for (int q = 0; q < _typesatoms; q++) {
                             if (p == q) continue;
                             if (species_atoms[q].empty()) continue;
+                            if (g_species_to_sublattice[p]
+                                != g_species_to_sublattice[q]) continue;
                             double r = pairGr[p][q][k] - expected[p][q][k];
                             total_score += w * r * r;
                         }
@@ -673,6 +704,8 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
                             for (int q = 0; q < _typesatoms; q++) {
                                 if (p == q) continue;
                                 if (species_atoms[q].empty()) continue;
+                                if (g_species_to_sublattice[p]
+                                    != g_species_to_sublattice[q]) continue;
                                 double r = pairGr[p][q][k] - expected[p][q][k];
                                 acc += w * r * r;
                                 if (acc >= pick) {
@@ -699,6 +732,7 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
                 b = dis(gen_f);
             }
             if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) continue;
+            if (g_atom_to_sublattice[a] != g_atom_to_sublattice[b]) continue;
             int sa = currnest[a], sb = currnest[b];
             if (sa == sb) continue;
 
@@ -910,6 +944,7 @@ int empty_nests_sa(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, 
             int a = dis(gen_s);
             int b = dis(gen_s);
             if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) continue;
+            if (g_atom_to_sublattice[a] != g_atom_to_sublattice[b]) continue;
             int sa = currnest[a], sb = currnest[b];
             if (sa == sb) continue;
 
@@ -1013,7 +1048,6 @@ vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size
         }
         seeded = true;
     }
-    std::uniform_int_distribution<> dis(0, _typeofatoms - 1);
     vector<vector<int>> nests(numofnests, vector<int>(numofatoms, 0));
     vector<int> _numofatoms(_size, 0);
     vector<int> atomNum(_typeofatoms, 0);
@@ -1026,22 +1060,34 @@ vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size
                 atomNum[initialPlacement[k]] += 1;
             }
         }
-        // Random pass: fill free positions with non-spectator species.
-        // A draw that hits an already-maxed species (which includes any
-        // spectator species, since the spectator pass exhausted their
-        // budget) is rejected; loop until a feasible draw lands.
+        // Per-sublattice random pass: each free position draws from the
+        // species allowed on its own sublattice, rejecting draws that
+        // exceed the species' ELEMENT budget. Replaces the legacy flat
+        // shuffle (which would happily put a metal atom on a carbon site
+        // in a multi-sublattice cell). When the partition is a single
+        // sublattice spanning all non-spectator basis positions and
+        // species (the default synthesized in main() when no SUBLATTICE
+        // keyword is present), this reduces exactly to the legacy
+        // behavior modulo RNG-trajectory equivalence.
         int i = 0;
         while (i < _size) {
             if (initialPlacement[i] >= 0) {
-                i++;  // already placed by spectator pass
+                i++;
                 continue;
             }
-            atom = (int)dis(gen);
+            const int sub = g_atom_to_sublattice[i];
+            const auto &allowed = g_allowed_species_by_sublattice[sub];
+            std::uniform_int_distribution<> subdis(
+                0, (int) allowed.size() - 1);
+            atom = allowed[(int) subdis(gen)];
             if (atomNum[atom] < _maxAtomNum[atom]) {
                 _numofatoms[i] = atom;
                 atomNum[atom] += 1;
                 i++;
             }
+            // Capacity-mismatch infinite loops are prevented by the
+            // per-sublattice ELEMENT-capacity check in main() before we
+            // ever get here; no explicit attempt counter needed.
         }
         nests[j] = _numofatoms;
         std::fill(_numofatoms.begin(), _numofatoms.end(), 0);
@@ -1353,6 +1399,106 @@ int main(int argc, char ** argv)
                 return 1;
             }
         }
+    }
+
+    // ---- Multi-sublattice expansion ----
+    // Build g_atom_to_sublattice and g_species_to_sublattice from
+    // inputfile.sublattices, using the same basis-outermost unrolling as
+    // initialPlacement. Cross-check BASIS bounds against POSCAR (deferred
+    // from the parser, which doesn't see POSCAR), and per-sublattice
+    // ELEMENT capacity. When no SUBLATTICE keyword was given, synthesize
+    // a default single-sublattice covering every non-spectator basis
+    // position and species so all downstream code can assume a non-empty
+    // partition and use one uniform path.
+    for (const auto &sub : inputfile.sublattices) {
+        for (int bi : sub.basisPositions) {
+            if (bi >= basis_size) {
+                cout << "ERROR: SUBLATTICE " << sub.id << " basis position "
+                     << bi << " >= POSCAR basis size " << basis_size
+                     << ". Aborting." << endl;
+                MPI_Abort(MPI_COMM_WORLD, 1);
+                return 1;
+            }
+            if (inputfile.spectatorBasisPositions.count(bi)) {
+                cout << "ERROR: SUBLATTICE " << sub.id << " basis position "
+                     << bi << " is also declared as SPECTATOR_BASIS_SPECIES. "
+                     << "Choose one or the other. Aborting." << endl;
+                MPI_Abort(MPI_COMM_WORLD, 1);
+                return 1;
+            }
+        }
+    }
+    if (inputfile.sublattices.empty()) {
+        readInput::SublatticeSpec defaultSub;
+        defaultSub.id = 0;
+        for (int bi = 0; bi < basis_size; ++bi) {
+            if (!inputfile.spectatorBasisPositions.count(bi))
+                defaultSub.basisPositions.push_back(bi);
+        }
+        for (int sp = 0; sp < typeofatoms; ++sp) {
+            if (!inputfile.spectatorSpecies.count(sp))
+                defaultSub.speciesAllowed.push_back(sp);
+        }
+        if (!defaultSub.basisPositions.empty()
+            && !defaultSub.speciesAllowed.empty()) {
+            inputfile.sublattices.push_back(std::move(defaultSub));
+        }
+    }
+    g_atom_to_sublattice.assign(total_atoms, -1);
+    g_species_to_sublattice.assign(typeofatoms, -1);
+    g_allowed_species_by_sublattice.assign(inputfile.sublattices.size(),
+                                            std::vector<int>());
+    for (int s = 0; s < (int) inputfile.sublattices.size(); ++s) {
+        const auto &sub = inputfile.sublattices[s];
+        g_allowed_species_by_sublattice[s] = sub.speciesAllowed;
+        for (int bi : sub.basisPositions) {
+            int start = bi * n_cells;
+            int end = start + n_cells;
+            for (int atom_idx = start; atom_idx < end; ++atom_idx) {
+                g_atom_to_sublattice[atom_idx] = s;
+            }
+        }
+        for (int sp : sub.speciesAllowed) {
+            g_species_to_sublattice[sp] = s;
+        }
+    }
+    // Every non-spectator atom must belong to some sublattice. Partial
+    // SUBLATTICE coverage on the basis is a user error.
+    for (int i = 0; i < total_atoms; ++i) {
+        if (initialPlacement[i] < 0 && g_atom_to_sublattice[i] < 0) {
+            int basis_idx = i / n_cells;
+            cout << "ERROR: basis position " << basis_idx
+                 << " (atom " << i << ") is not assigned to any "
+                 << "SUBLATTICE or SPECTATOR_BASIS_SPECIES. When SUBLATTICE "
+                 << "blocks are declared, every non-spectator basis position "
+                 << "must belong to exactly one of them. Aborting." << endl;
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1;
+        }
+    }
+    // Per-sublattice ELEMENT-capacity check: sum of ELEMENT[s] for the
+    // species in sublattice S must equal capacity(S) = |basis(S)| * n_cells.
+    // Catches "you assigned 4 metal species totaling 16 atoms but the
+    // metal sublattice has 32 positions" mismatches that would otherwise
+    // hang randomizeLattice or produce nonsense.
+    for (const auto &sub : inputfile.sublattices) {
+        int capacity = (int) sub.basisPositions.size() * n_cells;
+        int demand = 0;
+        for (int sp : sub.speciesAllowed) demand += eachElement[sp];
+        if (demand != capacity) {
+            cout << "ERROR: SUBLATTICE " << sub.id << " has capacity "
+                 << capacity << " atoms (" << sub.basisPositions.size()
+                 << " basis x " << n_cells << " cells) but its species "
+                 << "ELEMENT counts sum to " << demand
+                 << ". These must be equal. Aborting." << endl;
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1;
+        }
+    }
+    if (id == 0 && inputfile.sublattices.size() > 1) {
+        cout << "[SUBLATTICE] active partition: "
+             << inputfile.sublattices.size() << " sublattices, "
+             << total_atoms << " atoms total" << endl;
     }
 
     // Validate lattice supports the Warren-Cowley formulation on the
