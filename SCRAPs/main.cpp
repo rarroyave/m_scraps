@@ -483,12 +483,22 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
     }
 
     auto fitness_from_pairGr = [&](const vector<vector<vector<double>>>& pgr) -> double {
+        // Match legacy fitnessvalue semantics: when countgr is 0 (no
+        // pairs of this type in the current nest), legacy sets avgGr = 0
+        // and the contribution becomes pgr^2 = 0. The principled
+        // delta-fitness would use the constant `expected` here -- giving
+        // expected^2 contribution -- which DISAGREES with legacy and
+        // breaks the L2_1 warm-start (perfect L2_1 has zero X-Y and X-Z
+        // at 2NN; legacy says fit=0, principled delta says fit > 0).
+        // Match legacy by skipping pairs with pgr==0 (equivalent to
+        // setting the per-pair contribution to 0 in that case).
         double err = 0.0;
         for (int k = 0; k < max_num_neighs; k++) {
             double e_k = 0.0;
             for (int i = 0; i < _typesatoms; i++) {
                 for (int j = 0; j < _typesatoms; j++) {
                     if (i == j) continue;
+                    if (pgr[i][j][k] == 0.0) continue;  // legacy countgr==0 contract
                     double d = pgr[i][j][k] - expected[i][j][k];
                     e_k += d * d;
                 }

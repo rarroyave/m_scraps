@@ -163,3 +163,69 @@ def test_warm_start_missing_file_aborts(tmp_path):
     # init.nest was never written
     assert rc != 0
     assert "INIT_NEST file not found" in log
+
+
+def test_warm_start_l21_with_fast_swaps_preserved(tmp_path):
+    """Regression for the legacy-vs-delta fitness disagreement.
+
+    Build a perfect L2_1 (Heusler X_2YZ) warm-start on BCC 2x2x2 = 16
+    atoms. Heusler structure: X on the body-center sublattice (basis 1,
+    8 atoms), Y and Z alternating on the corner sublattice (basis 0, 8
+    atoms) by cell parity. With BCC primitive 2-basis tiled (2,2,2)
+    and basis-OUTERMOST ordering: atoms 0..7 are basis 0 (Y or Z by
+    parity), atoms 8..15 are basis 1 (all X).
+
+    The L2_1 warm-start has zero X-Y and X-Z at the 2NN shell (X's
+    2NN are all X), which is the case the FAST_SWAPS=1 path used to
+    mis-evaluate -- legacy fitness reported 0, delta-fitness reported
+    a non-zero value, and MC then 'optimized' away from the perfect
+    seed. This test verifies the warm-start nest stays at fitness=0
+    through the MC loop with FAST_SWAPS=1 (default).
+    """
+    # Build the warm-start nest: basis 0 (atoms 0..7) gets Y or Z by
+    # (i+j+k) parity; basis 1 (atoms 8..15) gets X.
+    k1 = k2 = k3 = 2
+    n_cells = k1 * k2 * k3  # 8
+    species = [0] * (2 * n_cells)  # 0=X, 1=Y, 2=Z
+    cell_idx = 0
+    # SCRAPS' ordering: for each basis (outer), z (next), y, x (inner)
+    for b in range(2):
+        c_idx = 0
+        for k in range(k3):
+            for j in range(k2):
+                for i in range(k1):
+                    parity = (i + j + k) % 2
+                    if b == 0:
+                        species[b * n_cells + c_idx] = 1 if parity == 0 else 2
+                    else:
+                        species[b * n_cells + c_idx] = 0
+                    c_idx += 1
+    init_nest = "\n".join(str(s) for s in species) + "\n"
+
+    inp = textwrap.dedent("""\
+        TYP     3
+        GITER   100
+        ELEMENT 8 4 4
+        Cell_DIM        2 2 2
+        NESTS   1
+        MCSTEP  10
+        TOTALIter 2
+        MAXSHELLNUM 2
+        WEIGHT 1 1
+        RNG_SEED 1
+        SRO 0 1 0 -1.0
+        SRO 0 2 0 -1.0
+        SRO 1 2 0 +1.0
+        SRO 1 2 1 -3.0
+        INIT_NEST init.nest
+        """)
+    rc, log = run_scraps(tmp_path, BCC_POSCAR_NO_SPECIES, inp,
+                         init_nest=init_nest)
+    assert rc == 0, f"scraps failed: {log[-500:]}"
+    # The warm-started perfect L2_1 should hold at fitness=0 through MC
+    final = next((float(l.split("=")[-1].strip())
+                  for l in log.splitlines() if "FINAL fitness" in l), None)
+    assert final is not None, "no FINAL fitness in log"
+    assert final == 0.0, (
+        f"L2_1 warm-start with FAST_SWAPS=1 lost fitness=0 -- got {final}. "
+        "This is the legacy-vs-delta fitness regression.")
