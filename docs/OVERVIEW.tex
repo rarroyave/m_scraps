@@ -325,12 +325,19 @@ MC loop and return the best of the initial random nest pool. Default
 per-iteration CSV log:
 \texttt{iteration,\ best\_fitness,\ wall\_seconds}. Iteration
 \texttt{-1} is the pre-MC baseline. \\
+\texttt{INIT\_NEST\ \textless{}path\textgreater{}} & Warm-start: read a
+plain-text file of species indices (one per line, in basis-OUTERMOST
+atom order) and seed \texttt{nests{[}0{]}} on every rank with that nest.
+The MC then explores around the seed instead of from a uniform random
+init. Useful for steep multi-pair targets (L2₁ etc.) and
+iterative-refinement workflows. Default empty = pure random init. \\
 \end{longtable}
 
 The first three let users get to a sensible result without per-cell
 tuning. The reproducibility / ablation knobs (RNG\_SEED, RANDOM\_ONLY,
 CONVERGENCE\_LOG) exist primarily to make the optimizer \emph{auditable}
---- see §3.
+--- see §3. \texttt{INIT\_NEST} lets users explicitly hand the optimizer
+a candidate structure as a starting point.
 
 \subsubsection{2.5 Algorithmic upgrades}\label{algorithmic-upgrades}
 
@@ -574,17 +581,55 @@ no direct API for per-species-pair \(\alpha\) targets.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\subsection{7. What's next}\label{whats-next}
+\subsection{7. Release history}\label{release-history}
 
-Open items at this commit: - \textbf{Apply to a real research case.}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{v0.3.0} (this commit) --- warm-start API
+  (\texttt{INIT\_NEST}), JOSS paper draft under \texttt{paper/},
+  delta-vs-legacy fitness disagreement fix (the L2₁ warm-start case
+  where the perfect Heusler nest has zero X-Y and X-Z 2NN pairs,
+  exposing a \texttt{countgr==0} edge case in the legacy fitness). 80
+  tests passing.
+\item
+  \textbf{v0.2.2} --- INPUT parser hardening: unrecognized-keyword
+  warnings, \texttt{\#} comment/blank-line support, required-keyword
+  validation, ELEMENT-vs-TYP cross-check, \texttt{Cell\_DIM=3}
+  validation; dead \texttt{removedublicates} removed. 73 tests.
+\item
+  \textbf{v0.2.1} --- Real VASP POSCAR parser (handles full canonical
+  VASP-5 layout, defensive abort on malformed input); ASE coordinate
+  bugfix in \texttt{tools/scraps\_ase.py}; three Jupyter tutorials
+  (\texttt{notebooks/01..03}); \texttt{docs/OVERVIEW.\{md,tex,pdf\}}. 60
+  tests.
+\item
+  \textbf{v0.2.0} --- Per-pair SRO API, HEB-class spectator sublattice
+  support, user-facing heuristics (AUTO\_MCSTEP, EARLY\_STOP\_*,
+  RNG\_SEED, RANDOM\_ONLY, CONVERGENCE\_LOG, FAST\_SWAPS,
+  TARGETED\_SWAPS), delta-fitness MC (2-18× speedup), feasibility check
+  (\texttt{tools/suggest\_cell.py} + C++ warning), ASE interop
+  (\texttt{tools/scraps\_ase.py}), MPI singleton-mode diagnosis and fix.
+  48 tests.
+\end{itemize}
+
+\subsection{8. What's next}\label{whats-next}
+
+Open items as of v0.3.0: - \textbf{Apply to a real research case.}
 Refractory HEB with literature CSRO targets, DFT validation. The
-infrastructure to do this is in place; the work to do it is not. -
-\textbf{Warm-start API.} Pass an initial nest in INPUT for steep-target
-cases like full L2₁ where uniform random initialization plateaus far
-from the global minimum at 128 atoms. - \textbf{Upstream a subset of
-fixes.} The six C++ bug fixes (§2.1) are upstreamable as a PR to
-\texttt{DuaneDJohnson/Hybrid-Cuckoo-Search}. The per-pair SRO API is the
-more contentious change because it expands the INPUT keyword space.
+infrastructure is in place; the work to do it is not. - \textbf{Make the
+repo public + submit JOSS paper.} The manuscript draft under
+\texttt{paper/} is submission-ready; gating items are flipping the repo
+to public visibility and ORCID verification. - \textbf{Sigma-phase /
+Heusler with independent compositions.} The only remaining functional
+gap vs ATAT \texttt{mcsqs} is true multi-sublattice with independent
+designed compositions on each sublattice. - \textbf{Upstream a subset of
+fixes.} The six C++ bug fixes (§2.1) and the POSCAR/INPUT parser
+hardening are upstreamable as PRs to
+\texttt{DuaneDJohnson/Hybrid-Cuckoo-Search}. -
+\textbf{\texttt{tools/plot\_convergence.py}} --- small matplotlib helper
+that reads \texttt{CONVERGENCE\_LOG} and plots fitness vs iteration.
+Shipped with v0.3.0.
 
 See the \texttt{\#\#\ 13.\ scraps-perpair} entry in the project memory
 catalog for the live status of these items.

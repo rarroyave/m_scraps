@@ -164,11 +164,13 @@ worked HEB cases.
 | `RNG_SEED <n>` | Reproducible per-rank seeding via $n \oplus (\mathrm{rank} \cdot \phi_{64})$. Default 0 = use `std::random_device`. |
 | `RANDOM_ONLY <0|1>` | Skip the MC loop and return the best of the initial random nest pool. Default 0. |
 | `CONVERGENCE_LOG <path>` | Rank-0 per-iteration CSV log: `iteration, best_fitness, wall_seconds`. Iteration `-1` is the pre-MC baseline. |
+| `INIT_NEST <path>` | Warm-start: read a plain-text file of species indices (one per line, in basis-OUTERMOST atom order) and seed `nests[0]` on every rank with that nest. The MC then explores around the seed instead of from a uniform random init. Useful for steep multi-pair targets (L2₁ etc.) and iterative-refinement workflows. Default empty = pure random init. |
 
 The first three let users get to a sensible result without per-cell
 tuning. The reproducibility / ablation knobs (RNG_SEED, RANDOM_ONLY,
 CONVERGENCE_LOG) exist primarily to make the optimizer *auditable* —
-see §3.
+see §3. `INIT_NEST` lets users explicitly hand the optimizer a
+candidate structure as a starting point.
 
 ### 2.5 Algorithmic upgrades
 
@@ -330,19 +332,48 @@ has no direct API for per-species-pair $\alpha$ targets.
 
 ---
 
-## 7. What's next
+## 7. Release history
 
-Open items at this commit:
+- **v0.3.0** (this commit) — warm-start API (`INIT_NEST`), JOSS
+  paper draft under `paper/`, delta-vs-legacy fitness disagreement
+  fix (the L2₁ warm-start case where the perfect Heusler nest has
+  zero X-Y and X-Z 2NN pairs, exposing a `countgr==0` edge case in
+  the legacy fitness). 80 tests passing.
+- **v0.2.2** — INPUT parser hardening: unrecognized-keyword
+  warnings, `#` comment/blank-line support, required-keyword
+  validation, ELEMENT-vs-TYP cross-check, `Cell_DIM=3` validation;
+  dead `removedublicates` removed. 73 tests.
+- **v0.2.1** — Real VASP POSCAR parser (handles full canonical
+  VASP-5 layout, defensive abort on malformed input); ASE
+  coordinate bugfix in `tools/scraps_ase.py`; three Jupyter
+  tutorials (`notebooks/01..03`); `docs/OVERVIEW.{md,tex,pdf}`.
+  60 tests.
+- **v0.2.0** — Per-pair SRO API, HEB-class spectator sublattice
+  support, user-facing heuristics (AUTO_MCSTEP, EARLY_STOP_*,
+  RNG_SEED, RANDOM_ONLY, CONVERGENCE_LOG, FAST_SWAPS,
+  TARGETED_SWAPS), delta-fitness MC (2-18× speedup), feasibility
+  check (`tools/suggest_cell.py` + C++ warning), ASE interop
+  (`tools/scraps_ase.py`), MPI singleton-mode diagnosis and fix.
+  48 tests.
+
+## 8. What's next
+
+Open items as of v0.3.0:
 - **Apply to a real research case.** Refractory HEB with literature
-  CSRO targets, DFT validation. The infrastructure to do this is in
-  place; the work to do it is not.
-- **Warm-start API.** Pass an initial nest in INPUT for
-  steep-target cases like full L2₁ where uniform random initialization
-  plateaus far from the global minimum at 128 atoms.
-- **Upstream a subset of fixes.** The six C++ bug fixes (§2.1) are
-  upstreamable as a PR to `DuaneDJohnson/Hybrid-Cuckoo-Search`. The
-  per-pair SRO API is the more contentious change because it expands
-  the INPUT keyword space.
+  CSRO targets, DFT validation. The infrastructure is in place; the
+  work to do it is not.
+- **Make the repo public + submit JOSS paper.** The manuscript draft
+  under `paper/` is submission-ready; gating items are flipping the
+  repo to public visibility and ORCID verification.
+- **Sigma-phase / Heusler with independent compositions.** The only
+  remaining functional gap vs ATAT `mcsqs` is true multi-sublattice
+  with independent designed compositions on each sublattice.
+- **Upstream a subset of fixes.** The six C++ bug fixes (§2.1) and
+  the POSCAR/INPUT parser hardening are upstreamable as PRs to
+  `DuaneDJohnson/Hybrid-Cuckoo-Search`.
+- **`tools/plot_convergence.py`** — small matplotlib helper that
+  reads `CONVERGENCE_LOG` and plots fitness vs iteration. Shipped
+  with v0.3.0.
 
 See the `## 13. scraps-perpair` entry in the project memory catalog
 for the live status of these items.
