@@ -1117,6 +1117,88 @@ int main(int argc, char ** argv)
     int nestsperproc = endval - startval + 1;
     vector<vector<int>> nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms, initialPlacement));
     vector<vector<int >> new_nests(randomizeLattice(nestsperproc, typeofatoms, total_atoms, maxAtomNum, total_atoms, initialPlacement));
+
+    // Warm-start: if INIT_NEST is set, read a per-atom species vector from
+    // the file and use it to seed nests[0] on every rank. The MC then
+    // explores around that nest instead of from a uniform random init.
+    //
+    // File format: total_atoms whitespace-separated nonneg integers in
+    // [0, typeofatoms), in the same atom order SCRAPS uses internally
+    // (basis-OUTERMOST: all basis-0 atoms across the supercell, then all
+    // basis-1, ...). Blank lines and '#' comment lines are tolerated.
+    //
+    // Validation: total count must match total_atoms; per-species counts
+    // must match ELEMENT; spectator atoms (initialPlacement[i] >= 0)
+    // must keep their fixed species. Any mismatch aborts via MPI_Abort
+    // with a clear message rather than silently optimizing a wrong nest.
+    if (!inputfile.initNestFile.empty()) {
+        std::ifstream nf(inputfile.initNestFile.c_str());
+        if (!nf.is_open()) {
+            if (id == 0) {
+                cout << "ERROR: INIT_NEST file not found: "
+                     << inputfile.initNestFile << endl;
+            }
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+        vector<int> init_nest;
+        init_nest.reserve(total_atoms);
+        std::string line;
+        while (std::getline(nf, line)) {
+            std::size_t first_ns = line.find_first_not_of(" \t");
+            if (first_ns == std::string::npos) continue;        // blank line
+            if (line[first_ns] == '#') continue;                // comment
+            std::stringstream ssn(line);
+            int v;
+            while (ssn >> v) init_nest.push_back(v);
+        }
+        if ((int) init_nest.size() != total_atoms) {
+            if (id == 0) {
+                cout << "ERROR: INIT_NEST has " << init_nest.size()
+                     << " entries but supercell has " << total_atoms
+                     << " atoms." << endl;
+            }
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
+        vector<int> per_species(typeofatoms, 0);
+        for (int i = 0; i < total_atoms; ++i) {
+            int s = init_nest[i];
+            if (s < 0 || s >= typeofatoms) {
+                if (id == 0) {
+                    cout << "ERROR: INIT_NEST atom " << i << " has species "
+                         << s << ", out of range [0, " << typeofatoms << ")."
+                         << endl;
+                }
+                MPI_Abort(MPI_COMM_WORLD, 1);
+            }
+            per_species[s] += 1;
+            if (initialPlacement[i] >= 0 && initialPlacement[i] != s) {
+                if (id == 0) {
+                    cout << "ERROR: INIT_NEST atom " << i << " has species "
+                         << s << " but the spectator sublattice fixes it to "
+                         << initialPlacement[i] << "." << endl;
+                }
+                MPI_Abort(MPI_COMM_WORLD, 1);
+            }
+        }
+        for (int s = 0; s < typeofatoms; ++s) {
+            if (per_species[s] != eachElement[s]) {
+                if (id == 0) {
+                    cout << "ERROR: INIT_NEST species " << s << " count = "
+                         << per_species[s] << " but ELEMENT says "
+                         << eachElement[s] << "." << endl;
+                }
+                MPI_Abort(MPI_COMM_WORLD, 1);
+            }
+        }
+        if (!nests.empty()) nests[0] = init_nest;
+        if (!new_nests.empty()) new_nests[0] = init_nest;
+        if (id == 0) {
+            cout << "INIT_NEST: seeded nests[0] on every rank from "
+                 << inputfile.initNestFile << " (" << total_atoms
+                 << " atoms)." << endl;
+        }
+    }
+
     vector<double> fitness(nestsperproc, INT_MAX);
     fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
     // Diagnostic: report initial (pre-MCMC) fitness so the user can see

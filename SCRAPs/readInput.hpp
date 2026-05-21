@@ -85,6 +85,22 @@ public:
     // disables logging. Written by rank 0 only; CSV with columns
     // iteration, best_fitness_rank0, wall_seconds.
     std::string convergenceLog;
+    // Warm-start: path to a plain-text file containing the initial
+    // nest as one species index per line (0-based, matching ELEMENT
+    // order). When set, replaces nests[0] on every rank with the
+    // file's contents -- the MC search then explores around that
+    // seed instead of from a uniform random init. Useful for steep
+    // targets like L2_1 where uniform random plateaus far from the
+    // global minimum. Default empty = pure random init.
+    //
+    // KNOWN ISSUE: when the SRO target uses |alpha| > 1 (e.g.,
+    // alpha_YZ^2NN = -3 in L2_1), the delta-fitness MC path
+    // (FAST_SWAPS = 1, default) drifts the warm-started fit-0 nest
+    // away during the MC loop -- the perfect seed gets destroyed.
+    // The legacy full-recompute path (FAST_SWAPS = 0) preserves it
+    // correctly. Workaround: combine INIT_NEST with FAST_SWAPS 0
+    // until the underlying delta-fitness edge case is fixed.
+    std::string initNestFile;
     // Delta-fitness MC: instead of recomputing the full fitness on
     // every swap proposal (O(N*z)), maintain pairGr as state and apply
     // a delta from each swap (O(z)). Yields 50-250x more swap attempts

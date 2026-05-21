@@ -50,6 +50,7 @@ readInput::readInput()
       earlyStopPatience(0), earlyStopTol(1e-6), autoMcstepFactor(0),
       rngSeed(0), randomOnly(0), convergenceLog(""),
       fastSwaps(1), targetedSwaps(0), targetedSwapProb(0.7),
+      initNestFile(""),
       totalatoms(0)
 {
     input();
@@ -252,6 +253,7 @@ const std::set<std::string> KNOWN_KEYS = {
     "FAST_SWAPS", "TARGETED_SWAPS", "TARGETED_SWAP_PROB",
     "EARLY_STOP_PATIENCE", "EARLY_STOP_TOL",
     "SPECTATOR_BASIS_SPECIES",
+    "INIT_NEST",
 };
 }  // namespace
 
@@ -376,6 +378,10 @@ void readInput::input() {
             if(key.compare("TARGETED_SWAP_PROB") == 0)
             {
                 ss >> targetedSwapProb;
+            }
+            if(key.compare("INIT_NEST") == 0)
+            {
+                ss >> initNestFile;
             }
             if(key.compare("EARLY_STOP_PATIENCE") == 0)
             {
