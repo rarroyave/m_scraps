@@ -69,8 +69,39 @@ Direct
 """
 
 
+# ----- CSRO patterns -------------------------------------------------------
+# Each pattern is a list of (species_i, species_j, shell_index, alpha)
+# tuples. Shell indices are SCRAPs' 0-based shell numbering for the B2
+# lattice: 0=1NN cross-sub, 1=2NN intra-sub, 2=3NN intra-sub, 3=4NN
+# cross-sub, 4=5NN intra-sub. Species: 0=Ni, 1=Co, 2=Ti, 3=Zr.
+PATTERNS: dict[str, dict] = {
+    "sqs": {
+        "description": "fully disordered (all alpha = 0)",
+        "sro_lines": [],
+    },
+    "ordered": {
+        "description": "perfect ordering on each sublattice at 2NN "
+                       "(α(Ni-Co)=-1, α(Ti-Zr)=-1)",
+        "sro_lines": [(0, 1, 1, -1.0), (2, 3, 1, -1.0)],
+    },
+    "clustered": {
+        "description": "moderate clustering on each sublattice at 2NN "
+                       "(α(Ni-Co)=+0.5, α(Ti-Zr)=+0.5)",
+        "sro_lines": [(0, 1, 1, +0.5), (2, 3, 1, +0.5)],
+    },
+    "mixed": {
+        "description": "M ordered, X clustered at 2NN "
+                       "(α(Ni-Co)=-0.5, α(Ti-Zr)=+0.5)",
+        "sro_lines": [(0, 1, 1, -0.5), (2, 3, 1, +0.5)],
+    },
+}
+PATTERN_ORDER = ["sqs", "ordered", "clustered", "mixed"]
+SPECIES_NAMES = ["Ni", "Co", "Ti", "Zr"]
+
+
 def scraps_input(cell_dim: int, mcstep: int, total_iter: int,
-                 nests: int, max_shells: int, weight_str: str) -> str:
+                 nests: int, max_shells: int, weight_str: str,
+                 sro_lines: list[tuple[int, int, int, float]]) -> str:
     """SCRAPs INPUT for the (Ni,Co)(Ti,Zr) B2 case. ELEMENT order is
     Ni, Co, Ti, Zr; sublattice 0 holds Ni+Co (basis 0), sublattice 1
     holds Ti+Zr (basis 1). All alpha targets default to 0 (SQS).
@@ -87,6 +118,9 @@ def scraps_input(cell_dim: int, mcstep: int, total_iter: int,
     """
     n_per_sub = cell_dim ** 3
     half = n_per_sub // 2
+    sro_block = "".join(
+        f"SRO {i} {j} {k} {a:+g}\n" for (i, j, k, a) in sro_lines
+    )
     return (
         f"TYP     4\n"
         f"GITER   1000\n"
@@ -101,22 +135,38 @@ def scraps_input(cell_dim: int, mcstep: int, total_iter: int,
         f"EARLY_STOP_PATIENCE 0\n"
         f"SUBLATTICE 0 BASIS 0 SPECIES 0 1\n"
         f"SUBLATTICE 1 BASIS 1 SPECIES 2 3\n"
+        + sro_block
     )
 
 
 def run_scraps(work_dir: Path, cell_dim: int, ranks: int,
-               timeout: int) -> tuple[float, Path, str]:
+               timeout: int,
+               sro_lines: list[tuple[int, int, int, float]] | None = None,
+               ) -> tuple[float, Path, str]:
     work_dir.mkdir(parents=True, exist_ok=True)
     (work_dir / "POSCAR").write_text(B2_POSCAR.format(a=B2_LATTICE))
     # MC budget: MCSTEP ~ 50 * n_atoms (heuristic scaled for the
     # cross-sublattice rejection rate ~50%). TOTALIter capped at 30.
     n_atoms = 2 * cell_dim ** 3
     mcstep = max(500, 50 * n_atoms)
-    # MAXSHELLNUM=5 covers 1NN..5NN, weights target only intra-sublattice
-    # shells (0=1NN cross, 1=2NN intra, 2=3NN intra, 3=4NN cross, 4=5NN intra).
+    # Shell weighting: when SRO lines are present (CSRO patterns) we
+    # weight ONLY the targeted shell so unrelated shells aren't pulled
+    # toward alpha=0 by default -- otherwise a target like alpha=-1 at
+    # 2NN is impossible because the bipartite ordering it requires
+    # induces non-zero alpha at 3NN and 5NN.
+    if sro_lines:
+        targeted_shells = {k for (_, _, k, _) in sro_lines}
+        weight_str = " ".join(
+            "1" if k in targeted_shells else "0" for k in range(5)
+        )
+    else:
+        # SQS case: weight all intra-sublattice shells equally so the
+        # optimizer drives alpha=0 across the full neighbor structure.
+        weight_str = "0 1 1 0 1"
     inp = scraps_input(cell_dim, mcstep=mcstep, total_iter=30,
                        nests=8, max_shells=5,
-                       weight_str="0 1 1 0 1")
+                       weight_str=weight_str,
+                       sro_lines=sro_lines or [])
     (work_dir / "INPUT").write_text(inp)
     shutil.copy(SCRAPS_BIN, work_dir / "scraps")
     os.chmod(work_dir / "scraps", 0o755)
@@ -374,6 +424,13 @@ def compute_alpha_per_shell(poscar_path: Path,
                     max_intra = max(max_intra, abs(float(v)))
                 else:
                     max_inter = max(max_inter, abs(float(v)))
+        # Full alpha matrix (with NaN entries for undefined pairs) so
+        # callers can extract specific (i, j) targets for a CSRO check.
+        alpha_list = [
+            [float(alpha[i, j]) if np.isfinite(alpha[i, j]) else None
+             for j in range(n_typ)]
+            for i in range(n_typ)
+        ]
         out.append({
             "index": k,
             "r_min": r_min,
@@ -381,6 +438,7 @@ def compute_alpha_per_shell(poscar_path: Path,
             "z_total": float(np.sum(z_st) / n_sub),  # avg coord per atom
             "max_alpha_intra": max_intra,
             "max_alpha_inter": max_inter,
+            "alpha": alpha_list,
         })
     return out
 
@@ -420,16 +478,23 @@ class CaseResult:
 
 
 def run_case(cell_dim: int, ranks: int, budget: int,
-             work_root: Path) -> tuple[CaseResult, CaseResult]:
+             work_root: Path, pattern: str = "sqs",
+             include_mcsqs: bool = True) -> tuple[CaseResult, CaseResult | None]:
+    """Run SCRAPs (and optionally mcsqs) for one cell size and one
+    pattern. mcsqs only targets random/SQS natively; for CSRO patterns
+    a direct comparison would require constructing per-cluster
+    correlation targets via mcsqs -corrfile, which is out of scope
+    here. include_mcsqs is set False automatically for non-sqs patterns
+    so the CSRO comparison cleanly reports SCRAPs-only.
+    """
     n_atoms = 2 * cell_dim ** 3
+    sro_lines = PATTERNS[pattern]["sro_lines"]
     # SCRAPs side
-    sc_dir = work_root / f"n{n_atoms}_scraps"
+    sc_dir = work_root / f"{pattern}_n{n_atoms}_scraps"
     sc_wall, sc_poscar, sc_log = run_scraps(
-        sc_dir, cell_dim, ranks=ranks, timeout=budget + 60
+        sc_dir, cell_dim, ranks=ranks, timeout=budget + 60,
+        sro_lines=sro_lines,
     )
-    # SCRAPs writes SCRAPS.vasp with placeholder species labels (no
-    # element names). Rewrite the species line so pymatgen reads them
-    # as Ni, Co, Ti, Zr in ELEMENT order before alpha analysis.
     fix_scraps_species(sc_poscar, ["Ni", "Co", "Ti", "Zr"])
     sc_shells = compute_alpha_per_shell(
         sc_poscar, species=["Ni", "Co", "Ti", "Zr"],
@@ -438,14 +503,18 @@ def run_case(cell_dim: int, ranks: int, budget: int,
     sc = CaseResult(
         tool="scraps-perpair", cell_dim=cell_dim, n_atoms=n_atoms,
         wall_seconds=round(sc_wall, 2), shells=sc_shells,
+        notes=f"pattern={pattern}",
     )
-    # mcsqs side
-    mc_dir = work_root / f"n{n_atoms}_mcsqs"
+    if not include_mcsqs:
+        return sc, None
+    # mcsqs side (SQS only)
+    mc_dir = work_root / f"{pattern}_n{n_atoms}_mcsqs"
     mc_wall, mc_poscar, mc_note = run_mcsqs(mc_dir, cell_dim, budget=budget)
     if mc_poscar is None:
         mc = CaseResult(
             tool="mcsqs", cell_dim=cell_dim, n_atoms=n_atoms,
-            wall_seconds=round(mc_wall, 2), shells=[], notes=mc_note,
+            wall_seconds=round(mc_wall, 2), shells=[],
+            notes=f"pattern={pattern}; {mc_note}",
         )
     else:
         mc_shells = compute_alpha_per_shell(
@@ -454,48 +523,98 @@ def run_case(cell_dim: int, ranks: int, budget: int,
         )
         mc = CaseResult(
             tool="mcsqs", cell_dim=cell_dim, n_atoms=n_atoms,
-            wall_seconds=round(mc_wall, 2), shells=mc_shells, notes=mc_note,
+            wall_seconds=round(mc_wall, 2), shells=mc_shells,
+            notes=f"pattern={pattern}",
         )
     return sc, mc
 
 
-def print_table(results: list[tuple[CaseResult, CaseResult]]) -> None:
-    print()
-    print("| atoms | tool          | wall (s) | "
-          "max|alpha| sh1 intra | max|alpha| sh2 intra | "
-          "max|alpha| sh0 inter |")
-    print("| ----- | ------------- | -------- | "
-          "-------------------- | -------------------- | "
-          "-------------------- |")
+def alpha_at(result: CaseResult, shell: int, i: int, j: int) -> float | None:
+    sh = next((s for s in result.shells if s["index"] == shell), None)
+    if sh is None:
+        return None
+    val = sh["alpha"][i][j]
+    return val  # may be None if undefined for that (i, j, k)
+
+
+def print_pattern_table(pattern: str,
+                        results: list[tuple[CaseResult, CaseResult | None]]) -> None:
+    """One table per pattern. Each targeted (i, j, shell) gets a column
+    showing achieved alpha; |target - achieved| error is annotated."""
+    info = PATTERNS[pattern]
+    targets = info["sro_lines"]
+    print(f"\n=== Pattern: {pattern} -- {info['description']} ===")
+    # Header
+    cols = ["atoms", "tool", "wall (s)"]
+    if not targets:
+        cols += ["max|α| 2NN intra", "max|α| 3NN intra", "max|α| 1NN inter"]
+    else:
+        for (i, j, k, a) in targets:
+            cols.append(f"α({SPECIES_NAMES[i]}-{SPECIES_NAMES[j]})@sh{k} "
+                        f"(tgt {a:+g})")
+        cols.append("max|α| elsewhere")
+    print("| " + " | ".join(cols) + " |")
+    print("| " + " | ".join("---" for _ in cols) + " |")
     for sc, mc in results:
         for r in (sc, mc):
-            def cell(sh, key):
-                m = next((s for s in r.shells if s["index"] == sh), None)
-                if m is None:
-                    return "n/a"
-                return f"{m[key]:.4f}"
-            print(
-                f"| {r.n_atoms:>5} | {r.tool:<13} | {r.wall_seconds:>8.2f} | "
-                f"{cell(1, 'max_alpha_intra'):>20} | "
-                f"{cell(2, 'max_alpha_intra'):>20} | "
-                f"{cell(0, 'max_alpha_inter'):>20} |"
-            )
+            if r is None:
+                continue
+            row = [str(r.n_atoms), r.tool, f"{r.wall_seconds:.2f}"]
+            if not targets:
+                for sh, key in [(1, "max_alpha_intra"),
+                                (2, "max_alpha_intra"),
+                                (0, "max_alpha_inter")]:
+                    m = next((s for s in r.shells if s["index"] == sh), None)
+                    row.append(f"{m[key]:.4f}" if m else "n/a")
+            else:
+                targeted_keys = {(i, j, k) for (i, j, k, _) in targets}
+                for (i, j, k, a) in targets:
+                    val = alpha_at(r, k, i, j)
+                    row.append(f"{val:+.4f}" if val is not None else "n/a")
+                # Max |alpha| over all non-targeted, non-NaN entries on any shell.
+                max_else = 0.0
+                for sh in r.shells:
+                    for ii in range(len(SPECIES_NAMES)):
+                        for jj in range(len(SPECIES_NAMES)):
+                            if ii == jj:
+                                continue
+                            v = sh["alpha"][ii][jj]
+                            if v is None:
+                                continue
+                            if (ii, jj, sh["index"]) in targeted_keys:
+                                continue
+                            if (jj, ii, sh["index"]) in targeted_keys:
+                                continue  # symmetric pair
+                            max_else = max(max_else, abs(v))
+                row.append(f"{max_else:.4f}")
+            print("| " + " | ".join(row) + " |")
     print()
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--sizes", type=int, nargs="+", default=[2, 4, 6],
-                   help="Cell_DIM values (NxNxN; default 2 4 6)")
+    p.add_argument("--sizes", type=int, nargs="+", default=[4, 6],
+                   help="Cell_DIM values (NxNxN; default 4 6). N must "
+                        "be even for the 50/50 per-sublattice split.")
     p.add_argument("--ranks", type=int, default=4,
                    help="SCRAPs MPI ranks (default 4)")
     p.add_argument("--budget", type=int, default=60,
                    help="Wall budget per case in seconds (default 60). "
                         "SCRAPs may finish earlier via early-stop; mcsqs "
                         "is signaled to stop at budget.")
+    p.add_argument("--patterns", nargs="+",
+                   default=["sqs", "ordered", "clustered", "mixed"],
+                   choices=PATTERN_ORDER,
+                   help="Which CSRO patterns to run (default: all four). "
+                        "Each pattern targets per-pair Warren-Cowley alpha "
+                        "on the intra-sublattice 2NN shell; non-targeted "
+                        "pairs default to alpha=0 (SQS-like).")
+    p.add_argument("--mcsqs-also", action="store_true",
+                   help="Include mcsqs in the SQS pattern only (mcsqs has "
+                        "no direct per-pair-alpha API; CSRO patterns are "
+                        "SCRAPs-only).")
     p.add_argument("--work-root", type=Path, default=Path("/tmp/b2_multisub"),
-                   help="Scratch directory for both tools (cleared per "
-                        "case)")
+                   help="Scratch directory for both tools")
     p.add_argument("--json", type=Path, default=None,
                    help="If set, write a JSON summary to this path")
     return p.parse_args()
@@ -506,32 +625,49 @@ def main() -> int:
     if not SCRAPS_BIN.exists():
         print("ERROR: scraps binary missing -- run bash build.sh", file=sys.stderr)
         return 2
-    if shutil.which("mcsqs") is None:
-        print("ERROR: mcsqs not on PATH", file=sys.stderr)
+    if args.mcsqs_also and shutil.which("mcsqs") is None:
+        print("ERROR: --mcsqs-also requested but mcsqs not on PATH",
+              file=sys.stderr)
         return 2
     args.work_root.mkdir(parents=True, exist_ok=True)
-    results = []
-    for cd in args.sizes:
-        if cd % 2 != 0:
-            print(f"SKIP cell_dim={cd}: 50/50 split per sublattice requires "
-                  f"N^3 even (so N even); use 2, 4, 6, 8...", file=sys.stderr)
-            continue
-        print(f"\n==== cell_dim={cd} (n_atoms={2*cd**3}) ====")
-        sc, mc = run_case(cd, ranks=args.ranks, budget=args.budget,
-                          work_root=args.work_root)
-        print(f"  scraps wall = {sc.wall_seconds:.2f}s; "
-              f"mcsqs wall = {mc.wall_seconds:.2f}s")
-        results.append((sc, mc))
-    print_table(results)
+    all_results: dict[str, list[tuple[CaseResult, CaseResult | None]]] = {}
+    for pattern in args.patterns:
+        include_mcsqs = args.mcsqs_also and pattern == "sqs"
+        pat_results: list[tuple[CaseResult, CaseResult | None]] = []
+        for cd in args.sizes:
+            if cd % 2 != 0:
+                print(f"SKIP cell_dim={cd}: 50/50 split per sublattice "
+                      f"requires N^3 even (so N even).", file=sys.stderr)
+                continue
+            print(f"\n==== pattern={pattern} cell_dim={cd} "
+                  f"(n_atoms={2*cd**3}) ====", file=sys.stderr)
+            sc, mc = run_case(cd, ranks=args.ranks, budget=args.budget,
+                              work_root=args.work_root, pattern=pattern,
+                              include_mcsqs=include_mcsqs)
+            msg = f"  scraps wall = {sc.wall_seconds:.2f}s"
+            if mc is not None:
+                msg += f"; mcsqs wall = {mc.wall_seconds:.2f}s"
+            print(msg, file=sys.stderr)
+            pat_results.append((sc, mc))
+        all_results[pattern] = pat_results
+        print_pattern_table(pattern, pat_results)
     if args.json is not None:
         payload = {
             "lattice_param": B2_LATTICE,
             "ranks": args.ranks,
             "budget_seconds": args.budget,
-            "cases": [
-                {"scraps": asdict(sc), "mcsqs": asdict(mc)}
-                for sc, mc in results
-            ],
+            "patterns": {
+                pat: {
+                    "description": PATTERNS[pat]["description"],
+                    "sro_lines": PATTERNS[pat]["sro_lines"],
+                    "cases": [
+                        {"scraps": asdict(sc),
+                         "mcsqs": asdict(mc) if mc is not None else None}
+                        for sc, mc in cases
+                    ],
+                }
+                for pat, cases in all_results.items()
+            },
         }
         args.json.write_text(json.dumps(payload, indent=2))
         print(f"JSON summary written to {args.json}", file=sys.stderr)

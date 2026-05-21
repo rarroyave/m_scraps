@@ -306,6 +306,127 @@ by handing the optimizer the answer.
 The benchmark script lives at `docs/sa_vs_cuckoo.sh` and is
 runnable with `bash docs/sa_vs_cuckoo.sh`.
 
+## Multi-sublattice: (Ni,Co)(Ti,Zr) B2 (v0.4.1)
+
+Validation of the multi-sublattice path delivered in v0.4.1. Test
+system: B2-type cubic cell with Ni and Co disordered 50/50 on the
+basis-0 sublattice (M, simple-cubic) and Ti and Zr disordered 50/50
+on the basis-1 sublattice (X, simple-cubic). Cell sizes 4×4×4 (128
+atoms) and 6×6×6 (432 atoms). SCRAPs runs on 4 MPI ranks; mcsqs is
+single-threaded.
+
+The B2 shell structure on each sublattice is: shell 0 = 1NN (8
+neighbors, **cross-sublattice**, M↔X), shell 1 = 2NN (6 neighbors,
+**intra-sublattice**, M-M and X-X), shell 2 = 3NN (12 neighbors,
+intra-sublattice), shell 3 = 4NN (24 neighbors, cross-sublattice),
+shell 4 = 5NN (8 neighbors, intra-sublattice). SCRAPs's per-pair α
+targets land naturally on the intra-sublattice shells.
+
+### Setup
+
+scraps-perpair (`docs/compare_b2_multisub.py`):
+
+```
+TYP     4
+ELEMENT 32 32 32 32        # N=4 (128); for N=6 use 108 108 108 108
+Cell_DIM 4 4 4
+MAXSHELLNUM 5
+WEIGHT  <focused per pattern, see below>
+SUBLATTICE 0 BASIS 0 SPECIES 0 1
+SUBLATTICE 1 BASIS 1 SPECIES 2 3
+SRO     <per pattern>
+```
+
+mcsqs (`rndstr.in`, multi-sublattice natively supported):
+
+```
+3.0 3.0 3.0 90 90 90
+1.0 0.0 0.0
+0.0 1.0 0.0
+0.0 0.0 1.0
+0.0 0.0 0.0 Ni=0.5,Co=0.5
+0.5 0.5 0.5 Ti=0.5,Zr=0.5
+```
+
+Cluster cutoff `-2 = 4.5 Å` covers 1NN, 2NN, 3NN (the three shells
+within reach for the 4×4×4 supercell's Wigner-Seitz radius).
+
+### SQS (α = 0 everywhere) — apples-to-apples comparison
+
+| atoms | tool | wall | max\|α\| 2NN intra | max\|α\| 3NN intra | max\|α\| 1NN inter |
+|---|---|---:|---:|---:|---:|
+| 128 | scraps-perpair | **0.4 s** | **0.0000** | **0.0000** | 0.008 |
+| 128 | mcsqs | 125 s | 0.101 | 0.208 | 0.131 |
+| 432 | scraps-perpair | **0.8 s** | **0.0000** | **0.0000** | 0.002 |
+| 432 | mcsqs | 130 s | n/a* | n/a* | n/a* |
+
+\* mcsqs's supercell-enumeration setup phase exceeds 5 min at N=432
+(mcsqs enumerates Hermite-normal-form supercells of the requested
+size internally — and a pre-specified `sqscell.out` is treated as an
+output cache, not as input). SCRAPs takes the supercell directly
+from `POSCAR + Cell_DIM`, so it has no equivalent setup cost.
+
+SCRAPs converges to exact α=0 on every intra-sublattice pair in under
+1 s at both cell sizes. mcsqs at 125 s leaves max|α|≈0.1–0.2 across
+shells at N=128 and times out on setup at N=432.
+
+### CSRO patterns — per-pair α targeting
+
+mcsqs has no direct per-pair-α API; targeting a specific
+non-zero α at a specific (species_i, species_j, shell) requires
+constructing per-cluster correlation targets via the `-corrfile`
+workflow, which is a non-trivial offline step beyond standard SQS
+generation. SCRAPs's `SRO` keyword targets per-pair α directly.
+
+Three patterns, all targeting the 2NN intra-sublattice shell only
+(WEIGHT 0 1 0 0 0 — leaving other shells unconstrained, since perfect
+correlation at one shell physically induces correlation at others
+and pulling all shells to α=0 simultaneously would make any non-zero
+target unreachable):
+
+| pattern | target on M | target on X |
+|---|---|---|
+| ordered | α(Ni-Co)@2NN = −1 | α(Ti-Zr)@2NN = −1 |
+| clustered | α(Ni-Co)@2NN = +0.5 | α(Ti-Zr)@2NN = +0.5 |
+| mixed | α(Ni-Co)@2NN = −0.5 | α(Ti-Zr)@2NN = +0.5 |
+
+Results (SCRAPs, 4 MPI ranks):
+
+| pattern | atoms | wall | α(Ni-Co)@2NN | α(Ti-Zr)@2NN | max\|α\| at other shells |
+|---|---|---:|---:|---:|---:|
+| ordered (tgt −1) | 128 | 0.6 s | **−1.000** | **−1.000** | 1.00 (physical) |
+| ordered (tgt −1) | 432 | 1.2 s | **−1.000** | **−1.000** | 1.00 (physical) |
+| clustered (tgt +0.5) | 128 | 0.3 s | **+0.500** | **+0.500** | 0.30 |
+| clustered (tgt +0.5) | 432 | 0.7 s | **+0.500** | **+0.500** | 0.33 |
+| mixed (tgt −0.5 / +0.5) | 128 | 0.3 s | **−0.500** | **+0.500** | 0.34 |
+| mixed (tgt −0.5 / +0.5) | 432 | 0.6 s | **−0.500** | **+0.500** | 0.48 |
+
+SCRAPs hits every target exactly. The non-zero α at "other shells"
+for the ordered pattern is **physical, not optimizer failure**: a
+perfect bipartite Ni-Co alternation on the M sublattice (which is
+what α=−1 at 2NN means) forces alternating-parity correlations at
+3NN (α=+1) and 5NN, and the same on the X sublattice for Ti-Zr.
+This is a fundamental property of the target itself, not something
+the optimizer chose to do.
+
+### Summary
+
+For the SQS case where a direct comparison is possible, SCRAPs
+converges 100-200× faster than mcsqs and to lower (exact zero)
+residual α; for the multi-sublattice CSRO patterns, only SCRAPs has
+a direct API. The per-pair SRO targeting demonstrated here is the
+fork's unique value-add on the multi-sublattice axis — the same
+property that motivated `tests/heb_5metal_csro/` on the
+single-sublattice axis, extended to designs with two or more
+chemically-disordered sublattices.
+
+The harness lives at `docs/compare_b2_multisub.py` and is runnable
+with:
+
+```
+python3 docs/compare_b2_multisub.py --sizes 4 6 --patterns sqs ordered clustered mixed --mcsqs-also --budget 120 --json /tmp/b2.json
+```
+
 ## Reproducing this comparison
 
 ATAT 3.50 source: `https://axelvandewalle.github.io/www-avdw/atat/atat3_50.tar.gz`
