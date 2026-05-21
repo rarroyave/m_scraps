@@ -258,6 +258,7 @@ const std::set<std::string> KNOWN_KEYS = {
     "INIT_NEST",
     "MC_KERNEL", "SA_T_INITIAL", "SA_T_FINAL",
     "PT_EXCHANGE_INTERVAL", "CLUSTER_SWAP_K",
+    "SUBLATTICE",
 };
 }  // namespace
 
@@ -429,6 +430,52 @@ void readInput::input() {
                          << line << endl;
                 }
             }
+            if(key.compare("SUBLATTICE") == 0)
+            {
+                // Format: SUBLATTICE <id> BASIS <b1> <b2> ... SPECIES <s1> <s2> ...
+                // BASIS and SPECIES section keywords can appear in either order
+                // and any token before the first section keyword (other than id)
+                // is treated as a parse error for this line.
+                SublatticeSpec spec;
+                bool malformed = false;
+                if (!(ss >> spec.id)) {
+                    cout << "Warning: malformed SUBLATTICE line (missing id): "
+                         << line << endl;
+                    malformed = true;
+                } else {
+                    std::string token;
+                    std::vector<int> *target = nullptr;
+                    while (ss >> token) {
+                        std::string upper = token;
+                        transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+                        if (upper == "BASIS") {
+                            target = &spec.basisPositions;
+                        } else if (upper == "SPECIES") {
+                            target = &spec.speciesAllowed;
+                        } else {
+                            if (target == nullptr) {
+                                cout << "Warning: SUBLATTICE token \"" << token
+                                     << "\" appears before BASIS or SPECIES "
+                                     << "(line ignored): " << line << endl;
+                                malformed = true;
+                                break;
+                            }
+                            std::stringstream tokss(token);
+                            int v;
+                            if (!(tokss >> v) || !tokss.eof()) {
+                                cout << "Warning: SUBLATTICE expected integer, got \""
+                                     << token << "\" (line ignored): " << line << endl;
+                                malformed = true;
+                                break;
+                            }
+                            target->push_back(v);
+                        }
+                    }
+                }
+                if (!malformed) {
+                    sublattices.push_back(std::move(spec));
+                }
+            }
             ss.clear();
         }
     }
@@ -492,6 +539,69 @@ void readInput::input() {
     for (const auto &p : spectatorBasisSpecies) {
         spectatorBasisPositions.insert(p.first);
         spectatorSpecies.insert(p.second);
+    }
+
+    // ---- SUBLATTICE validation ----
+    // Per-cell basis-bound checks (basis index < atoms.size()) happen later
+    // in main() once POSCAR has been parsed. Here we only enforce the
+    // structural invariants that depend on INPUT alone: species in
+    // [0, TYP); each species in at most one sublattice; each basis position
+    // in at most one sublattice; ids unique; each sublattice non-empty.
+    if (!sublattices.empty()) {
+        std::set<int> seenIds, seenSpecies, seenBasis;
+        for (const auto &s : sublattices) {
+            if (!seenIds.insert(s.id).second) {
+                input_abort("SUBLATTICE id " + std::to_string(s.id)
+                            + " declared more than once.");
+            }
+            if (s.basisPositions.empty()) {
+                input_abort("SUBLATTICE " + std::to_string(s.id)
+                            + " declares no BASIS positions.");
+            }
+            if (s.speciesAllowed.empty()) {
+                input_abort("SUBLATTICE " + std::to_string(s.id)
+                            + " declares no SPECIES.");
+            }
+            for (int sp : s.speciesAllowed) {
+                if (sp < 0 || sp >= typeofatoms) {
+                    input_abort("SUBLATTICE " + std::to_string(s.id)
+                                + " species " + std::to_string(sp)
+                                + " out of range [0, TYP="
+                                + std::to_string(typeofatoms) + ").");
+                }
+                if (!seenSpecies.insert(sp).second) {
+                    input_abort("SUBLATTICE: species " + std::to_string(sp)
+                                + " assigned to more than one sublattice "
+                                + "(species must be disjoint across sublattices).");
+                }
+            }
+            for (int bi : s.basisPositions) {
+                if (bi < 0) {
+                    input_abort("SUBLATTICE " + std::to_string(s.id)
+                                + " basis position " + std::to_string(bi)
+                                + " is negative.");
+                }
+                if (!seenBasis.insert(bi).second) {
+                    input_abort("SUBLATTICE: basis position " + std::to_string(bi)
+                                + " assigned to more than one sublattice.");
+                }
+            }
+        }
+        cout << "[SUBLATTICE] " << sublattices.size()
+             << " sublattices declared:" << endl;
+        for (const auto &s : sublattices) {
+            cout << "  id=" << s.id << " basis=[";
+            for (size_t i = 0; i < s.basisPositions.size(); ++i) {
+                if (i) cout << ",";
+                cout << s.basisPositions[i];
+            }
+            cout << "] species=[";
+            for (size_t i = 0; i < s.speciesAllowed.size(); ++i) {
+                if (i) cout << ",";
+                cout << s.speciesAllowed[i];
+            }
+            cout << "]" << endl;
+        }
     }
 
     // Resolve per-pair, per-shell SRO targets. Default to zeros; symmetrize

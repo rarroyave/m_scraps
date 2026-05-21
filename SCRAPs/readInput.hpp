@@ -147,6 +147,24 @@ public:
     // Populated by readInput::input() after TYP and MAXSHELLNUM are known.
     vector<vector<vector<double>>> targetSROpair;
 
+    // Multi-sublattice support. Each SUBLATTICE block in INPUT declares
+    // (a) which basis positions belong to that sublattice and (b) which
+    // global species indices (0..TYP-1) are allowed there. Species and
+    // basis positions must be disjoint across sublattices: each species
+    // lives on exactly one sublattice and each basis position belongs to
+    // exactly one sublattice (or to a SPECTATOR_BASIS_SPECIES rule).
+    // When no SUBLATTICE keyword appears in INPUT, `sublattices` is left
+    // empty and the optimizer falls back to its legacy single-sublattice
+    // path (all positions free, all species global). This is the
+    // backward-compatible default. INPUT line format:
+    //   SUBLATTICE <id> BASIS <b1> <b2> ... SPECIES <s1> <s2> ...
+    struct SublatticeSpec {
+        int id;
+        std::vector<int> basisPositions;  // basis indices into POSCAR
+        std::vector<int> speciesAllowed;  // global species indices
+    };
+    std::vector<SublatticeSpec> sublattices;
+
     // Spectator sublattice handling for structures like AlB2-type diborides
     // (high-entropy diborides), where one sublattice has no compositional
     // disorder and just acts as a fixed structural scaffold. Each entry is
