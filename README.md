@@ -83,6 +83,20 @@ consecutive outer iterations. Default 0 = disabled (run to TOTALIter).
 Use `patience=3` for typical SQS runs; `patience=5` for harder cases
 where you want a few extra iterations to confirm a plateau.
 
+`MC_KERNEL`, `SA_T_INITIAL`, `SA_T_FINAL`: MC kernel selector.
+- `MC_KERNEL cuckoo` (default) uses the upstream-derived greedy +
+  ε-band acceptance inside a cuckoo-search population.
+- `MC_KERNEL sa` uses simulated annealing with Metropolis acceptance
+  (`exp(-ΔE/T)`) inside the same outer cuckoo-search loop. The
+  temperature decays exponentially from `SA_T_INITIAL` (default 2.0)
+  to `SA_T_FINAL` (default 1e-3) across the `TOTALIter` outer
+  iterations. Useful for benchmarking and for problems where you
+  want the "standard" SA contract; on the test cases we measured
+  (SQS, B2/L1₂/L1₀/D0₃/L1₁/L2₁ ordered targets, cell sizes ≤ 500)
+  cuckoo and SA reach the same final fitness — neither escapes the
+  L2₁ cold-start plateau, which appears to require cluster moves
+  or parallel tempering.
+
 `FAST_SWAPS`, `TARGETED_SWAPS`, `TARGETED_SWAP_PROB`: MC-loop tuning.
 - `FAST_SWAPS 1` (default) uses the delta-fitness MC path: maintain
   `pairGr` as state across swaps and apply an O(z) delta per proposal

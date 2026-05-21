@@ -62,8 +62,19 @@ static bool g_fast_swaps = true;
 static bool g_targeted_swaps = false;
 static double g_targeted_swap_prob = 0.7;
 
-// Forward decl so empty_nests can dispatch to it.
+// MC kernel selector and SA schedule parameters. Set in main() from
+// inputfile.mcKernel / saTInitial / saTFinal. g_sa_current_T is
+// recomputed at the start of each outer iteration based on a global
+// counter (g_outer_iter / g_outer_iter_total) so the temperature
+// decays exponentially across the optimization.
+static bool g_use_sa = false;          // true if MC_KERNEL == "sa"
+static double g_sa_t_initial = 2.0;
+static double g_sa_t_final = 1e-3;
+static double g_sa_current_T = 1.0;
+
+// Forward decls so empty_nests can dispatch to them.
 int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
+int empty_nests_sa(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
 
 
 void sortthenests(vector<vector<int>> &_nests, vector<double> &_fitness, int &max_num_neighs)
@@ -318,9 +329,18 @@ during global optimization.
 
 int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness , const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
-    // Dispatch to the delta-fitness path when enabled (default). The
-    // legacy full-recompute path below is kept for A/B comparison via
-    // the FAST_SWAPS INPUT keyword.
+    // Dispatch by MC_KERNEL then FAST_SWAPS:
+    //   MC_KERNEL = sa     -> SA acceptance with exponential temperature
+    //                         schedule (delta-fitness inside).
+    //   MC_KERNEL = cuckoo + FAST_SWAPS = 1 (default)
+    //                      -> greedy + epsilon-band, delta-fitness path.
+    //   MC_KERNEL = cuckoo + FAST_SWAPS = 0
+    //                      -> greedy + epsilon-band, legacy full-recompute.
+    if (g_use_sa) {
+        return empty_nests_sa(_nests, _newnests, iter, origfitness, lat,
+                              _typesatoms, eachElement, max_num_neighs,
+                              weights, targetSROpair, initialPlacement);
+    }
     if (g_fast_swaps) {
         return empty_nests_fast(_nests, _newnests, iter, origfitness, lat,
                                 _typesatoms, eachElement, max_num_neighs,
@@ -696,6 +716,199 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
     return 0;
 }
 
+// Simulated-annealing MC kernel. Same swap-proposal mechanism and
+// delta-fitness machinery as empty_nests_fast, but the acceptance
+// rule is Metropolis: accept downhill always; accept uphill with
+// probability exp(-(newFitness - oldFitness) / T). T is the
+// process-level g_sa_current_T, set by main() at the start of each
+// outer iteration via an exponential schedule between SA_T_INITIAL
+// and SA_T_FINAL.
+//
+// SA is intended as an alternative MC kernel to compare against the
+// cuckoo-style greedy+epsilon-band path. The cuckoo-search outer
+// loop (get_cuckoos, get_best_nest) still runs around this kernel,
+// so calling this is really "SA inside a cuckoo population" -- not
+// pure SA, but the inner acceptance is Metropolis. For pure SA, set
+// NESTS=1 to disable the cuckoo population dynamics.
+int empty_nests_sa(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
+{
+    const int n_atoms = (int) _nests[0].size();
+    const double T = g_sa_current_T;
+    const double inv_T = (T > 0.0) ? (1.0 / T) : 0.0;
+
+    static thread_local std::mt19937 gen_s, gen1_s;
+    static thread_local bool seeded_s = false;
+    if (!seeded_s) {
+        if (g_rng_seed_base != 0) {
+            gen_s.seed(g_rng_seed_base ^ 0x5C5C5C5CUL);
+            gen1_s.seed(g_rng_seed_base ^ 0xC5C5C5C5UL);
+        } else {
+            std::random_device rd, rd1;
+            gen_s.seed(rd());
+            gen1_s.seed(rd1());
+        }
+        seeded_s = true;
+    }
+    std::uniform_int_distribution<> dis(0, n_atoms - 1);
+    std::uniform_real_distribution<double> dis_real(0.0, 1.0);
+
+    // Sublattice statistics + expected matrix (same as empty_nests_fast).
+    int N_M = 0;
+    vector<int> eachElement_M(_typesatoms, 0);
+    for (int i = 0; i < n_atoms; i++) {
+        if (initialPlacement[i] < 0) {
+            N_M += 1;
+            eachElement_M[_nests[0][i]] += 1;
+        }
+    }
+    if (N_M == 0) return 0;
+
+    int ref = 0;
+    while (ref < n_atoms && initialPlacement[ref] >= 0) ref++;
+    vector<int> z_M(max_num_neighs, 0);
+    for (int k = 0; k < max_num_neighs; k++) {
+        if (k < (int) lat.atoms_shell_atom[ref].size()) {
+            for (int j : lat.atoms_shell_atom[ref][k]) {
+                if (initialPlacement[j] < 0) z_M[k] += 1;
+            }
+        }
+    }
+
+    vector<vector<vector<double>>> expected(_typesatoms,
+        vector<vector<double>>(_typesatoms, vector<double>(max_num_neighs, 0.0)));
+    for (int k = 0; k < max_num_neighs; k++) {
+        if (z_M[k] == 0) continue;
+        for (int i = 0; i < _typesatoms; i++) {
+            if (eachElement_M[i] == 0) continue;
+            for (int j = 0; j < _typesatoms; j++) {
+                if (i == j) continue;
+                if (eachElement_M[j] == 0) continue;
+                double alpha = targetSROpair[i][j][k];
+                expected[i][j][k] = (double) eachElement_M[i] * (1.0 - alpha)
+                                  * (double) z_M[k] * (double) eachElement_M[j]
+                                  / (double) N_M;
+            }
+        }
+    }
+
+    auto fitness_from_pairGr = [&](const vector<vector<vector<double>>>& pgr) -> double {
+        double err = 0.0;
+        for (int k = 0; k < max_num_neighs; k++) {
+            double e_k = 0.0;
+            for (int i = 0; i < _typesatoms; i++) {
+                for (int j = 0; j < _typesatoms; j++) {
+                    if (i == j) continue;
+                    if (pgr[i][j][k] == 0.0) continue;  // legacy contract
+                    double d = pgr[i][j][k] - expected[i][j][k];
+                    e_k += d * d;
+                }
+            }
+            err += weights[k] * e_k;
+        }
+        return std::sqrt(err);
+    };
+
+    auto build_pairGr_full = [&](const vector<int>& nest,
+                                  vector<vector<vector<double>>>& pgr) {
+        for (auto& a : pgr) for (auto& b : a) std::fill(b.begin(), b.end(), 0.0);
+        for (int i = 0; i < n_atoms; i++) {
+            if (initialPlacement[i] >= 0) continue;
+            for (int k = 0; k < max_num_neighs; k++) {
+                for (int j : lat.atoms_shell_atom[i][k]) {
+                    if (initialPlacement[j] >= 0) continue;
+                    pgr[nest[i]][nest[j]][k] += 1;
+                }
+            }
+        }
+    };
+
+    vector<vector<vector<double>>> pairGr(_typesatoms,
+        vector<vector<double>>(_typesatoms, vector<double>(max_num_neighs, 0.0)));
+
+    for (int i = 0; i < (int) _nests.size(); i++) {
+        vector<int> currnest = _nests[i];
+        build_pairGr_full(currnest, pairGr);
+        double oldFitness = fitness_from_pairGr(pairGr);
+        origfitness[i] = oldFitness;
+
+        for (int step = 0; step < iter; step++) {
+            int a = dis(gen_s);
+            int b = dis(gen_s);
+            if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) continue;
+            int sa = currnest[a], sb = currnest[b];
+            if (sa == sb) continue;
+
+            // Apply swap delta (same as empty_nests_fast).
+            for (int k = 0; k < max_num_neighs; k++) {
+                for (int jj : lat.atoms_shell_atom[a][k]) {
+                    if (initialPlacement[jj] >= 0) continue;
+                    if (jj == b) continue;
+                    int sj = currnest[jj];
+                    pairGr[sa][sj][k] -= 1;
+                    pairGr[sj][sa][k] -= 1;
+                    pairGr[sb][sj][k] += 1;
+                    pairGr[sj][sb][k] += 1;
+                }
+                for (int jj : lat.atoms_shell_atom[b][k]) {
+                    if (initialPlacement[jj] >= 0) continue;
+                    if (jj == a) continue;
+                    int sj = currnest[jj];
+                    pairGr[sb][sj][k] -= 1;
+                    pairGr[sj][sb][k] -= 1;
+                    pairGr[sa][sj][k] += 1;
+                    pairGr[sj][sa][k] += 1;
+                }
+            }
+
+            double newFitness = fitness_from_pairGr(pairGr);
+
+            // Metropolis acceptance. Downhill always accepted; uphill
+            // accepted with probability exp(-delta / T). When T <= 0
+            // this degenerates to pure greedy.
+            bool accept = false;
+            double delta = newFitness - oldFitness;
+            if (delta <= 0.0) {
+                accept = true;
+            } else if (inv_T > 0.0) {
+                double p = std::exp(-delta * inv_T);
+                if (dis_real(gen1_s) < p) accept = true;
+            }
+
+            if (accept) {
+                currnest[a] = sb;
+                currnest[b] = sa;
+                oldFitness = newFitness;
+                origfitness[i] = newFitness;
+            } else {
+                // Undo the delta in pairGr (currnest unchanged so sa/sb
+                // and the captured sj values still refer to original).
+                for (int k = 0; k < max_num_neighs; k++) {
+                    for (int jj : lat.atoms_shell_atom[a][k]) {
+                        if (initialPlacement[jj] >= 0) continue;
+                        if (jj == b) continue;
+                        int sj = currnest[jj];
+                        pairGr[sa][sj][k] += 1;
+                        pairGr[sj][sa][k] += 1;
+                        pairGr[sb][sj][k] -= 1;
+                        pairGr[sj][sb][k] -= 1;
+                    }
+                    for (int jj : lat.atoms_shell_atom[b][k]) {
+                        if (initialPlacement[jj] >= 0) continue;
+                        if (jj == a) continue;
+                        int sj = currnest[jj];
+                        pairGr[sb][sj][k] += 1;
+                        pairGr[sj][sb][k] += 1;
+                        pairGr[sa][sj][k] -= 1;
+                        pairGr[sj][sa][k] -= 1;
+                    }
+                }
+            }
+        }
+        _nests[i] = currnest;
+    }
+    return 0;
+}
+
 vector<double> fitnessofnests(vector<vector<int>> nests, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
     vector<double> fitness(nests.size(), INT_MAX);
@@ -885,6 +1098,16 @@ int main(int argc, char ** argv)
                      "\n  test cases; targeted swaps may add overhead without speedup."
                      "\n  Recommended only for very large supercells or complex multi-pair"
                      "\n  SRO targets where uniform random struggles to find improving swaps."
+                  << std::endl;
+    }
+    g_use_sa = (inputfile.mcKernel == "sa");
+    g_sa_t_initial = inputfile.saTInitial;
+    g_sa_t_final = inputfile.saTFinal;
+    g_sa_current_T = g_sa_t_initial;
+    if (id == 0 && g_use_sa) {
+        std::cout << "MC_KERNEL=sa: simulated annealing inner loop. "
+                  << "T schedule = " << g_sa_t_initial
+                  << " -> " << g_sa_t_final << " (exponential)"
                   << std::endl;
     }
 
@@ -1278,6 +1501,28 @@ int main(int argc, char ** argv)
     }
     while (iters < iterTotal && error > epsi)
     {
+        // SA temperature schedule: exponential interpolation between
+        // SA_T_INITIAL (iter 0) and SA_T_FINAL (iter iterTotal-1).
+        // Recomputed each outer iter so empty_nests_sa picks it up via
+        // the g_sa_current_T global. No-op when MC_KERNEL=cuckoo.
+        if (g_use_sa) {
+            if (iterTotal <= 1) {
+                g_sa_current_T = g_sa_t_initial;
+            } else {
+                double frac = (double) iters / (double) (iterTotal - 1);
+                if (g_sa_t_initial > 0.0 && g_sa_t_final > 0.0) {
+                    double ratio = g_sa_t_final / g_sa_t_initial;
+                    g_sa_current_T = g_sa_t_initial * std::pow(ratio, frac);
+                } else {
+                    g_sa_current_T = g_sa_t_initial * (1.0 - frac)
+                                   + g_sa_t_final * frac;  // linear fallback
+                }
+            }
+            if (id == 0) {
+                cout << " SA T = " << g_sa_current_T
+                     << " (iter " << iters << "/" << iterTotal << ")" << endl;
+            }
+        }
 // The Cuckoo search algorithm: set up cuckoo search, finds best nests, do fitness test until fins the best nest
         get_cuckoos(nests, new_nests, globalIter, MCiter, templat, typeofatoms, eachElement, maxAtomNum, max_num_neighs, weights, nproc, targetSROpair, initialPlacement);
         fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);

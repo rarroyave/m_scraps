@@ -51,6 +51,7 @@ readInput::readInput()
       rngSeed(0), randomOnly(0), convergenceLog(""),
       fastSwaps(1), targetedSwaps(0), targetedSwapProb(0.7),
       initNestFile(""),
+      mcKernel("cuckoo"), saTInitial(2.0), saTFinal(1e-3),
       totalatoms(0)
 {
     input();
@@ -254,6 +255,7 @@ const std::set<std::string> KNOWN_KEYS = {
     "EARLY_STOP_PATIENCE", "EARLY_STOP_TOL",
     "SPECTATOR_BASIS_SPECIES",
     "INIT_NEST",
+    "MC_KERNEL", "SA_T_INITIAL", "SA_T_FINAL",
 };
 }  // namespace
 
@@ -382,6 +384,19 @@ void readInput::input() {
             if(key.compare("INIT_NEST") == 0)
             {
                 ss >> initNestFile;
+            }
+            if(key.compare("MC_KERNEL") == 0)
+            {
+                ss >> mcKernel;
+                transform(mcKernel.begin(), mcKernel.end(), mcKernel.begin(), ::tolower);
+            }
+            if(key.compare("SA_T_INITIAL") == 0)
+            {
+                ss >> saTInitial;
+            }
+            if(key.compare("SA_T_FINAL") == 0)
+            {
+                ss >> saTFinal;
             }
             if(key.compare("EARLY_STOP_PATIENCE") == 0)
             {

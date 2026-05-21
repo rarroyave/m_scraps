@@ -93,6 +93,21 @@ public:
     // targets like L2_1 where uniform random plateaus far from the
     // global minimum. Default empty = pure random init.
     std::string initNestFile;
+    // MC kernel selector: "cuckoo" (default, the upstream-derived
+    // greedy + epsilon-band acceptance inside a cuckoo-search
+    // population) or "sa" (simulated annealing with exponential
+    // temperature schedule across outer iterations). Same swap
+    // proposal mechanism; different acceptance rule and cooling
+    // behavior. Built as an alternative kernel to benchmark cuckoo
+    // against and to provide a more orthodox choice for
+    // publication / comparison with ATAT mcsqs.
+    std::string mcKernel;
+    // SA temperature schedule. T(outer_iter) = saTInitial *
+    // (saTFinal / saTInitial)^(outer_iter / iterTotal). Defaults
+    // are tuned so a unit-fitness barrier has ~60% acceptance at
+    // the start and ~negligible at the end.
+    double saTInitial;
+    double saTFinal;
     // Delta-fitness MC: instead of recomputing the full fitness on
     // every swap proposal (O(N*z)), maintain pairGr as state and apply
     // a delta from each swap (O(z)). Yields 50-250x more swap attempts
