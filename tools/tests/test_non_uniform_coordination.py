@@ -549,3 +549,204 @@ def test_fluorite_with_spectator_anion_and_disordered_cation(tmp_path):
     assert counts.get("Ca", 0) == 16
     assert counts.get("Sr", 0) == 16
     assert counts.get("F", 0) == 64
+
+
+# ---------------------------------------------------------------------------
+# Other non-uniform-coordination structure classes
+# ---------------------------------------------------------------------------
+
+def _write_spacegroup_poscar(work_dir: Path, sg_symbol: str, a: float,
+                              species: list[str],
+                              coords: list[list[float]],
+                              filename: str = "POSCAR") -> tuple[Path, list[str]]:
+    """Generate a POSCAR programmatically from a space group + Wyckoff
+    generators via pymatgen. Returns (poscar_path, per_site_species_list)
+    so the caller knows the basis order for SUBLATTICE declarations."""
+    pytest.importorskip("pymatgen")
+    from pymatgen.core import Lattice, Structure
+    lattice = Lattice.cubic(a)
+    struct = Structure.from_spacegroup(
+        sg_symbol, lattice, species=species, coords=coords
+    )
+    poscar_path = work_dir / filename
+    struct.to(filename=str(poscar_path), fmt="poscar")
+    return poscar_path, [s.symbol for s in struct.species]
+
+
+def test_laves_c15_mgcu2_per_wyckoff_runs(tmp_path):
+    """Laves C15 (MgCu2-type, space group Fd-3m) has 2 Wyckoff orbits:
+    8a Mg and 16d Cu. Each Mg has 4 Mg + 12 Cu nearest neighbors;
+    each Cu has 6 Mg + 6 Cu. Different geometric environment per
+    orbit. Substitute Mg with a binary Mg/Ca 50/50 and Cu with a
+    binary Cu/Ni 50/50; per-Wyckoff SUBLATTICE should let it run."""
+    pytest.importorskip("pymatgen")
+    # Fd-3m origin choice 1 (pymatgen default): 8a Mg at (0,0,0)
+    # multiplicity 8, 16d Cu at (5/8,5/8,5/8) multiplicity 16. These
+    # match the MgCu2 C15 structure.
+    poscar_path, site_species = _write_spacegroup_poscar(
+        tmp_path,
+        sg_symbol="Fd-3m",
+        a=7.05,  # MgCu2 lattice parameter
+        species=["Mg", "Cu"],
+        coords=[[0.0, 0.0, 0.0], [0.625, 0.625, 0.625]],
+    )
+    n_mg = site_species.count("Mg")
+    n_cu = site_species.count("Cu")
+    assert n_mg == 8 and n_cu == 16, (
+        f"unexpected basis layout: {n_mg} Mg + {n_cu} Cu (expected 8+16)"
+    )
+    # Sublattice 0 (Mg orbit) covers basis 0..7; sublattice 1 (Cu orbit)
+    # covers basis 8..23.
+    sub_mg = " ".join(str(i) for i in range(n_mg))
+    sub_cu = " ".join(str(i) for i in range(n_mg, n_mg + n_cu))
+    # Replace Mg with 4 Mg + 4 Ca; replace Cu with 8 Cu + 8 Ni.
+    inp = textwrap.dedent(f"""\
+        TYP     4
+        GITER   100
+        ELEMENT 4 4 8 8
+        Cell_DIM 1 1 1
+        NESTS 4
+        MCSTEP 500
+        TOTALIter 8
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 1
+        EARLY_STOP_PATIENCE 5
+        SUBLATTICE 0 BASIS {sub_mg} SPECIES 0 1
+        SUBLATTICE 1 BASIS {sub_cu} SPECIES 2 3
+        """)
+    (tmp_path / "INPUT").write_text(inp)
+    shutil.copy(SCRAPS_BIN, tmp_path / "scraps")
+    os.chmod(tmp_path / "scraps", 0o755)
+    log_path = tmp_path / "scraps.log"
+    with log_path.open("w") as f:
+        proc = subprocess.run(
+            [MPIRUN, "-np", "4", "./scraps"],
+            cwd=tmp_path, stdout=f, stderr=subprocess.STDOUT, timeout=120,
+        )
+    log = log_path.read_text()
+    assert proc.returncode == 0, f"Laves C15 scraps failed: {log[-800:]}"
+    assert "non-uniform coordination" not in log
+    assert "[SUBLATTICE] active partition: 2 sublattices, 24 atoms total" in log
+
+
+def test_heusler_l21_cu2mnal_three_wyckoff_runs(tmp_path):
+    """Full Heusler L2_1 (Cu2MnAl) has 3 Wyckoff orbits in Fm-3m:
+    4a Mn, 4b Al, 8c Cu (verified by sublattice_detect.py in
+    test_sublattice_detect.py). All three are metallic, all
+    chemically disordered in a designed Heusler -- this is the
+    canonical 'true multi-sublattice' optimization case. Each Mn
+    has 6 Mn 2NN, each Cu has 4 Cu 2NN + 12 (Mn,Al) 2NN, etc. --
+    non-uniform z across orbits. Per-Wyckoff SUBLATTICE handles it."""
+    pytest.importorskip("pymatgen")
+    poscar_path, site_species = _write_spacegroup_poscar(
+        tmp_path,
+        sg_symbol="Fm-3m",
+        a=5.95,  # Cu2MnAl lattice parameter
+        species=["Mn", "Al", "Cu"],
+        coords=[
+            [0.0, 0.0, 0.0],     # Mn at 4a
+            [0.5, 0.5, 0.5],     # Al at 4b
+            [0.25, 0.25, 0.25],  # Cu at 8c
+        ],
+    )
+    n_mn = site_species.count("Mn")
+    n_al = site_species.count("Al")
+    n_cu = site_species.count("Cu")
+    assert (n_mn, n_al, n_cu) == (4, 4, 8), (
+        f"unexpected Heusler basis: {n_mn} Mn + {n_al} Al + {n_cu} Cu "
+        f"(expected 4+4+8)"
+    )
+    # Sublattice 0 = Mn orbit (basis 0..3), 1 = Al orbit (basis 4..7),
+    # 2 = Cu orbit (basis 8..15).
+    sub0 = " ".join(str(i) for i in range(n_mn))
+    sub1 = " ".join(str(i) for i in range(n_mn, n_mn + n_al))
+    sub2 = " ".join(str(i) for i in range(n_mn + n_al, n_mn + n_al + n_cu))
+    # Mix each orbit with a partner element at 50/50 in a 2x2x2 cell:
+    # 16 Mn + 16 Fe on the 4a orbit (32 sites), 16 Al + 16 Ga on 4b (32),
+    # 32 Cu + 32 Au on 8c (64 sites). Total = 128 atoms.
+    inp = textwrap.dedent(f"""\
+        TYP     6
+        GITER   100
+        ELEMENT 16 16 16 16 32 32
+        Cell_DIM 2 2 2
+        NESTS 4
+        MCSTEP 800
+        TOTALIter 8
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 1
+        EARLY_STOP_PATIENCE 5
+        SUBLATTICE 0 BASIS {sub0} SPECIES 0 1
+        SUBLATTICE 1 BASIS {sub1} SPECIES 2 3
+        SUBLATTICE 2 BASIS {sub2} SPECIES 4 5
+        """)
+    (tmp_path / "INPUT").write_text(inp)
+    shutil.copy(SCRAPS_BIN, tmp_path / "scraps")
+    os.chmod(tmp_path / "scraps", 0o755)
+    log_path = tmp_path / "scraps.log"
+    with log_path.open("w") as f:
+        proc = subprocess.run(
+            [MPIRUN, "-np", "4", "./scraps"],
+            cwd=tmp_path, stdout=f, stderr=subprocess.STDOUT, timeout=120,
+        )
+    log = log_path.read_text()
+    assert proc.returncode == 0, f"Heusler L2_1 scraps failed: {log[-800:]}"
+    assert "non-uniform coordination" not in log
+    assert "[SUBLATTICE] active partition: 3 sublattices, 128 atoms total" in log
+
+
+def test_heusler_l21_per_pair_csro_across_three_orbits(tmp_path):
+    """Per-pair SRO targeting across three real Wyckoff orbits
+    simultaneously. Target alpha(Mn-Fe)@1NN intra-orbit-0 = -0.3
+    AND alpha(Cu-Au)@1NN intra-orbit-2 = +0.5. Each orbit's swap
+    population is independent; the fitness uses per-(sigma,tau,k)
+    coordination and per-sublattice c_j to compute the right
+    targets. Verify the run succeeds and the CSRO log entries get
+    parsed (i.e. SRO lines on a 3-sublattice structure don't break
+    anything)."""
+    pytest.importorskip("pymatgen")
+    poscar_path, site_species = _write_spacegroup_poscar(
+        tmp_path,
+        sg_symbol="Fm-3m",
+        a=5.95,
+        species=["Mn", "Al", "Cu"],
+        coords=[
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5],
+            [0.25, 0.25, 0.25],
+        ],
+    )
+    sub0 = " ".join(str(i) for i in range(4))
+    sub1 = " ".join(str(i) for i in range(4, 8))
+    sub2 = " ".join(str(i) for i in range(8, 16))
+    inp = textwrap.dedent(f"""\
+        TYP     6
+        GITER   100
+        ELEMENT 16 16 16 16 32 32
+        Cell_DIM 2 2 2
+        NESTS 4
+        MCSTEP 1500
+        TOTALIter 15
+        MAXSHELLNUM 3
+        WEIGHT 0 1 0
+        RNG_SEED 1
+        EARLY_STOP_PATIENCE 5
+        SUBLATTICE 0 BASIS {sub0} SPECIES 0 1
+        SUBLATTICE 1 BASIS {sub1} SPECIES 2 3
+        SUBLATTICE 2 BASIS {sub2} SPECIES 4 5
+        SRO 0 1 1 -0.3
+        SRO 4 5 1 +0.5
+        """)
+    (tmp_path / "INPUT").write_text(inp)
+    shutil.copy(SCRAPS_BIN, tmp_path / "scraps")
+    os.chmod(tmp_path / "scraps", 0o755)
+    log_path = tmp_path / "scraps.log"
+    with log_path.open("w") as f:
+        proc = subprocess.run(
+            [MPIRUN, "-np", "4", "./scraps"],
+            cwd=tmp_path, stdout=f, stderr=subprocess.STDOUT, timeout=120,
+        )
+    log = log_path.read_text()
+    assert proc.returncode == 0, f"Heusler CSRO scraps failed: {log[-800:]}"
+    assert "[SUBLATTICE] active partition: 3 sublattices" in log
