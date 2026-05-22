@@ -92,7 +92,12 @@ proper species labels.
 
 `element_counts=[36, 36, 36]` ⇒ 108 atoms total (= 4 basis × 3³ cells).
 `max_shellnum=2` weights the first two coordination shells equally. `rng_seed`
-makes the run reproducible across machines.
+makes the run reproducible across machines. `auto_budget=2` (the v0.4.5
+"thorough" profile) sets MCSTEP, TOTALIter, NESTS, and EARLY_STOP_PATIENCE
+to sensible defaults scaled by cell size — no manual tuning required.
+
+(If you want full control, replace `auto_budget=2` with explicit `nests=...`,
+`mcstep=...`, `total_iter=...` keyword args.)
 """),
     code("""
 sqs = run_sqs_from_atoms(
@@ -102,6 +107,7 @@ sqs = run_sqs_from_atoms(
     cell_dim=(3, 3, 3),
     max_shellnum=2,
     weights=[1, 1],
+    auto_budget=2,
     rng_seed=42,
     work_dir=Path.cwd() / "nb1_first_run",
 )
@@ -127,6 +133,27 @@ result = subprocess.run(
     capture_output=True, text=True,
 )
 print(result.stdout)
+"""),
+    md("""
+## See the structure
+
+A quick 2D projection — colored by species — confirms the SQS distribution
+visually. (For an interactive 3D view, `from ase.visualize import view; view(sqs)`
+opens an external window.)
+"""),
+    code("""
+import matplotlib.pyplot as plt
+import numpy as np
+fig, ax = plt.subplots(figsize=(5, 5))
+colors = {"Ni": "#1f77b4", "Co": "#ff7f0e", "Cr": "#2ca02c"}
+for sp in ["Ni", "Co", "Cr"]:
+    pts = np.array([a.position for a in sqs if a.symbol == sp])
+    if len(pts):
+        ax.scatter(pts[:, 0], pts[:, 1], c=colors[sp], label=sp, s=40,
+                   alpha=0.7, edgecolors="black", linewidths=0.4)
+ax.set_aspect("equal"); ax.set_xlabel("x (Å)"); ax.set_ylabel("y (Å)")
+ax.set_title("NiCoCr SQS (xy projection, all z layers superimposed)")
+ax.legend(loc="upper right"); plt.tight_layout(); plt.show()
 """),
     md("""
 ## Use the output
@@ -203,6 +230,7 @@ csro = run_sqs_from_atoms(
     max_shellnum=2,
     weights=[2.0, 1.0],   # weight NN twice as much as 2NN
     sro_targets=sro_targets,
+    auto_budget=2,        # thorough MC budget; see notebook 1
     rng_seed=42,
     work_dir=Path.cwd() / "nb2_csro",
 )
@@ -241,6 +269,7 @@ sqs = run_sqs_from_atoms(
     cell_dim=(3, 3, 3),
     max_shellnum=2,
     weights=[1, 1],
+    auto_budget=2,
     rng_seed=42,
     work_dir=Path.cwd() / "nb2_sqs_baseline",
 )
@@ -369,6 +398,7 @@ heb = run_sqs_from_atoms(
     max_shellnum=4,
     weights=[0, 0, 1, 1],     # ignore the B-B / M-B shells, weight M-M
     spectator_basis_species=[(1, 5), (2, 5)],
+    auto_budget=2,
     rng_seed=42,
     work_dir=work / "run",
 )
@@ -410,15 +440,18 @@ For structures with **two or more chemically-disordered sublattices**
 (rocksalt HEA-carbides where the metal sublattice is disordered AND
 the carbon sublattice is also disordered, double perovskites with
 independent A and B site mixing, Heusler L2₁ with independent X/Y/Z
-compositions), see **notebook 4** — v0.4.1's `SUBLATTICE` keyword and
-the `sublattices=` parameter on `run_sqs_from_atoms` handle these
-cases directly.
+compositions, fluorite-type oxides with cation+anion mixing), see
+**notebook 4** — v0.4.1's `SUBLATTICE` keyword and the v0.4.2
+generalization to non-uniform-coordination lattices (fluorite,
+sigma, Laves, MAX phases) handle these cases. For an auto-detected
+sublattice partition from a real POSCAR, see `tools/sublattice_detect.py`
+demonstrated in notebook 4.
 """),
 ]
 
 
 # ---------------------------------------------------------------------------
-# Notebook 4: multi-sublattice SQS (v0.4.1)
+# Notebook 4: multi-sublattice SQS (v0.4.1 + v0.4.2)
 # ---------------------------------------------------------------------------
 
 nb4 = [
@@ -504,8 +537,8 @@ sqs = run_sqs_from_atoms(
         (0, [0], [0, 1]),       # M sublattice: basis 0, species Ni and Co
         (1, [1], [2, 3]),       # X sublattice: basis 1, species Ti and Zr
     ],
+    auto_budget=2,
     rng_seed=1,
-    early_stop_patience=5,
     work_dir=Path.cwd() / "nb4_sqs",
 )
 print(f"Final fitness: {sqs.info['scraps_final_fitness']:.4f}")
@@ -571,8 +604,8 @@ csro = run_sqs_from_atoms(
         (0, 1, 1, -1.0),   # Ni-Co at 2NN: perfect ordering
         (2, 3, 1, +0.5),   # Ti-Zr at 2NN: 50%% clustering
     ],
+    auto_budget=2,
     rng_seed=1,
-    early_stop_patience=5,
     work_dir=Path.cwd() / "nb4_csro",
 )
 print(f"Final fitness: {csro.info['scraps_final_fitness']:.4f}")
@@ -595,32 +628,85 @@ of seconds. The per-pair SRO targeting works **independently per
 sublattice** — α(Ni-Co) on M can be -1 while α(Ti-Zr) on X is +0.5; the
 fitness function correctly uses per-sublattice c_j^τ for each pair.
 
-## When to use Wyckoff-orbit auto-detection
+## See the per-sublattice partition
 
-For more complex structures (rocksalt HEA-carbides, full Heusler with
-3 Wyckoff orbits, double perovskites, spinels), figuring out the
-basis-position-to-sublattice mapping by hand becomes error-prone.
-`tools/sublattice_detect.py` reads a POSCAR via pymatgen, runs Wyckoff
-analysis via spglib, and emits draft `SUBLATTICE` blocks you paste into
-INPUT. Two basis positions in the same Wyckoff orbit share identical
-pair-correlation environments under symmetry, so the orbit partition is
-the right default.
+A 2D projection colored by species — M sublattice on the left, X on
+the right — confirms the species cleanly partition. Ni/Co occupy only
+basis-0 sites; Ti/Zr occupy only basis-1 sites.
+"""),
+    code("""
+import matplotlib.pyplot as plt
+import numpy as np
+from ase.io import read
+out_atoms = read(str(Path(csro.info['scraps_work_dir']) / 'SCRAPS.vasp'),
+                 format='vasp')
+fig, ax = plt.subplots(figsize=(6, 6))
+colors = {"Ni": "#1f77b4", "Co": "#ff7f0e", "Ti": "#2ca02c", "Zr": "#d62728"}
+for sp in colors:
+    pts = np.array([a.position for a in out_atoms if a.symbol == sp])
+    if len(pts):
+        ax.scatter(pts[:, 0], pts[:, 1], c=colors[sp], label=sp, s=60,
+                   alpha=0.7, edgecolors='black', linewidths=0.4)
+ax.set_aspect('equal'); ax.set_xlabel('x (Å)'); ax.set_ylabel('y (Å)')
+ax.set_title('(Ni,Co)(Ti,Zr) B2 — Ni-Co ordered, Ti-Zr clustered')
+ax.legend(loc='upper right'); plt.tight_layout(); plt.show()
+"""),
+    md("""
+## Wyckoff-orbit auto-detection from a real POSCAR
 
-```
-python3 tools/sublattice_detect.py POSCAR --write INPUT
-```
+Hand-coding `sublattices=[(0, [0], [0, 1]), (1, [1], [2, 3])]` works
+for B2 because there are only 2 basis positions. For real materials
+(rocksalt HEA-carbides with 4+8 basis, full Heusler with 4+4+8,
+spinels with 8+16+32, pyrochlores with 4 orbits), hand-coding is
+error-prone. `tools/sublattice_detect.py` reads a POSCAR via
+pymatgen, runs Wyckoff-orbit analysis via spglib, and emits the
+draft `SUBLATTICE` blocks for you.
 
-emits one `SUBLATTICE` line per orbit with `<fill in>` SPECIES
-placeholders that you edit by hand.
+Demo: write a real Heusler L2₁ POSCAR (Cu₂MnAl-type, Fm-3m, 3
+Wyckoff orbits) and run the detector on it.
+"""),
+    code("""
+import subprocess
+from pymatgen.core import Lattice, Structure
+heusler = Structure.from_spacegroup(
+    "Fm-3m", Lattice.cubic(5.95),
+    species=["Mn", "Al", "Cu"],
+    coords=[[0, 0, 0], [0.5, 0.5, 0.5], [0.25, 0.25, 0.25]],
+)
+heusler_poscar = Path.cwd() / "heusler_demo.poscar"
+heusler.to(filename=str(heusler_poscar), fmt="poscar")
+
+detect = REPO / "tools" / "sublattice_detect.py"
+result = subprocess.run(
+    [sys.executable, str(detect), str(heusler_poscar)],
+    capture_output=True, text=True, timeout=30,
+)
+print(result.stdout)
+"""),
+    md("""
+The detector reports 3 Wyckoff orbits (4a Mn, 4b Al, 8c Cu) and emits
+draft `SUBLATTICE` blocks. Replace the `<fill in>` SPECIES placeholders
+with the chemistry you want on each orbit, paste into your INPUT (or
+use `--write INPUT`), and run.
+
+For non-uniform-coordination structures (fluorite cation z=8 vs anion
+z=4, sigma phase with 5 distinct z values, Laves, MAX phases), the
+same workflow applies — v0.4.2's per-sublattice uniformity check
+handles them as long as each Wyckoff orbit is its own `SUBLATTICE`
+block.
 
 ## Validation
 
-The full mcsqs comparison for (Ni,Co)(Ti,Zr) B2 across all four patterns
-(SQS / ordered / clustered / mixed) at N=4 and N=6 is documented in
-`docs/mcsqs_comparison.md` under the **Multi-sublattice** section.
-Summary: SCRAPS converges to exact targets in <1.3 s at both cell sizes;
-mcsqs has no direct per-pair-α API and would require correlation-
-engineering for an equivalent CSRO comparison.
+The full mcsqs comparison for (Ni,Co)(Ti,Zr) B2 across all four
+patterns (SQS / ordered / clustered / mixed) at N=4 and N=6 is
+documented in `docs/mcsqs_comparison.md` under the **Multi-sublattice**
+section. Summary: SCRAPS hits exact per-pair α targets in <1.3 s;
+mcsqs's `-tcf` mode gets the sign right but plateaus at 5-25% of
+target because it weights all clusters with built-in heuristics
+(no per-cluster weight flag) and trades target match for low non-
+target α. The two tools answer different chemistry questions; for
+literature-CSRO reproduction SCRAPS's per-shell `WEIGHT` is the more
+direct match.
 """),
 ]
 
@@ -629,12 +715,198 @@ engineering for an equivalent CSRO comparison.
 # Generate
 # ---------------------------------------------------------------------------
 
+nb5 = [
+    md("""
+# 5. Troubleshooting — common failure modes
+
+Five issues that come up the first few times you use SCRAPs, with
+diagnoses you can apply directly. Skim by issue: the headings list
+the symptom verbatim.
+
+This notebook is reference material, not a sequential tutorial — open
+to the section matching what you're hitting.
+"""),
+    md("""
+## "My fitness plateaus above zero and I can't see why"
+
+Most often: the cell + composition combination makes the SQS target
+mathematically infeasible. SCRAPs' fitness has a strictly positive
+lower bound when `T_ij^k = N_i · z_k · N_j / N_τ` is non-integer for
+any weighted shell-pair. The optimizer plateaus at √(Σ residuals²)
+and stays there forever.
+
+**Diagnose**: SCRAPs prints a warning at startup:
+
+```
+WARNING: 4 weighted target pair count(s) are non-integer
+  for this (ELEMENT, Cell_DIM, MAXSHELLNUM).
+  Minimum achievable fitness >= sqrt(...) = 1.58.
+  Exact SQS (fitness = 0) is mathematically unreachable on this cell.
+```
+
+If you see this, the fitness floor IS what you're measuring — not an
+optimizer failure. Two recovery paths:
+"""),
+    code("""
+# Path 1: pick a feasible cell automatically via suggest_cell.py
+import subprocess, sys
+from pathlib import Path
+REPO = Path.cwd().parent
+suggest = REPO / "tools" / "suggest_cell.py"
+
+# Example: NiCoCr 25:50:25 — infeasible at 3x3x3 = 108, feasible at 4x4x4
+fcc_poscar = '''FCC Cu
+1.0
+3.56 0.0 0.0
+0.0 3.56 0.0
+0.0 0.0 3.56
+4
+Direct
+0.0 0.0 0.0
+0.5 0.5 0.0
+0.5 0.0 0.5
+0.0 0.5 0.5
+'''
+(Path.cwd() / "POSCAR_fcc").write_text(fcc_poscar)
+result = subprocess.run(
+    [sys.executable, str(suggest), str(Path.cwd() / "POSCAR_fcc"),
+     "--composition", "0.25,0.5,0.25", "--target-atoms", "120",
+     "--max-shellnum", "2"],
+    capture_output=True, text=True, timeout=30,
+)
+print(result.stdout)
+"""),
+    md("""
+**Path 2** (less common): accept the floor as physical, and report the
+achieved structure as the closest-integer-feasible approximant.
+Useful when you need EXACTLY this cell size for downstream DFT and
+you're targeting α=0 but the integer constraint gives a small offset.
+
+---
+
+## "α(Ni-Cr) plateaus far from my literature target"
+
+If your target is non-zero α at one shell, the optimizer hits exactly
+that target ONLY when `WEIGHT` zeroes the non-targeted shells.
+Otherwise it finds the compromise minimum across all weighted shells.
+
+The reason is physical: perfect α=-1 at 2NN inherently forces α=±1 at
+3NN, 5NN, etc. (3D bipartite ordering induces correlations at every
+distance). If you weight all shells equally, the optimizer settles
+for "α=-0.5 at 2NN, α=±0.5 at other shells" as the joint minimum.
+
+**Fix**: weight only the targeted shell.
+"""),
+    code("""
+sys.path.insert(0, str(REPO / "tools"))
+from scraps_ase import run_sqs_from_atoms
+from ase.build import bulk
+
+primitive = bulk("Cu", "fcc", a=3.56, cubic=True)
+# Multi-shell weighting (target at NN only) makes alpha(Ni-Cr)=-1 unreachable:
+# the optimizer balances NN target against 2NN/3NN incidental shells.
+# WEIGHT [1.0, 0.0] tells SCRAPS "ignore shells 1+":
+csro = run_sqs_from_atoms(
+    primitive,
+    species=["Ni", "Co", "Cr"],
+    element_counts=[36, 36, 36],
+    cell_dim=(3, 3, 3),
+    max_shellnum=2,
+    weights=[1.0, 0.0],   # <-- focus only on NN; ignore 2NN
+    sro_targets=[(0, 2, 0, -0.4)],   # alpha(Ni-Cr) at NN = -0.4 (moderate)
+    auto_budget=2,
+    rng_seed=42,
+    work_dir=Path.cwd() / "nb5_focused_weight",
+)
+print(f"Final fitness: {csro.info['scraps_final_fitness']:.4f}")
+"""),
+    md("""
+For very strong CSRO targets (|α| near 1), small cells lack the
+integer pair-count resolution to bracket the target — you may need
+3×3×3+ for fine targets. See the integer-feasibility footnote in
+notebook 4 (the 2×2×2 fluorite case plateaued at α=+0.33 instead of
++0.5 for this reason; 3×3×3 converged exactly).
+
+---
+
+## "Multi-sublattice run aborts with 'non-uniform coordination'"
+
+Two flavors:
+
+1. **You declared one big SUBLATTICE containing mixed Wyckoff orbits.**
+   Each SUBLATTICE block must contain only atoms with the same per-
+   shell coordination — distinct orbits must be separate blocks.
+   Run `tools/sublattice_detect.py POSCAR` to see the orbit
+   partition; copy that to your INPUT.
+
+2. **You used legacy single-sublattice mode on a non-uniform cell.**
+   Fluorite, sigma, Laves, MAX phases all need SUBLATTICE blocks
+   (one per Wyckoff orbit) for the per-Wyckoff path to handle the
+   different per-orbit coordination numbers.
+
+In both cases the diagnostic names the offending atom pair and
+points at `tools/sublattice_detect.py`.
+
+---
+
+## "SCRAPS and verify_sro.py give different α numbers"
+
+For multi-sublattice cases this is **expected** when you call
+`verify_sro.py` without telling it about the sublattice partition.
+
+`verify_sro.py` computes α against the **global** c_j = N_j/N. SCRAPs
+internally uses the per-sublattice c_j^τ = N_j/N_τ (v0.4.1+).
+For B2 with 50/50 per sublattice these differ by a factor of 2 (global
+c=0.25, per-sub c=0.5), so `verify_sro` reports cross-sublattice α
+values around ±1 trivially while SCRAPs sees them at 0.
+
+**Fix**: use the per-sublattice α calculator from the comparison
+harness, as notebook 4 does:
+
+```python
+from compare_b2_multisub import compute_alpha_per_shell
+shells = compute_alpha_per_shell(
+    poscar_path, species=[...], sublattice_of={...}, n_shells=3,
+)
+```
+
+`verify_sro.py --spectator-species X` handles the HEB-spectator
+case correctly (one designed sublattice + one spectator); the
+general-multi-sublattice calculator is for designs with ≥ 2
+disordered sublattices.
+
+---
+
+## "mcsqs and SCRAPS disagree on my CSRO target"
+
+Not a bug — different loss formulations target different chemistry
+questions. The full discussion is in `docs/mcsqs_comparison.md`
+under "Two ways of trading off". Quick version:
+
+- **SCRAPs** lets you zero non-targeted shells via per-shell `WEIGHT`,
+  so the targeted α hits its exact target while non-targeted shells
+  take whatever value physics dictates (often ±1 for ordered patterns).
+
+- **mcsqs** weights all clusters via built-in heuristics (`-wr`, `-wn`,
+  `-wd`); no per-cluster weight flag. It trades target match for low
+  non-target α — gets sign and direction right for every CSRO target
+  but plateaus at 5–25% of the request magnitude.
+
+Both tools are doing what their loss functions ask. For
+literature-CSRO reproduction SCRAPS's per-shell `WEIGHT` is the more
+direct match; for "as random as possible while respecting one
+explicit constraint" mcsqs's formulation fits better.
+"""),
+]
+
+
 if __name__ == "__main__":
     for name, cells in [
         ("01_first_scraps_run.ipynb", nb1),
         ("02_targeting_csro.ipynb", nb2),
         ("03_heb_end_to_end.ipynb", nb3),
         ("04_multi_sublattice.ipynb", nb4),
+        ("05_troubleshooting.ipynb", nb5),
     ]:
         path = write_notebook(name, cells)
         print(f"Wrote {path}")

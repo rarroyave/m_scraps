@@ -174,13 +174,14 @@ def make_scraps_inputs(
     *,
     max_shellnum: int = 2,
     weights: Optional[Sequence[float]] = None,
-    nests: int = 24,
-    mcstep: int = 100,
+    nests: Optional[int] = None,
+    mcstep: Optional[int] = None,
     auto_mcstep: int = 7,
-    total_iter: int = 20,
-    early_stop_patience: int = 3,
+    total_iter: Optional[int] = None,
+    early_stop_patience: Optional[int] = None,
     early_stop_tol: float = 1e-6,
     rng_seed: int = 0,
+    auto_budget: int = 0,
     sro_targets: Optional[Sequence[tuple[int, int, int, float]]] = None,
     spectator_basis_species: Optional[Sequence[tuple[int, int]]] = None,
     sublattices: Optional[Sequence[tuple[int, Sequence[int], Sequence[int]]]] = None,
@@ -200,8 +201,25 @@ def make_scraps_inputs(
     basis positions must be disjoint across sublattices; when omitted,
     SCRAPS uses the default single-sublattice behavior.
 
+    `auto_budget` selects a one-keyword MC-budget profile (v0.4.5+):
+    1 = basic, 2 = thorough, 3 = exhaustive. When set, the C++ side
+    fills in any unset MCSTEP / TOTALIter / NESTS / EARLY_STOP_PATIENCE
+    once the supercell size is known. Pass explicit `nests`, `mcstep`,
+    `total_iter`, or `early_stop_patience` to override the auto-filled
+    defaults selectively. Default 0 = off (the legacy mode where
+    explicit values are required).
+
     Returns `(poscar_path, input_path)`.
     """
+    # Apply explicit defaults only when AUTO_BUDGET is off. When
+    # AUTO_BUDGET > 0 the C++ side fills any unset (= None) field from
+    # the profile, so we omit those lines from INPUT to preserve the
+    # "user wants AUTO_BUDGET defaults" signal.
+    if auto_budget == 0:
+        if nests is None: nests = 24
+        if mcstep is None: mcstep = 100
+        if total_iter is None: total_iter = 20
+        if early_stop_patience is None: early_stop_patience = 3
     work_dir = Path(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
     poscar = work_dir / "POSCAR"
@@ -228,17 +246,20 @@ def make_scraps_inputs(
         GITER   1000
         ELEMENT {element_str}
         Cell_DIM        {cell_dim_str}
-        NESTS   {nests}
-        MCSTEP  {mcstep}
-        AUTO_MCSTEP {auto_mcstep}
-        TOTALIter {total_iter}
         MAXSHELLNUM {max_shellnum}
         WEIGHT {weights_str}
-        EARLY_STOP_PATIENCE {early_stop_patience}
         EARLY_STOP_TOL {early_stop_tol:g}
         """)
-    if rng_seed != 0:
-        body += f"RNG_SEED {rng_seed}\n"
+    # Per-keyword inclusion: omit lines for fields the user left as None
+    # so AUTO_BUDGET can fill them in on the C++ side.
+    if nests is not None:           body += f"NESTS   {nests}\n"
+    if mcstep is not None:          body += f"MCSTEP  {mcstep}\n"
+    if total_iter is not None:      body += f"TOTALIter {total_iter}\n"
+    if early_stop_patience is not None:
+        body += f"EARLY_STOP_PATIENCE {early_stop_patience}\n"
+    if auto_mcstep > 0:             body += f"AUTO_MCSTEP {auto_mcstep}\n"
+    if auto_budget > 0:             body += f"AUTO_BUDGET {auto_budget}\n"
+    if rng_seed != 0:               body += f"RNG_SEED {rng_seed}\n"
     for entry in (spectator_basis_species or []):
         bi, sp = entry
         body += f"SPECTATOR_BASIS_SPECIES {bi} {sp}\n"
