@@ -211,6 +211,37 @@ templates: `fcc`, `bcc`, `b2`, `rocksalt`, `heusler-l21`,
 `perovskite-abo3`. For any non-templated structure, `from-structure`
 calls `sublattice_detect.py` to auto-identify Wyckoff orbits.
 
+## High-throughput sweeps (HEA composition space)
+
+For HTP exploration — generating many SQS at once across a composition
+grid — `tools/scraps_htp.py` builds on the wizard pipeline:
+
+```bash
+# Binary alloy: 11 SQS from pure Ni to pure Co
+python3 tools/scraps_htp.py linear --template fcc --species Ni,Co \
+    --range 0:1 --step 0.1 --target-atoms 100 --output-dir nico_sweep
+
+# Ternary NiCoCr on the Gibbs simplex at resolution 5 (21 compositions)
+python3 tools/scraps_htp.py simplex --template fcc --species Ni,Co,Cr \
+    --resolution 5 --target-atoms 100 --output-dir nicocr_sweep
+
+# Custom list from CSV (header row = species, each row = composition)
+python3 tools/scraps_htp.py list --template fcc \
+    --compositions my_comps.csv --output-dir custom_sweep
+
+# Multi-sublattice perovskite, sweep A-site, fix B and O
+python3 tools/scraps_htp.py simplex --template perovskite-abo3 \
+    --species Ba,Sr,Ca --resolution 4 --fixed 1:Ti:1.0 --fixed 2:O:1.0
+```
+
+Each composition gets its own subdir (e.g. `Ni0.50_Co0.50/`) with the
+POSCAR, INPUT, SCRAPS.vasp, sqs.cif, and a per-composition `meta.json`;
+the top-level `manifest.json` summarizes everything (cell sizes,
+fitness, max\|α\|, wall times). `--workers N` runs N compositions in
+parallel; the runner is resumable (re-running skips compositions whose
+`sqs.cif` already exists), so a long sweep can be interrupted with
+Ctrl-C and resumed later.
+
 ## Tutorials
 
 Five end-to-end Jupyter notebooks under `notebooks/`:
