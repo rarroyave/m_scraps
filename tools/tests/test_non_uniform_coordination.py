@@ -696,6 +696,46 @@ def test_heusler_l21_cu2mnal_three_wyckoff_runs(tmp_path):
     assert "[SUBLATTICE] active partition: 3 sublattices, 128 atoms total" in log
 
 
+def _sub_lines_from_site_species(site_species: list[str],
+                                  orbit_to_species_pair: dict[str, tuple[int, int]]
+                                  ) -> tuple[str, list[int]]:
+    """Given pymatgen's per-site species list (one entry per atom in
+    POSCAR order) and a mapping orbit_label -> (species_i, species_j),
+    return (SUBLATTICE INPUT lines, list of per-element counts in
+    species-index order).
+
+    Pymatgen writes sites grouped by species in some internal order;
+    we walk site_species and emit one SUBLATTICE block per orbit
+    listing its contiguous basis indices."""
+    orbit_basis: dict[str, list[int]] = {ol: [] for ol in orbit_to_species_pair}
+    for i, sp in enumerate(site_species):
+        if sp in orbit_basis:
+            orbit_basis[sp].append(i)
+    lines = []
+    counts: dict[int, int] = {}
+    sub_id = 0
+    for orbit_label, (sp_a, sp_b) in orbit_to_species_pair.items():
+        basis = orbit_basis[orbit_label]
+        if not basis:
+            raise AssertionError(f"orbit {orbit_label!r} produced no sites")
+        if len(basis) % 2 != 0:
+            raise AssertionError(
+                f"orbit {orbit_label} has odd multiplicity {len(basis)}"
+                " -- can't 50/50 split"
+            )
+        half = len(basis) // 2
+        counts[sp_a] = half
+        counts[sp_b] = half
+        lines.append(
+            f"SUBLATTICE {sub_id} BASIS {' '.join(str(b) for b in basis)} "
+            f"SPECIES {sp_a} {sp_b}"
+        )
+        sub_id += 1
+    n_species = max(counts) + 1
+    counts_list = [counts.get(s, 0) for s in range(n_species)]
+    return "\n".join(lines), counts_list
+
+
 def test_sigma_phase_fecr_five_wyckoff_runs(tmp_path):
     """Sigma phase (sigma-FeCr type, space group P4_2/mnm) is the
     canonical hard case for multi-sublattice SQS: 5 distinct Wyckoff
@@ -924,3 +964,158 @@ def test_heusler_l21_per_pair_csro_across_three_orbits(tmp_path):
     log = log_path.read_text()
     assert proc.returncode == 0, f"Heusler CSRO scraps failed: {log[-800:]}"
     assert "[SUBLATTICE] active partition: 3 sublattices" in log
+
+
+# ---------------------------------------------------------------------------
+# Spinel and pyrochlore: 3 and 4 Wyckoff orbits with non-uniform z
+# ---------------------------------------------------------------------------
+
+def test_spinel_mgal2o4_three_wyckoff_runs(tmp_path):
+    """Spinel structure (MgAl2O4-type, Fd-3m) has 3 Wyckoff orbits:
+    8a tetrahedral cation, 16d octahedral cation, 32e oxygen.
+    Different geometric environment per orbit (tetrahedral z=4 cation
+    vs octahedral z=6 cation vs anion z=4 cation neighbors).
+
+    Substitute each orbit with a binary 50/50 mixture: Mg/Zn on 8a
+    tetrahedral, Al/Ga on 16d octahedral, O/S on 32e. Per-Wyckoff
+    SUBLATTICE should let the run complete (56 atoms in 1x1x1)."""
+    pytest.importorskip("pymatgen")
+    from pymatgen.core import Lattice, Structure
+
+    # Fd-3m origin choice 1 (pymatgen default): 8a Mg at (0,0,0),
+    # 16d Al at (5/8,5/8,5/8), 32e O at (x,x,x) with x ~ 0.387.
+    lat = Lattice.cubic(8.08)  # MgAl2O4 lattice parameter
+    struct = Structure.from_spacegroup(
+        "Fd-3m", lat,
+        species=["Mg", "Al", "O"],
+        coords=[
+            [0.0,    0.0,    0.0   ],
+            [0.625,  0.625,  0.625 ],
+            [0.387,  0.387,  0.387 ],
+        ],
+    )
+    poscar_path = tmp_path / "POSCAR"
+    struct.to(filename=str(poscar_path), fmt="poscar")
+    site_species = [s.symbol for s in struct.species]
+    n_mg = site_species.count("Mg")
+    n_al = site_species.count("Al")
+    n_o  = site_species.count("O")
+    assert (n_mg, n_al, n_o) == (8, 16, 32), (
+        f"unexpected spinel basis: {n_mg} Mg + {n_al} Al + {n_o} O "
+        f"(expected 8+16+32)"
+    )
+
+    sub_lines, counts = _sub_lines_from_site_species(
+        site_species,
+        orbit_to_species_pair={
+            "Mg": (0, 1),   # 8a tetrahedral cation -> species 0,1
+            "Al": (2, 3),   # 16d octahedral cation -> species 2,3
+            "O":  (4, 5),   # 32e anion -> species 4,5
+        },
+    )
+    counts_str = " ".join(str(c) for c in counts)
+    inp = textwrap.dedent(f"""\
+        TYP     6
+        GITER   100
+        ELEMENT {counts_str}
+        Cell_DIM 1 1 1
+        NESTS 4
+        MCSTEP 800
+        TOTALIter 8
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 1
+        EARLY_STOP_PATIENCE 5
+        {sub_lines}
+        """)
+    (tmp_path / "INPUT").write_text(inp)
+    shutil.copy(SCRAPS_BIN, tmp_path / "scraps")
+    os.chmod(tmp_path / "scraps", 0o755)
+    log_path = tmp_path / "scraps.log"
+    with log_path.open("w") as f:
+        proc = subprocess.run(
+            [MPIRUN, "-np", "4", "./scraps"],
+            cwd=tmp_path, stdout=f, stderr=subprocess.STDOUT, timeout=180,
+        )
+    log = log_path.read_text()
+    assert proc.returncode == 0, f"spinel scraps failed: {log[-1000:]}"
+    assert "non-uniform coordination" not in log
+    assert "[SUBLATTICE] active partition: 3 sublattices, 56 atoms total" in log
+
+
+def test_pyrochlore_a2b2o7_four_wyckoff_runs(tmp_path):
+    """Pyrochlore structure (A2B2O7-type, Fd-3m) has 4 Wyckoff orbits:
+    16d A cation, 16c B cation, 48f O, 8b O'. Each with a different
+    geometric coordination. Substitute each orbit with a binary 50/50
+    mixture. Per-Wyckoff SUBLATTICE should handle 4 simultaneous
+    sublattices on the 88-atom conventional cell."""
+    pytest.importorskip("pymatgen")
+    from pymatgen.core import Lattice, Structure
+
+    # Fd-3m origin choice 1 (pymatgen default): the 4 pyrochlore Wyckoff
+    # positions are 16d at (5/8, 5/8, 5/8), 16c at (1/8, 1/8, 1/8),
+    # 8b at (1/2, 1/2, 1/2), and 48f at (x, 0, 0) with x ~ 0.32 for
+    # typical pyrochlore. NB: 48f requires y = z = 0; passing
+    # (x, 1/8, 1/8) lands on the general position 96g instead.
+    lat = Lattice.cubic(10.20)  # representative pyrochlore lattice
+    struct = Structure.from_spacegroup(
+        "Fd-3m", lat,
+        species=["Y", "Zr", "F", "O"],   # 16d A, 16c B, 48f O, 8b O'
+        coords=[
+            [0.625, 0.625, 0.625],  # 16d -> A (Y)
+            [0.125, 0.125, 0.125],  # 16c -> B (Zr)
+            [0.32,  0.0,   0.0  ],  # 48f -> O (F as a distinct label)
+            [0.5,   0.5,   0.5  ],  # 8b  -> O' (O)
+        ],
+    )
+    poscar_path = tmp_path / "POSCAR"
+    struct.to(filename=str(poscar_path), fmt="poscar")
+    site_species = [s.symbol for s in struct.species]
+    expected_counts = {"Y": 16, "Zr": 16, "F": 48, "O": 8}
+    actual = {label: site_species.count(label) for label in expected_counts}
+    assert actual == expected_counts, (
+        f"unexpected pyrochlore basis: {actual} (expected {expected_counts})"
+    )
+
+    # Mix each orbit 50/50. Pair assignments:
+    #   16d A -> species 0,1 (Y/Tb on rare-earth site)
+    #   16c B -> species 2,3 (Zr/Hf on B site)
+    #   48f O -> species 4,5 (O/N on the regular oxygen site)
+    #   8b O' -> species 6,7 (O/N on the apical oxygen site)
+    sub_lines, counts = _sub_lines_from_site_species(
+        site_species,
+        orbit_to_species_pair={
+            "Y":  (0, 1),
+            "Zr": (2, 3),
+            "F":  (4, 5),
+            "O":  (6, 7),
+        },
+    )
+    counts_str = " ".join(str(c) for c in counts)
+    inp = textwrap.dedent(f"""\
+        TYP     8
+        GITER   100
+        ELEMENT {counts_str}
+        Cell_DIM 1 1 1
+        NESTS 4
+        MCSTEP 1500
+        TOTALIter 8
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 1
+        EARLY_STOP_PATIENCE 5
+        {sub_lines}
+        """)
+    (tmp_path / "INPUT").write_text(inp)
+    shutil.copy(SCRAPS_BIN, tmp_path / "scraps")
+    os.chmod(tmp_path / "scraps", 0o755)
+    log_path = tmp_path / "scraps.log"
+    with log_path.open("w") as f:
+        proc = subprocess.run(
+            [MPIRUN, "-np", "4", "./scraps"],
+            cwd=tmp_path, stdout=f, stderr=subprocess.STDOUT, timeout=240,
+        )
+    log = log_path.read_text()
+    assert proc.returncode == 0, f"pyrochlore scraps failed: {log[-1000:]}"
+    assert "non-uniform coordination" not in log
+    assert "[SUBLATTICE] active partition: 4 sublattices, 88 atoms total" in log
