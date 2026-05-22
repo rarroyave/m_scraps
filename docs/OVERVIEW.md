@@ -419,7 +419,21 @@ addition to `docs/mcsqs_comparison.md`.
 
 ## 7. Release history
 
-- **v0.4.0** (this commit) — multi-sublattice SQS support
+- **v0.4.1** (this commit) — Per-sublattice c_j fitness, B2 mcsqs
+  comparison, multi-sublattice tutorial notebook. The fitness fix
+  swaps the global N_j/N_M reference for the per-sublattice
+  N_j/N_τ reference + per-(σ,τ,k) coordination tensor; without it
+  the multi-sublattice optimizer minimizes the wrong target and
+  drives toward clustering rather than per-sublattice SQS. Single-
+  sublattice and HEB-spectator cases reduce to the prior formula
+  exactly. Validated on (Ni,Co)(Ti,Zr) B2 50/50 in
+  `docs/compare_b2_multisub.py`: SCRAPs converges to exact α=0 on
+  intra-sub shells in <1 s for the SQS case (mcsqs leaves max
+  |α|≈0.1–0.2 in 80–130 s on the same problem); SCRAPs hits the
+  per-pair α targets exactly for ordered (α=−1), clustered
+  (α=+0.5), and mixed CSRO patterns at both N=4 and N=6 in under
+  1.3 s. Tutorial: `notebooks/04_multi_sublattice.ipynb`. 122 tests.
+- **v0.4.0** — multi-sublattice SQS support
   (`SUBLATTICE` keyword + Wyckoff-orbit detector
   `tools/sublattice_detect.py`). All swap-proposal sites gated by
   sublattice; randomizeLattice rewritten to draw from per-sublattice
@@ -427,7 +441,10 @@ addition to `docs/mcsqs_comparison.md`.
   capacity, spectator-vs-sublattice conflict, full coverage). When
   no `SUBLATTICE` is declared, `main.cpp` synthesizes a default
   single-sublattice spec so legacy behavior is preserved exactly.
-  122 tests.
+  122 tests. **Note**: tagged only at v0.4.1 — the v0.4.0 commits
+  are runnable but produce semantically wrong multi-sublattice
+  output (global-c_j target drives toward clustering); the
+  capability is correct from v0.4.1 onward.
 - **v0.3.2** — K-atom cluster swap moves (`CLUSTER_SWAP_K`).
   Negative finding documented: K ∈ {2, 4} also plateaus at ~148 on
   the L2₁ cold-start case (same as cuckoo, SA, PT). The barrier is
@@ -462,18 +479,15 @@ addition to `docs/mcsqs_comparison.md`.
 
 ## 8. What's next
 
-Open items as of v0.4.0:
+Open items as of v0.4.1:
 - **Apply to a real research case.** Refractory HEB with literature
   CSRO targets, DFT validation. Now also possible: a rocksalt
   HEA-carbide with independent metal-sublattice CSRO and a fixed C
-  sublattice (the v0.4.0 multi-sublattice path opens this up
-  directly).
-- **mcsqs comparison on multi-sublattice.** Head-to-head benchmark
-  for rocksalt HEA-carbide and full-Heusler L2₁ with the per-pair
-  CSRO API. Slots into `docs/mcsqs_comparison.md`.
-- **Multi-sublattice tutorial notebook.** A `notebooks/04_multi_sublattice.ipynb`
-  walking through `sublattice_detect.py` → SUBLATTICE INPUT → run →
-  verify. The C++ + tooling are in place; the notebook is not.
+  sublattice (v0.4.1 multi-sublattice path).
+- **mcsqs CSRO comparison.** The v0.4.1 mcsqs benchmark in
+  `docs/mcsqs_comparison.md` covers SQS apples-to-apples but the
+  CSRO patterns are SCRAPs-only. Adding mcsqs via `-corrfile` per-
+  cluster correlation targeting would close the comparison loop.
 - **Per-sublattice atom-index sampling.** The v0.4.0 swap-path
   integration uses rejection sampling (gates after picking a
   uniform-random pair). For heavily-skewed sublattices the

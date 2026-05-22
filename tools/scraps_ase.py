@@ -183,6 +183,7 @@ def make_scraps_inputs(
     rng_seed: int = 0,
     sro_targets: Optional[Sequence[tuple[int, int, int, float]]] = None,
     spectator_basis_species: Optional[Sequence[tuple[int, int]]] = None,
+    sublattices: Optional[Sequence[tuple[int, Sequence[int], Sequence[int]]]] = None,
     extra_lines: str = "",
 ) -> tuple[Path, Path]:
     """Write `POSCAR` and `INPUT` files into `work_dir` from ASE Atoms.
@@ -192,6 +193,12 @@ def make_scraps_inputs(
     integer counts; their sum must equal `len(atoms) * prod(cell_dim)`.
     `sro_targets` is an optional list of (i, j, shell, alpha) tuples
     written as `SRO i j shell alpha` lines.
+
+    `sublattices` is an optional list of (id, basis_positions, species_indices)
+    tuples for multi-sublattice SQS (v0.4.1+). Each tuple becomes one
+    `SUBLATTICE id BASIS b1 b2 ... SPECIES s1 s2 ...` line. Species and
+    basis positions must be disjoint across sublattices; when omitted,
+    SCRAPS uses the default single-sublattice behavior.
 
     Returns `(poscar_path, input_path)`.
     """
@@ -235,6 +242,11 @@ def make_scraps_inputs(
     for entry in (spectator_basis_species or []):
         bi, sp = entry
         body += f"SPECTATOR_BASIS_SPECIES {bi} {sp}\n"
+    for entry in (sublattices or []):
+        sub_id, basis_pos, species_idx = entry
+        basis_str = " ".join(str(b) for b in basis_pos)
+        species_str = " ".join(str(s) for s in species_idx)
+        body += f"SUBLATTICE {sub_id} BASIS {basis_str} SPECIES {species_str}\n"
     for entry in (sro_targets or []):
         i, j, shell, alpha = entry
         body += f"SRO {i} {j} {shell} {alpha:g}\n"

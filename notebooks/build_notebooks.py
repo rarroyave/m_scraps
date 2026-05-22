@@ -406,10 +406,221 @@ borides, carbides like the (Hf,Zr,Ti,Ta,Nb)C high-entropy carbides, or
 fluorite-like high-entropy oxides where one cation sublattice is the
 designed one and the anion sublattice is the spectator).
 
-For truly multi-sublattice cases where multiple sublattices have independent
-designed compositions (σ-phase, Heusler with independent X₂/Y/Z compositions),
-SCRAPS aborts with a guidance message pointing to ATAT's `mcsqs`. See
-`docs/mcsqs_comparison.md` for the comparison.
+For structures with **two or more chemically-disordered sublattices**
+(rocksalt HEA-carbides where the metal sublattice is disordered AND
+the carbon sublattice is also disordered, double perovskites with
+independent A and B site mixing, Heusler L2₁ with independent X/Y/Z
+compositions), see **notebook 4** — v0.4.1's `SUBLATTICE` keyword and
+the `sublattices=` parameter on `run_sqs_from_atoms` handle these
+cases directly.
+"""),
+]
+
+
+# ---------------------------------------------------------------------------
+# Notebook 4: multi-sublattice SQS (v0.4.1)
+# ---------------------------------------------------------------------------
+
+nb4 = [
+    md("""
+# 4. Multi-sublattice SQS — (Ni,Co)(Ti,Zr) B2
+
+The previous notebooks all treated structures with one chemically-disordered
+sublattice (NiCoCr FCC, NiCoCr CSRO, HEB with spectator boron). v0.4.1 adds
+support for structures with **two or more independent disordered sublattices**.
+
+This notebook walks through:
+
+1. The `SUBLATTICE` INPUT keyword and the `sublattices=` parameter on
+   `run_sqs_from_atoms`.
+2. A B2-type (Ni,Co)(Ti,Zr) cell at 50/50 on each sublattice, targeting an
+   SQS where Ni-Co and Ti-Zr are independently random.
+3. A CSRO variant — Ni-Co perfectly ordered on the metal sublattice,
+   Ti-Zr 50%-clustered on the anion sublattice — to show the per-pair α
+   API working across sublattices simultaneously.
+4. Verification via a per-sublattice α calculator (cannot use
+   `verify_sro.py` with `--spectator-species` here because there's no
+   spectator).
+
+For Wyckoff-orbit-based sublattice detection from an arbitrary POSCAR, the
+`tools/sublattice_detect.py` helper is the right place to start; this
+notebook constructs sublattices by hand for the simple B2 case.
+"""),
+    md("""
+## Setup
+"""),
+    code("""
+import sys, subprocess, json, math, warnings
+from pathlib import Path
+import numpy as np
+from ase import Atoms
+from ase.build import bulk
+
+REPO = Path.cwd().parent
+sys.path.insert(0, str(REPO / "tools"))
+from scraps_ase import run_sqs_from_atoms
+
+warnings.filterwarnings("ignore")
+"""),
+    md("""
+## Build the B2 primitive
+
+The B2 (CsCl-type) cell has two basis positions: M at (0,0,0) and X at
+(½,½,½). The species at each site is just a placeholder for SCRAPS, which
+overrides via `ELEMENT` — we use "Ni" and "Ti" here, but SCRAPS treats them
+as basis-position labels, not chemistry.
+"""),
+    code("""
+primitive = Atoms(
+    symbols=["Ni", "Ti"],
+    scaled_positions=[(0, 0, 0), (0.5, 0.5, 0.5)],
+    cell=[(3.0, 0, 0), (0, 3.0, 0), (0, 0, 3.0)],
+    pbc=True,
+)
+print(primitive)
+"""),
+    md("""
+## Pattern 1: SQS — all sublattices independently random
+
+Per-sublattice SQS means α=0 inside each sublattice — Ni and Co are
+randomly distributed on the M sublattice, Ti and Zr are randomly
+distributed on the X sublattice. The `SUBLATTICE` keyword expresses this
+partition; SCRAPS' swap-proposal sites are gated so a Ni atom can only
+swap with a Co atom (same sublattice), never with a Ti or Zr.
+
+At 4×4×4 (128 atoms), this is feasible: 32 Ni + 32 Co on the M
+sublattice (64 sites), 32 Ti + 32 Zr on X (64 sites).
+"""),
+    code("""
+sqs = run_sqs_from_atoms(
+    primitive,
+    species=["Ni", "Co", "Ti", "Zr"],
+    element_counts=[32, 32, 32, 32],
+    cell_dim=(4, 4, 4),
+    max_shellnum=5,
+    weights=[0, 1, 1, 0, 1],   # shell 0 = M-X 1NN (cross-sub, deterministic);
+                                # 1,2,4 are intra-sub; 3 is cross-sub 4NN
+    sublattices=[
+        (0, [0], [0, 1]),       # M sublattice: basis 0, species Ni and Co
+        (1, [1], [2, 3]),       # X sublattice: basis 1, species Ti and Zr
+    ],
+    rng_seed=1,
+    early_stop_patience=5,
+    work_dir=Path.cwd() / "nb4_sqs",
+)
+print(f"Final fitness: {sqs.info['scraps_final_fitness']:.4f}")
+"""),
+    md("""
+## Verify per-sublattice α
+
+`verify_sro.py` computes α against the **global** c_j = N_j/N, which is
+misleading for multi-sublattice (it would report all cross-sublattice
+α values as ±1 trivially). For multi-sublattice we want per-sublattice
+α: c_j^τ = N_j / N_τ where τ is j's sublattice.
+
+The B2 comparison script `docs/compare_b2_multisub.py` includes a
+self-contained calculator we can import.
+"""),
+    code("""
+sys.path.insert(0, str(REPO / "docs"))
+from compare_b2_multisub import compute_alpha_per_shell, SUBLATTICE_OF, fix_scraps_species
+
+out_poscar = Path(sqs.info["scraps_work_dir"]) / "SCRAPS.vasp"
+fix_scraps_species(out_poscar, ["Ni", "Co", "Ti", "Zr"])
+
+shells = compute_alpha_per_shell(
+    out_poscar, species=["Ni", "Co", "Ti", "Zr"],
+    sublattice_of=SUBLATTICE_OF, n_shells=4
+)
+for sh in shells:
+    print(f"shell {sh['index']}: r=[{sh['r_min']:.3f}, {sh['r_max']:.3f}]"
+          f"  max|α| intra-sub = {sh['max_alpha_intra']:.4f}"
+          f"  max|α| inter-sub = {sh['max_alpha_inter']:.4f}")
+"""),
+    md("""
+The intra-sublattice α values should be ~0 at every intra shell (1, 2, 4 if
+detected) — confirming we have per-sublattice SQS quality. The 1NN
+cross-sublattice α reflects the natural M-X coordination structure and is
+determined by composition (not optimizable).
+
+## Pattern 2: CSRO — Ni-Co ordered on M, Ti-Zr clustered on X
+
+Per-pair α targets work across sublattices simultaneously. Here we target:
+
+- α(Ni-Co) at 2NN intra (M sublattice) = -1.0   → perfect alternation
+- α(Ti-Zr) at 2NN intra (X sublattice) = +0.5   → moderate clustering
+
+Set WEIGHT only on shell 1 — perfect Ni-Co alternation inherently forces
+non-zero α at shells 2 and 4 (the 3D bipartite pattern induces correlations
+at all distances), so weighting those shells too would prevent the optimizer
+from hitting α=-1 at shell 1.
+"""),
+    code("""
+csro = run_sqs_from_atoms(
+    primitive,
+    species=["Ni", "Co", "Ti", "Zr"],
+    element_counts=[32, 32, 32, 32],
+    cell_dim=(4, 4, 4),
+    max_shellnum=5,
+    weights=[0, 1, 0, 0, 0],   # focus on the targeted shell only
+    sublattices=[
+        (0, [0], [0, 1]),
+        (1, [1], [2, 3]),
+    ],
+    sro_targets=[
+        (0, 1, 1, -1.0),   # Ni-Co at 2NN: perfect ordering
+        (2, 3, 1, +0.5),   # Ti-Zr at 2NN: 50%% clustering
+    ],
+    rng_seed=1,
+    early_stop_patience=5,
+    work_dir=Path.cwd() / "nb4_csro",
+)
+print(f"Final fitness: {csro.info['scraps_final_fitness']:.4f}")
+"""),
+    code("""
+out_poscar = Path(csro.info["scraps_work_dir"]) / "SCRAPS.vasp"
+fix_scraps_species(out_poscar, ["Ni", "Co", "Ti", "Zr"])
+shells = compute_alpha_per_shell(
+    out_poscar, species=["Ni", "Co", "Ti", "Zr"],
+    sublattice_of=SUBLATTICE_OF, n_shells=4
+)
+# Inspect the (Ni, Co) and (Ti, Zr) alphas at shell 1 (2NN intra-sub).
+sh1 = next(s for s in shells if s["index"] == 1)
+print(f"α(Ni-Co) @ 2NN  = {sh1['alpha'][0][1]:+.4f}   (target -1.000)")
+print(f"α(Ti-Zr) @ 2NN  = {sh1['alpha'][2][3]:+.4f}   (target +0.500)")
+"""),
+    md("""
+SCRAPS should hit both targets to within numerical precision in a couple
+of seconds. The per-pair SRO targeting works **independently per
+sublattice** — α(Ni-Co) on M can be -1 while α(Ti-Zr) on X is +0.5; the
+fitness function correctly uses per-sublattice c_j^τ for each pair.
+
+## When to use Wyckoff-orbit auto-detection
+
+For more complex structures (rocksalt HEA-carbides, full Heusler with
+3 Wyckoff orbits, double perovskites, spinels), figuring out the
+basis-position-to-sublattice mapping by hand becomes error-prone.
+`tools/sublattice_detect.py` reads a POSCAR via pymatgen, runs Wyckoff
+analysis via spglib, and emits draft `SUBLATTICE` blocks you paste into
+INPUT. Two basis positions in the same Wyckoff orbit share identical
+pair-correlation environments under symmetry, so the orbit partition is
+the right default.
+
+```
+python3 tools/sublattice_detect.py POSCAR --write INPUT
+```
+
+emits one `SUBLATTICE` line per orbit with `<fill in>` SPECIES
+placeholders that you edit by hand.
+
+## Validation
+
+The full mcsqs comparison for (Ni,Co)(Ti,Zr) B2 across all four patterns
+(SQS / ordered / clustered / mixed) at N=4 and N=6 is documented in
+`docs/mcsqs_comparison.md` under the **Multi-sublattice** section.
+Summary: SCRAPS converges to exact targets in <1.3 s at both cell sizes;
+mcsqs has no direct per-pair-α API and would require correlation-
+engineering for an equivalent CSRO comparison.
 """),
 ]
 
@@ -423,6 +634,7 @@ if __name__ == "__main__":
         ("01_first_scraps_run.ipynb", nb1),
         ("02_targeting_csro.ipynb", nb2),
         ("03_heb_end_to_end.ipynb", nb3),
+        ("04_multi_sublattice.ipynb", nb4),
     ]:
         path = write_notebook(name, cells)
         print(f"Wrote {path}")
