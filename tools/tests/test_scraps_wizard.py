@@ -128,7 +128,10 @@ def test_quick_fcc_single_sublattice(tmp_path):
     assert proc.returncode == 0, f"wizard failed: {proc.stderr or proc.stdout[-500:]}"
     assert "Cell           : 3 x 3 x 3 = 108 atoms" in proc.stdout
     # Final fitness should be 0 for FCC 50:50 (exactly feasible SQS).
-    assert "Final fitness = 0" in proc.stdout or "Final fitness = 0.0" in proc.stdout
+    assert "Final fitness  : 0.0000" in proc.stdout
+    # The new output formatter also reports max|alpha| with a verdict.
+    assert "Max |alpha|" in proc.stdout
+    assert "excellent SQS" in proc.stdout
     out_cif = tmp_path / "out" / "sqs.cif"
     assert out_cif.exists()
 

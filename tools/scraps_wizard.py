@@ -207,40 +207,64 @@ def split_to_integers(fractions: dict[str, float], n_total: int) -> dict[str, in
 def pick_cell_dim(template_atoms: int, target_atoms: int,
                   fractions_per_orbit: list[dict[str, float]],
                   template: Template,
-                  max_search: int = 8) -> tuple[int, int]:
-    """Pick a cubic cell_dim N where template_atoms * N^3 is closest to
-    target_atoms AND every species' atom count works out to an integer
-    given its fractional composition (per orbit). Returns (N, n_atoms)."""
-    best = (None, None, float("inf"))
+                  max_search: int = 8) -> tuple[int, int, float]:
+    """Pick a cubic cell_dim N for the template.
+
+    Strategy: walk N = 1..max_search. For each candidate, Hamilton-round
+    each orbit's user fractions to integer counts (always exact-sum, by
+    construction). Compute the max deviation between Hamilton-rounded
+    fractions and user-input fractions. Score each candidate by a
+    composite of (distance from target_atoms) + (heavy penalty on
+    deviation > 0.02). Pick the lowest-scoring candidate.
+
+    This lets users type approximate fractions (Ni:0.33,Co:0.33,Cr:0.34)
+    and get a sensible cell (3x3x3 = 108 with Ni=Co=Cr=36, deviation
+    0.007) rather than being forced into the smallest cell where the
+    fractions happen to give exact integers (which for 0.33,0.33,0.34
+    is 500). Strict-integer compositions (0.5/0.5, 0.25/0.25/0.5) still
+    pick the same cell they always would.
+
+    Returns (N, n_atoms, max_orbit_deviation). max_orbit_deviation is
+    the largest |Hamilton_count / orbit_total - user_fraction| across
+    all (orbit, species); 0 means exact, < 0.02 is barely
+    distinguishable from exact, > 0.05 means the user's fractions
+    don't cleanly fit this cell size.
+    """
+    per_orbit_mult = template_atoms // len(template.orbits)
+    candidates = []
     for N in range(1, max_search + 1):
         n_atoms = template_atoms * N ** 3
-        # Per-orbit feasibility: each orbit has multiplicity_per_cell *
-        # N^3 atoms; the fractions for that orbit must give integer
-        # counts. We don't know exact per-orbit multiplicities until we
-        # build the structure, so estimate by template_atoms / n_orbits
-        # for a quick filter. The exact check happens at run time.
-        per_orbit_mult = template_atoms // len(template.orbits)
         orbit_total = per_orbit_mult * N ** 3
-        feasible = True
+        max_dev = 0.0
         for fracs in fractions_per_orbit:
-            for sp, f in fracs.items():
-                count = orbit_total * f
-                if abs(count - round(count)) > 0.001:
-                    feasible = False
-                    break
-            if not feasible:
+            if orbit_total == 0:
+                max_dev = float("inf")
                 break
-        if not feasible:
+            counts = split_to_integers(fracs, orbit_total)
+            for sp, frac in fracs.items():
+                achieved = counts[sp] / orbit_total
+                max_dev = max(max_dev, abs(achieved - frac))
+        if max_dev == float("inf"):
             continue
-        delta = abs(n_atoms - target_atoms)
-        if delta < best[2]:
-            best = (N, n_atoms, delta)
-    if best[0] is None:
+        # Reject cells dramatically smaller or larger than the target.
+        if n_atoms < max(8, target_atoms * 0.3):
+            continue
+        if n_atoms > target_atoms * 5:
+            continue
+        # Score: target-distance (in atoms) + heavy deviation penalty.
+        # A deviation of 0.02 contributes 200 atoms of penalty, so an
+        # exact-fit cell wins over an approximate-fit cell that's
+        # within ~200 atoms of the target.
+        score = abs(n_atoms - target_atoms) + 10000.0 * max_dev
+        candidates.append((score, N, n_atoms, max_dev))
+    if not candidates:
         raise ValueError(
-            f"No cell size in 1..{max_search} gives an integer-feasible "
-            f"composition for this template + target = {target_atoms} atoms."
+            f"No cell size in 1..{max_search} gives a workable composition "
+            f"for this template + target = {target_atoms} atoms."
         )
-    return best[0], best[1]
+    candidates.sort()
+    _, N, n_atoms, max_dev = candidates[0]
+    return N, n_atoms, max_dev
 
 
 # ----- structure assembly --------------------------------------------------
@@ -332,7 +356,7 @@ def run_pipeline(template: Template,
 
     primitive, per_site_sub = build_primitive(template, lattice_param)
     template_atoms = len(primitive)
-    cell_dim, n_atoms = pick_cell_dim(
+    cell_dim, n_atoms, comp_deviation = pick_cell_dim(
         template_atoms, target_atoms, fractions_per_orbit, template,
     )
 
@@ -368,6 +392,12 @@ def run_pipeline(template: Template,
         print(f"  ELEMENT counts : " + ", ".join(
             f"{sp}={c}" for sp, c in zip(species_order, element_counts)
         ))
+        if comp_deviation > 0.005:
+            print(f"  Composition fit: max deviation "
+                  f"{comp_deviation:.4f} from user fractions "
+                  + ("(close enough — Hamilton-rounded)"
+                     if comp_deviation < 0.03 else
+                     "(noticeable — try a larger --target-atoms for cleaner ratios)"))
         print(f"  Sublattices    : {len(sublattices)} declared "
               f"({len(template.orbits)} Wyckoff orbits)")
         print(f"  MC budget      : AUTO_BUDGET={budget}  "
@@ -395,35 +425,101 @@ def run_pipeline(template: Template,
 
     fitness = sqs_atoms.info.get("scraps_final_fitness")
     if not quiet:
-        print(f"done in {wall:.1f} s.  Final fitness = "
-              f"{fitness if fitness is not None else 'n/a'}.")
+        print(f"done in {wall:.1f} s.")
 
     # Export to user-friendly format.
     out_path = work_dir / f"sqs.{output_format}"
     sqs_atoms.write(str(out_path))
-    if not quiet:
-        print(f"[scraps-wizard] Wrote {out_path}")
 
-    # Quick verification: compute alpha via verify_sro.py for the
-    # single-sublattice case (the per-sublattice multi-sub calculator
-    # lives in docs/compare_b2_multisub.py and is per-template; for
-    # the wizard we just show whatever verify_sro outputs).
-    if len(template.orbits) == 1 and not quiet:
+    # Compute max |alpha| as the chemistry-relevant quality metric.
+    # For single-sublattice cases verify_sro.py is correct; for multi-
+    # sublattice it uses the global c_j reference (misleading), so we
+    # use the per-sublattice calculator from the comparison harness.
+    max_alpha = None
+    alpha_lines: list[str] = []
+    if len(template.orbits) == 1:
         verify = REPO_ROOT / "tools" / "verify_sro.py"
         proc = subprocess.run(
             [sys.executable, str(verify),
              str(work_dir / "SCRAPS.vasp"),
              "--species", ",".join(species_order),
-             "--shells", "2"],
+             "--shells", "2", "--json"],
             capture_output=True, text=True, timeout=60,
         )
         if proc.returncode in (0, 1):
-            # Trim the table to just the alpha lines.
-            lines = proc.stdout.splitlines()
-            print(f"\n[scraps-wizard] Per-shell alpha:")
-            for line in lines:
-                if "Shell" in line or any(sp in line for sp in species_order):
-                    print(f"  {line}")
+            try:
+                import json as _json
+                data = _json.loads(proc.stdout)
+                vals = []
+                for sh in data.get("shells", []):
+                    for row in sh.get("alpha_matrix", []):
+                        for v in row:
+                            if v is not None and isinstance(v, (int, float)):
+                                vals.append(abs(v))
+                if vals:
+                    max_alpha = max(vals)
+            except Exception:
+                pass
+            # Capture the human-readable per-shell tables too.
+            proc2 = subprocess.run(
+                [sys.executable, str(verify),
+                 str(work_dir / "SCRAPS.vasp"),
+                 "--species", ",".join(species_order),
+                 "--shells", "2"],
+                capture_output=True, text=True, timeout=60,
+            )
+            if proc2.returncode in (0, 1):
+                for line in proc2.stdout.splitlines():
+                    if "Shell" in line or any(sp in line for sp in species_order):
+                        alpha_lines.append(line)
+    else:
+        # Multi-sublattice: invoke the per-sublattice calculator.
+        try:
+            sys.path.insert(0, str(REPO_ROOT / "docs"))
+            from compare_b2_multisub import (
+                compute_alpha_per_shell, fix_scraps_species,
+            )
+            sub_of_species = {sp: sub_id for sub_id, fracs
+                              in enumerate(fractions_per_orbit)
+                              for sp in fracs}
+            fix_scraps_species(work_dir / "SCRAPS.vasp", species_order)
+            shells = compute_alpha_per_shell(
+                work_dir / "SCRAPS.vasp",
+                species=species_order, sublattice_of=sub_of_species,
+                n_shells=3,
+            )
+            max_alpha = max(
+                (s["max_alpha_intra"] for s in shells), default=None
+            )
+        except Exception:
+            max_alpha = None
+
+    if not quiet:
+        print()
+        print(f"[scraps-wizard] Result:")
+        print(f"  Output         : {out_path}")
+        if fitness is not None:
+            print(f"  Final fitness  : {fitness:.4f}")
+        if max_alpha is not None:
+            quality = ("excellent SQS" if max_alpha < 0.01
+                       else "good (small CSRO residual)" if max_alpha < 0.05
+                       else "marginal — try a larger cell or more MC budget")
+            print(f"  Max |alpha|    : {max_alpha:.4f}  ({quality})")
+        else:
+            print(f"  Max |alpha|    : (multi-sublattice; see "
+                  f"`compute_alpha_per_shell` in "
+                  f"docs/compare_b2_multisub.py)")
+        if fitness is not None and fitness > 0.01 and max_alpha is not None and max_alpha < 0.05:
+            print(f"  Note           : fitness > 0 is the integer-pair-count")
+            print(f"                   floor (your composition + cell makes some")
+            print(f"                   target pair counts non-integer). alpha is")
+            print(f"                   the chemistry-relevant SQS-quality metric.")
+        if alpha_lines:
+            print()
+            print(f"  alpha matrix:")
+            for line in alpha_lines:
+                print(f"  {line}")
+
     return WizardResult(
         cell_dim=cell_dim, n_atoms=n_atoms, work_dir=work_dir,
         output_path=out_path, fitness=fitness,
