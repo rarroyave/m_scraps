@@ -107,6 +107,18 @@ static std::vector<int> g_sub_count;
 // default-synthesized single sublattice has sigma == tau, N_tau == N_M,
 // and z[0][0][k] == z_M[k].
 static std::vector<std::vector<std::vector<double>>> g_z_sub_sub_shell;
+// Per-sublattice atom-index pools for direct same-sublattice swap-pair
+// sampling (v0.4.4+). g_atoms_by_sublattice[sigma] contains every non-
+// spectator atom index on sublattice sigma. Used by the swap-proposal
+// sites: pick atom a from any sublattice, pick atom b from
+// g_atoms_by_sublattice[g_atom_to_sublattice[a]] -- (a, b) are
+// guaranteed same-sublattice and non-spectator, eliminating the
+// rejection cost of the v0.4.0 cross-sublattice gate (which was ~50%
+// for two equal-sized sublattices, higher for K > 2). For single-
+// sublattice / HEB-spectator cases this is equivalent to uniform
+// sampling over the full non-spectator pool (one big peer list), so
+// the path adds no overhead beyond the indirection.
+static std::vector<std::vector<int>> g_atoms_by_sublattice;
 
 // Forward decls so empty_nests can dispatch to them.
 int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement);
@@ -445,15 +457,19 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
         origfitness[i] = oldFitness;
         for(int j = 0; j < iter; j++)
         {
+            // Pick atom1 uniformly from the full atom set, then pick
+            // atom2 from atom1's sublattice peer list -- (atom1, atom2)
+            // are guaranteed same-sublattice and atom2 is non-spectator.
+            // The spectator/cross-sublattice gates from v0.4.0 are now
+            // redundant for atom2 but kept on atom1 for the rare
+            // spectator pick (cheap; preserves clarity).
             atom1 = (int) dis(gen);
-            atom2 = (int) dis(gen);
-            // Reject swaps involving spectator atoms (preserve sublattice).
-            if (initialPlacement[atom1] >= 0 || initialPlacement[atom2] >= 0)
-                continue;
-            // Reject cross-sublattice swaps (preserve per-sublattice
-            // chemistry under multi-sublattice partitions).
-            if (g_atom_to_sublattice[atom1] != g_atom_to_sublattice[atom2])
-                continue;
+            if (initialPlacement[atom1] >= 0) continue;
+            int sub_a1 = g_atom_to_sublattice[atom1];
+            const auto& peers_a1 = g_atoms_by_sublattice[sub_a1];
+            if (peers_a1.size() < 2) continue;
+            std::uniform_int_distribution<> peer_dis_a1(0, (int)peers_a1.size() - 1);
+            atom2 = peers_a1[peer_dis_a1(gen)];
             if(currnest[atom1] == currnest[atom2])
                 continue;
             temphold = currnest[atom1];
@@ -659,14 +675,18 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
                 vector<int> saved = currnest;
                 bool any_invalid = false;
                 for (int k_step = 0; k_step < g_cluster_swap_K; k_step++) {
+                    // Pick a from full pool, b from a's sublattice peers.
                     int a = dis(gen_f);
-                    int b = dis(gen_f);
-                    if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) {
+                    if (initialPlacement[a] >= 0) {
                         any_invalid = true; break;
                     }
-                    if (g_atom_to_sublattice[a] != g_atom_to_sublattice[b]) {
+                    int sub_a = g_atom_to_sublattice[a];
+                    const auto& peers_a = g_atoms_by_sublattice[sub_a];
+                    if (peers_a.size() < 2) {
                         any_invalid = true; break;
                     }
+                    int b = peers_a[std::uniform_int_distribution<>(
+                        0, (int)peers_a.size() - 1)(gen_f)];
                     int sa_l = currnest[a], sb_l = currnest[b];
                     if (sa_l == sb_l) { any_invalid = true; break; }
                     for (int k = 0; k < max_num_neighs; k++) {
@@ -780,14 +800,28 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
                     }
                 } else {
                     // Already at zero residual everywhere; nothing to bias.
-                    a = dis(gen_f); b = dis(gen_f);
+                    // Fall through to the uniform per-sublattice path below.
+                    a = -1; b = -1;
                 }
             } else {
-                a = dis(gen_f);
-                b = dis(gen_f);
+                a = -1; b = -1;
             }
-            if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) continue;
-            if (g_atom_to_sublattice[a] != g_atom_to_sublattice[b]) continue;
+            if (a < 0 || b < 0) {
+                // Same-sublattice pair sampling: pick a from full pool,
+                // b from a's sublattice peer list.
+                a = dis(gen_f);
+                if (initialPlacement[a] >= 0) continue;
+                int sub_a = g_atom_to_sublattice[a];
+                const auto& peers_a = g_atoms_by_sublattice[sub_a];
+                if (peers_a.size() < 2) continue;
+                b = peers_a[std::uniform_int_distribution<>(
+                    0, (int)peers_a.size() - 1)(gen_f)];
+            } else {
+                // Targeted-swap (a, b) came from species_atoms which is
+                // already implicitly same-sublattice under disjoint-
+                // species; spectators excluded by construction. No
+                // further gating needed.
+            }
             int sa = currnest[a], sb = currnest[b];
             if (sa == sb) continue;
 
@@ -1005,9 +1039,12 @@ int empty_nests_sa(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, 
 
         for (int step = 0; step < iter; step++) {
             int a = dis(gen_s);
-            int b = dis(gen_s);
-            if (initialPlacement[a] >= 0 || initialPlacement[b] >= 0) continue;
-            if (g_atom_to_sublattice[a] != g_atom_to_sublattice[b]) continue;
+            if (initialPlacement[a] >= 0) continue;
+            int sub_a = g_atom_to_sublattice[a];
+            const auto& peers_a = g_atoms_by_sublattice[sub_a];
+            if (peers_a.size() < 2) continue;
+            int b = peers_a[std::uniform_int_distribution<>(
+                0, (int)peers_a.size() - 1)(gen_s)];
             int sa = currnest[a], sb = currnest[b];
             if (sa == sb) continue;
 
@@ -1562,6 +1599,18 @@ int main(int argc, char ** argv)
         cout << "[SUBLATTICE] active partition: "
              << inputfile.sublattices.size() << " sublattices, "
              << total_atoms << " atoms total" << endl;
+    }
+
+    // Per-sublattice atom-index pools for direct same-sublattice swap-
+    // pair sampling. Built once here; consulted by all swap-proposal
+    // sites. Only non-spectator atoms are listed -- spectator atoms
+    // are never swapped anyway.
+    g_atoms_by_sublattice.assign(inputfile.sublattices.size(),
+                                  std::vector<int>());
+    for (int i = 0; i < total_atoms; ++i) {
+        if (initialPlacement[i] >= 0) continue;
+        int s = g_atom_to_sublattice[i];
+        if (s >= 0) g_atoms_by_sublattice[s].push_back(i);
     }
 
     // ---- Per-sublattice atom counts and per-sublattice-pair coordination ----
