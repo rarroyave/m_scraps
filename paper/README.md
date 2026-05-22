@@ -31,8 +31,10 @@ When ready to submit:
 3. Confirm the repository is publicly accessible (JOSS requires
    public repos at review time -- the `rarroyave/scraps-perpair`
    fork would need to be made public before submission).
-4. Tag a release version that the submission cites (suggest the
-   current `v0.2.2` or a fresh `v0.3.0` post-warm-start).
+4. Tag a release version that the submission cites. Current paper
+   targets `v0.4.2` (multi-sublattice + non-uniform-coordination
+   path); JOSS submission should pin to this tag and the commit
+   hash on `main` at submission time.
 5. Submit via [https://joss.theoj.org/papers/new](https://joss.theoj.org/papers/new)
    with the repository URL and the commit hash being reviewed.
 
@@ -46,5 +48,7 @@ When ready to submit:
 - Community guidelines: CONTRIBUTING.md, issue tracker.
 - The paper itself is well-written and references the field.
 
-All of the above are in place as of v0.2.2 (60+ tests, comprehensive
-README, OVERVIEW.md, CONTRIBUTING.md, tutorials, mcsqs validation).
+All of the above are in place as of v0.4.2 (141 tests, comprehensive
+README + OVERVIEW.md + CONTRIBUTING.md, four notebook tutorials,
+mcsqs validation across B2, fluorite, Laves C15, and Heusler L2_1
+multi-sublattice cases).
