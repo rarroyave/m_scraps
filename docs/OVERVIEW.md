@@ -326,6 +326,7 @@ Reproducible via `docs/baseline_vs_scraps.sh`.
 | `scraps_ase.py` | ASE interoperability: `run_sqs_from_atoms` takes an ASE `Atoms` primitive in and returns an SQS `Atoms` out; `read_scraps_output` / `write_scraps_poscar` / `make_scraps_inputs` are lower-level helpers. Handles the SCRAPS vs canonical-VASP POSCAR layout difference internally. |
 | `sublattice_detect.py` | Wyckoff-orbit-based sublattice detection. Reads a POSCAR via pymatgen, runs `SpacegroupAnalyzer` (spglib), groups basis positions by orbit, emits draft `SUBLATTICE` blocks for INPUT. `--write` appends to an existing INPUT (with `<fill in>` SPECIES placeholders); `--json` emits machine-readable output. Defaults `symprec=1e-3`; loosen for noisy POSCARs. |
 | `plot_convergence.py` | Plots `CONVERGENCE_LOG` fitness-vs-iteration trajectories (single or multi-run overlay). |
+| `scraps_wizard.py` | Novice-friendly CLI orchestrating the other tools end-to-end. Three subcommands: `quick --template <name> --composition X:0.5,Y:0.5` one-shots from a built-in template (FCC/BCC/B2/rocksalt/Heusler-L2_1/perovskite-ABO_3); `from-structure FILE` reads any POSCAR/CIF, auto-detects Wyckoff orbits via `sublattice_detect.py`, prompts for per-orbit composition; `interactive` is a step-by-step REPL with prompts. All paths set `AUTO_BUDGET=2`, pick a feasible cell from `--target-atoms`, call `run_sqs_from_atoms`, and export to CIF / VASP / XYZ. |
 
 All are pymatgen-and/or-ASE-based and run completely outside the
 C++ code. `verify_sro.py` is in particular the canonical "did SCRAPS
@@ -335,7 +336,7 @@ actually achieve what it claims?" cross-check.
 
 ## 5. Test suite
 
-`tools/tests/`, run with `pytest`. **122 tests, ~70 s locally**, all
+`tools/tests/`, run with `pytest`. **160 tests, ~100 s locally**, all
 with `RNG_SEED` pinned so the optimizer behavior is reproducible:
 
 - `test_verify_sro.py` (10 tests): verifier against analytically-known

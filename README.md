@@ -178,9 +178,42 @@ tuning. SCRAPS' main loop also prints a warning at startup if the
 chosen `(ELEMENT, Cell_DIM, MAXSHELLNUM)` makes any target
 non-integer, naming the offending pair and the floor.
 
+## Quick start (one-command CLI)
+
+For first-time users, `tools/scraps_wizard.py` orchestrates the whole
+workflow behind a single command:
+
+```bash
+# Single-sublattice equiatomic NiCoCr SQS, target ~100 atoms
+python3 tools/scraps_wizard.py quick --template fcc \
+    --composition Ni:0.33,Co:0.33,Cr:0.34 --target-atoms 100
+
+# Rocksalt HEA-carbide (Mo,Nb,Ta,W)C
+python3 tools/scraps_wizard.py quick --template rocksalt \
+    --composition Mo:0.25,Nb:0.25,Ta:0.25,W:0.25 \
+    --composition C:1.0
+
+# I have my own POSCAR/CIF (e.g. from Materials Project):
+python3 tools/scraps_wizard.py from-structure my_perovskite.cif
+
+# Don't know where to start? Step-by-step prompts:
+python3 tools/scraps_wizard.py interactive
+
+# See built-in templates:
+python3 tools/scraps_wizard.py list-templates
+```
+
+The wizard picks an integer-feasible cell from `--target-atoms`, sets
+`AUTO_BUDGET=2` (the "thorough" MC profile — no manual tuning),
+applies multi-sublattice `SUBLATTICE` blocks when needed, runs SCRAPs,
+and exports the result to CIF (or VASP / XYZ via `--format`). Built-in
+templates: `fcc`, `bcc`, `b2`, `rocksalt`, `heusler-l21`,
+`perovskite-abo3`. For any non-templated structure, `from-structure`
+calls `sublattice_detect.py` to auto-identify Wyckoff orbits.
+
 ## Tutorials
 
-Three end-to-end Jupyter notebooks under `notebooks/`:
+Five end-to-end Jupyter notebooks under `notebooks/`:
 
 1. **`01_first_scraps_run.ipynb`** — shortest path from "I have an ASE
    primitive cell" to "I have a NiCoCr SQS supercell".
@@ -190,10 +223,16 @@ Three end-to-end Jupyter notebooks under `notebooks/`:
 3. **`03_heb_end_to_end.ipynb`** — AlB₂-type high-entropy diboride with
    the boron spectator sublattice, using `suggest_cell.py` to pick the
    cell and `verify_sro.py --spectator-species B` to validate.
+4. **`04_multi_sublattice.ipynb`** — (Ni,Co)(Ti,Zr) B2 SQS + CSRO,
+   plus `sublattice_detect.py` end-to-end on a Heusler L2₁ POSCAR.
+5. **`05_troubleshooting.ipynb`** — common failure modes with
+   diagnoses (integer-feasibility floors, multi-shell weighting,
+   multi-sub uniformity checks, SCRAPs-vs-mcsqs differences).
 
-Generated programmatically from `notebooks/build_notebooks.py`;
-regenerate with `python3 notebooks/build_notebooks.py` and
-`jupyter nbconvert --execute --inplace notebooks/*.ipynb`.
+See `notebooks/README.md` for a use-case → notebook map. Generated
+programmatically from `notebooks/build_notebooks.py`; regenerate with
+`python3 notebooks/build_notebooks.py` and `jupyter nbconvert
+--execute --inplace notebooks/*.ipynb`.
 
 ## ASE interoperability
 
