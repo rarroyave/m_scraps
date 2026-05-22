@@ -696,6 +696,180 @@ def test_heusler_l21_cu2mnal_three_wyckoff_runs(tmp_path):
     assert "[SUBLATTICE] active partition: 3 sublattices, 128 atoms total" in log
 
 
+def test_sigma_phase_fecr_five_wyckoff_runs(tmp_path):
+    """Sigma phase (sigma-FeCr type, space group P4_2/mnm) is the
+    canonical hard case for multi-sublattice SQS: 5 distinct Wyckoff
+    orbits in one 30-atom tetragonal unit cell, each with different
+    geometric coordination:
+
+      orbit  Wyckoff  multiplicity  approx z (12 NN)
+        0       2a          2            12
+        1       4f          4            15
+        2       8i_1        8            14
+        3       8i_2        8            14
+        4       8j          8            14
+
+    Constructs a 'high-entropy sigma' by binary-mixing each orbit
+    50/50 with a distinct species pair (TYP=10). Verifies the
+    per-Wyckoff SUBLATTICE path handles 5 simultaneous sublattices
+    without aborting on the per-sublattice uniformity check, and
+    that the [SUBLATTICE] banner reports the right partition.
+
+    Reference coordinates: Yakel (1983) for sigma-FeCr. Pymatgen's
+    Structure.from_spacegroup uses the default origin/setting for
+    P4_2/mnm (no origin-choice ambiguity for this space group)."""
+    pytest.importorskip("pymatgen")
+    from pymatgen.core import Lattice, Structure
+
+    lat = Lattice.tetragonal(a=8.80, c=4.55)  # sigma-FeCr
+    # Five distinct species labels so pymatgen keeps the orbits separate
+    # in the output POSCAR ordering. Real chemistry happens via ELEMENT
+    # remapping below.
+    # Use five distinct real element symbols so pymatgen keeps the
+    # orbits separate in the output POSCAR ordering. Pymatgen treats
+    # "Fe1", "Fe2", ... as oxidation states ("Fe+", "Fe2+", ...), which
+    # collapses them onto a single Fe species — defeats the purpose.
+    labels = ["Fe", "Cr", "Ni", "Co", "Mn"]
+    coords = [
+        [0.0,    0.0,    0.0   ],  # 2a
+        [0.3989, 0.3989, 0.0   ],  # 4f
+        [0.4631, 0.1316, 0.0   ],  # 8i (first)
+        [0.7399, 0.0654, 0.0   ],  # 8i (second, different (x,y))
+        [0.1827, 0.1827, 0.2521],  # 8j
+    ]
+    struct = Structure.from_spacegroup(
+        "P4_2/mnm", lat, species=labels, coords=coords
+    )
+    counts = {label: 0 for label in labels}
+    for site in struct:
+        counts[site.species_string] += 1
+    expected = {"Fe": 2, "Cr": 4, "Ni": 8, "Co": 8, "Mn": 8}
+    assert counts == expected, (
+        f"sigma phase Wyckoff multiplicities wrong: {counts} "
+        f"(expected {expected})"
+    )
+
+    # POSCAR layout: 2 Fe1 first, then 4 Fe2, etc. -> basis 0..1 = 2a,
+    # 2..5 = 4f, 6..13 = 8i_1, 14..21 = 8i_2, 22..29 = 8j.
+    poscar_path = tmp_path / "POSCAR"
+    struct.to(filename=str(poscar_path), fmt="poscar")
+    sub_basis = [
+        list(range(0, 2)),
+        list(range(2, 6)),
+        list(range(6, 14)),
+        list(range(14, 22)),
+        list(range(22, 30)),
+    ]
+    sub_lines = "\n".join(
+        f"SUBLATTICE {k} BASIS {' '.join(str(b) for b in basis)} "
+        f"SPECIES {2*k} {2*k+1}"
+        for k, basis in enumerate(sub_basis)
+    )
+
+    # ELEMENT counts: 1+1 on 2a, 2+2 on 4f, 4+4 on each of the three
+    # 8-orbits. Sum = 30 atoms (matches the 1x1x1 supercell).
+    inp = textwrap.dedent(f"""\
+        TYP     10
+        GITER   100
+        ELEMENT 1 1 2 2 4 4 4 4 4 4
+        Cell_DIM 1 1 1
+        NESTS 4
+        MCSTEP 500
+        TOTALIter 5
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 1
+        EARLY_STOP_PATIENCE 5
+        {sub_lines}
+        """)
+    (tmp_path / "INPUT").write_text(inp)
+    shutil.copy(SCRAPS_BIN, tmp_path / "scraps")
+    os.chmod(tmp_path / "scraps", 0o755)
+    log_path = tmp_path / "scraps.log"
+    with log_path.open("w") as f:
+        proc = subprocess.run(
+            [MPIRUN, "-np", "4", "./scraps"],
+            cwd=tmp_path, stdout=f, stderr=subprocess.STDOUT, timeout=120,
+        )
+    log = log_path.read_text()
+    assert proc.returncode == 0, f"sigma-phase scraps failed: {log[-1000:]}"
+    assert "non-uniform coordination" not in log
+    assert "[SUBLATTICE] active partition: 5 sublattices, 30 atoms total" in log
+
+
+def test_sigma_phase_fecr_2x1x1_with_csro(tmp_path):
+    """Sigma phase at 2x1x1 supercell (60 atoms) with per-pair SRO
+    targets on two of the five orbits simultaneously. Verifies the
+    per-(sigma, tau, k) coordination tensor and per-sublattice c_j
+    machinery scale to 5 active sublattices with concurrent CSRO
+    targets. Tetragonal supercell tiling also verifies the basis-
+    outermost atom indexing works with non-cubic cells."""
+    pytest.importorskip("pymatgen")
+    from pymatgen.core import Lattice, Structure
+
+    lat = Lattice.tetragonal(a=8.80, c=4.55)
+    # Use five distinct real element symbols so pymatgen keeps the
+    # orbits separate in the output POSCAR ordering. Pymatgen treats
+    # "Fe1", "Fe2", ... as oxidation states ("Fe+", "Fe2+", ...), which
+    # collapses them onto a single Fe species — defeats the purpose.
+    labels = ["Fe", "Cr", "Ni", "Co", "Mn"]
+    coords = [
+        [0.0,    0.0,    0.0   ],
+        [0.3989, 0.3989, 0.0   ],
+        [0.4631, 0.1316, 0.0   ],
+        [0.7399, 0.0654, 0.0   ],
+        [0.1827, 0.1827, 0.2521],
+    ]
+    struct = Structure.from_spacegroup(
+        "P4_2/mnm", lat, species=labels, coords=coords
+    )
+    poscar_path = tmp_path / "POSCAR"
+    struct.to(filename=str(poscar_path), fmt="poscar")
+    # 2x1x1 supercell: each basis position contributes 2 atoms.
+    # Multiplicities double: 4, 8, 16, 16, 16. Total = 60.
+    sub_basis = [
+        list(range(0, 2)),     # 2a
+        list(range(2, 6)),     # 4f
+        list(range(6, 14)),    # 8i_1
+        list(range(14, 22)),   # 8i_2
+        list(range(22, 30)),   # 8j
+    ]
+    sub_lines = "\n".join(
+        f"SUBLATTICE {k} BASIS {' '.join(str(b) for b in basis)} "
+        f"SPECIES {2*k} {2*k+1}"
+        for k, basis in enumerate(sub_basis)
+    )
+    inp = textwrap.dedent(f"""\
+        TYP     10
+        GITER   100
+        ELEMENT 2 2 4 4 8 8 8 8 8 8
+        Cell_DIM 2 1 1
+        NESTS 4
+        MCSTEP 1000
+        TOTALIter 8
+        MAXSHELLNUM 1
+        WEIGHT 1
+        RNG_SEED 1
+        EARLY_STOP_PATIENCE 5
+        {sub_lines}
+        SRO 4 5 0 -0.3
+        SRO 8 9 0 +0.4
+        """)
+    (tmp_path / "INPUT").write_text(inp)
+    shutil.copy(SCRAPS_BIN, tmp_path / "scraps")
+    os.chmod(tmp_path / "scraps", 0o755)
+    log_path = tmp_path / "scraps.log"
+    with log_path.open("w") as f:
+        proc = subprocess.run(
+            [MPIRUN, "-np", "4", "./scraps"],
+            cwd=tmp_path, stdout=f, stderr=subprocess.STDOUT, timeout=180,
+        )
+    log = log_path.read_text()
+    assert proc.returncode == 0, f"sigma-phase CSRO scraps failed: {log[-1000:]}"
+    assert "non-uniform coordination" not in log
+    assert "[SUBLATTICE] active partition: 5 sublattices, 60 atoms total" in log
+
+
 def test_heusler_l21_per_pair_csro_across_three_orbits(tmp_path):
     """Per-pair SRO targeting across three real Wyckoff orbits
     simultaneously. Target alpha(Mn-Fe)@1NN intra-orbit-0 = -0.3
