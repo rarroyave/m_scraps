@@ -178,7 +178,16 @@ class CompositionResult:
     cell_dim: int | None = None
     n_atoms: int | None = None
     fitness: float | None = None
+    # max_alpha == max_alpha_cross (off-diagonal: cross-species). Kept
+    # as the legacy field for backward compatibility; new code should
+    # prefer max_alpha_cross + max_alpha_self for the split metric.
+    # max_alpha_self can exceed +/-1 for asymmetric compositions
+    # (e.g. Nb:0.1,Mo:0.1,Ta:0.8 at 128 atoms) by composition
+    # normalization without indicating optimizer failure; the
+    # cross-species metric is the SQS-quality verdict.
     max_alpha: float | None = None
+    max_alpha_cross: float | None = None
+    max_alpha_self: float | None = None
     wall_seconds: float | None = None
     status: str = "pending"          # success | skipped | failed
     error: str | None = None
@@ -243,6 +252,9 @@ def run_one_composition(template_name: str,
                 result.n_atoms = prior.get("n_atoms")
                 result.fitness = prior.get("fitness")
                 result.max_alpha = prior.get("max_alpha")
+                result.max_alpha_cross = prior.get("max_alpha_cross",
+                                                   prior.get("max_alpha"))
+                result.max_alpha_self = prior.get("max_alpha_self")
                 result.wall_seconds = prior.get("wall_seconds")
                 result.status = "skipped"
                 return result
@@ -290,14 +302,20 @@ def run_one_composition(template_name: str,
                 )
                 if proc.returncode in (0, 1):
                     data = json.loads(proc.stdout)
-                    vals = []
+                    cross_vals: list[float] = []
+                    self_vals: list[float] = []
                     for sh in data.get("shells", []):
-                        for row in sh.get("alpha_matrix", []):
-                            for v in row:
-                                if isinstance(v, (int, float)):
-                                    vals.append(abs(v))
-                    if vals:
-                        result.max_alpha = max(vals)
+                        amat = sh.get("alpha_matrix", [])
+                        for i, row in enumerate(amat):
+                            for j, v in enumerate(row):
+                                if not isinstance(v, (int, float)):
+                                    continue
+                                (self_vals if i == j else cross_vals).append(abs(v))
+                    if cross_vals:
+                        result.max_alpha_cross = max(cross_vals)
+                        result.max_alpha = result.max_alpha_cross
+                    if self_vals:
+                        result.max_alpha_self = max(self_vals)
             # Pure compositions (1 present species) have no SRO defined;
             # leave result.max_alpha = None to signal that.
     except Exception:
@@ -310,6 +328,8 @@ def run_one_composition(template_name: str,
         "n_atoms": result.n_atoms,
         "fitness": result.fitness,
         "max_alpha": result.max_alpha,
+        "max_alpha_cross": result.max_alpha_cross,
+        "max_alpha_self": result.max_alpha_self,
         "wall_seconds": result.wall_seconds,
     }, indent=2))
     return result
@@ -353,8 +373,11 @@ def run_sweep(compositions: list[dict[str, float]],
             results.append(r)
             if r.status == "success":
                 msg = f"ok ({r.n_atoms} atoms, "
-                if r.max_alpha is not None:
-                    msg += f"max|α|={r.max_alpha:.4f}, "
+                if r.max_alpha_cross is not None:
+                    msg += f"|α|x={r.max_alpha_cross:.4f}"
+                    if r.max_alpha_self is not None and r.max_alpha_self > 1.0:
+                        msg += f" [self={r.max_alpha_self:.2f}, asym]"
+                    msg += ", "
                 msg += f"{r.wall_seconds:.1f}s)"
             elif r.status == "skipped":
                 msg = "skipped (already done)"

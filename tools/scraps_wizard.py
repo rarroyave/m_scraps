@@ -431,11 +431,19 @@ def run_pipeline(template: Template,
     out_path = work_dir / f"sqs.{output_format}"
     sqs_atoms.write(str(out_path))
 
-    # Compute max |alpha| as the chemistry-relevant quality metric.
-    # For single-sublattice cases verify_sro.py is correct; for multi-
-    # sublattice it uses the global c_j reference (misleading), so we
-    # use the per-sublattice calculator from the comparison harness.
-    max_alpha = None
+    # Compute alpha quality metrics. We split into:
+    #   max_alpha_cross : max |alpha(i,j)| for i != j (off-diagonal)
+    #   max_alpha_self  : max |alpha(i,i)| (diagonal)
+    # The cross-species metric is the SQS-quality verdict; the self-
+    # species metric is informational only because for asymmetric
+    # compositions (e.g. Nb:0.1,Mo:0.1,Ta:0.8) alpha(i,i) can exceed
+    # +/-1 by composition normalization without indicating optimizer
+    # failure (the 1/c_i scaling amplifies even single-pair deviations).
+    # `max_alpha` is kept as an alias for max_alpha_cross to preserve
+    # existing test/manifest field names.
+    max_alpha = None         # alias for max_alpha_cross
+    max_alpha_cross = None
+    max_alpha_self = None
     alpha_lines: list[str] = []
     if len(template.orbits) == 1:
         verify = REPO_ROOT / "tools" / "verify_sro.py"
@@ -456,14 +464,20 @@ def run_pipeline(template: Template,
             try:
                 import json as _json
                 data = _json.loads(proc.stdout)
-                vals = []
+                cross_vals: list[float] = []
+                self_vals: list[float] = []
                 for sh in data.get("shells", []):
-                    for row in sh.get("alpha_matrix", []):
-                        for v in row:
-                            if v is not None and isinstance(v, (int, float)):
-                                vals.append(abs(v))
-                if vals:
-                    max_alpha = max(vals)
+                    amat = sh.get("alpha_matrix", [])
+                    for i, row in enumerate(amat):
+                        for j, v in enumerate(row):
+                            if v is None or not isinstance(v, (int, float)):
+                                continue
+                            (self_vals if i == j else cross_vals).append(abs(v))
+                if cross_vals:
+                    max_alpha_cross = max(cross_vals)
+                    max_alpha = max_alpha_cross
+                if self_vals:
+                    max_alpha_self = max(self_vals)
             except Exception:
                 pass
             # Capture the human-readable per-shell tables too.
@@ -494,11 +508,24 @@ def run_pipeline(template: Template,
                 species=species_order, sublattice_of=sub_of_species,
                 n_shells=3,
             )
-            max_alpha = max(
-                (s["max_alpha_intra"] for s in shells), default=None
-            )
+            # Multi-sub: split into off-diag (cross-species, same
+            # sublattice) vs diag (self-species).
+            cross_vals: list[float] = []
+            self_vals: list[float] = []
+            for sh in shells:
+                amat = sh.get("alpha", [])
+                for i, row in enumerate(amat):
+                    for j, v in enumerate(row):
+                        if v is None:
+                            continue
+                        (self_vals if i == j else cross_vals).append(abs(v))
+            if cross_vals:
+                max_alpha_cross = max(cross_vals)
+                max_alpha = max_alpha_cross
+            if self_vals:
+                max_alpha_self = max(self_vals)
         except Exception:
-            max_alpha = None
+            pass
 
     if not quiet:
         print()
@@ -506,19 +533,24 @@ def run_pipeline(template: Template,
         print(f"  Output         : {out_path}")
         if fitness is not None:
             print(f"  Final fitness  : {fitness:.4f}")
-        if max_alpha is not None:
-            quality = ("excellent SQS" if max_alpha < 0.01
-                       else "good (small CSRO residual)" if max_alpha < 0.05
+        if max_alpha_cross is not None:
+            quality = ("excellent SQS" if max_alpha_cross < 0.01
+                       else "good (small CSRO residual)" if max_alpha_cross < 0.05
                        else "marginal — try a larger cell or more MC budget")
-            print(f"  Max |alpha|    : {max_alpha:.4f}  ({quality})")
+            print(f"  Max |α| cross-species : {max_alpha_cross:.4f}  ({quality})")
+            if max_alpha_self is not None:
+                if max_alpha_self > 1.0:
+                    print(f"  Max |α| self-species  : {max_alpha_self:.4f}  "
+                          f"(>1 expected at asymmetric composition; "
+                          f"not optimizer failure)")
+                else:
+                    print(f"  Max |α| self-species  : {max_alpha_self:.4f}")
         else:
-            print(f"  Max |alpha|    : (multi-sublattice; see "
-                  f"`compute_alpha_per_shell` in "
-                  f"docs/compare_b2_multisub.py)")
-        if fitness is not None and fitness > 0.01 and max_alpha is not None and max_alpha < 0.05:
+            print(f"  Max |alpha|    : (no data; pure composition?)")
+        if fitness is not None and fitness > 0.01 and max_alpha_cross is not None and max_alpha_cross < 0.05:
             print(f"  Note           : fitness > 0 is the integer-pair-count")
             print(f"                   floor (your composition + cell makes some")
-            print(f"                   target pair counts non-integer). alpha is")
+            print(f"                   target pair counts non-integer). α is")
             print(f"                   the chemistry-relevant SQS-quality metric.")
         if alpha_lines:
             print()
