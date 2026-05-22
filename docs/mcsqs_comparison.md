@@ -427,6 +427,77 @@ with:
 python3 docs/compare_b2_multisub.py --sizes 4 6 --patterns sqs ordered clustered mixed --mcsqs-also --budget 120 --json /tmp/b2.json
 ```
 
+## Multi-sublattice with non-uniform coordination: (Ca,Sr)(F,Cl) fluorite (v0.4.2)
+
+Validation of the v0.4.2 per-Wyckoff-orbit path on a lattice where
+the two sublattices have **physically different coordination numbers**
+— fluorite-type cells, where the cation orbit (Wyckoff 4a in Fm-3m)
+has z=8 anion neighbors at 1NN, and the anion orbit (Wyckoff 8c) has
+z=4 cation neighbors at the same distance + z=6 anion neighbors at
+the next shell. Through v0.4.1 SCRAPs aborted on this geometry; v0.4.2
+generalized the uniformity check to per-sublattice (each Wyckoff
+orbit must be uniform within itself, but different orbits may have
+different z).
+
+### Setup
+
+Same script-driven approach as the B2 case
+(`docs/compare_fluorite_mcsqs.py`). SCRAPs uses the v0.4.2
+SUBLATTICE keyword to declare the cation orbit (basis 0–3) and the
+anion orbit (basis 4–11) explicitly; mcsqs's `rndstr.in` per-site
+mixed-occupation syntax handles the same partition natively. Cluster
+cutoff `-2 = 0.8 * a ≈ 4.37 Å` covers cation-anion 1NN (~0.433 a),
+anion-anion 1NN (~0.5 a), and cation-cation FCC 1NN (~0.707 a).
+
+### Results — SQS (per-sublattice α = 0)
+
+50/50 mixed Ca/Sr on the cation orbit + 50/50 mixed F/Cl on the
+anion orbit. Wall budget per case: 120 s. Per-sublattice α
+calculator computes c_j^τ = N_j / N_τ (the chemistry-relevant
+reference for multi-sublattice).
+
+| atoms | tool | wall | max\|α\| intra (any shell) | max\|α\| inter (any shell) |
+|---:|---|---:|---:|---:|
+| 12 | scraps-perpair | **0.7 s** | **0.0000** | **0.0000** |
+| 12 | mcsqs | 120 s (budget) | 0.333 | 0.692 |
+| 96 | scraps-perpair | **0.6 s** | **0.0000** | **0.0000** |
+| 96 | mcsqs | 3.4 s | 0.130 | 0.123 |
+
+The N=12 case is the 1×1×1 conventional cell (4 cation + 8 anion).
+SCRAPs hits the exact per-sublattice SQS instantly. mcsqs at 120 s
+budget plateaus at max|α| = 0.33–0.69 — the tiny cell offers very
+few configurations and mcsqs's correlation-engineering finds a
+local minimum that doesn't match the per-sublattice α=0 reference.
+
+The N=96 case is a 2×2×2 conventional supercell. SCRAPs again
+converges to exact zero in 0.6 s; mcsqs converges to max|α|≈0.13
+in 3.4 s — same ballpark difference as the B2 case (factor of ~5–6
+faster wall time and ~10× lower residual α).
+
+### Why fluorite needs v0.4.2 specifically
+
+Without `SUBLATTICE`, the cation atoms (each with 8 anion neighbors)
+and anion atoms (each with 4 cation neighbors) have different per-
+shell coordination — `Lattice::coordination_per_shell` aborts with
+the legacy single-sublattice diagnostic. The
+`tests/fluorite_unsupported/` regression test continues to validate
+this behavior. With `SUBLATTICE 0 BASIS 0-3 SPECIES Ca Sr` +
+`SUBLATTICE 1 BASIS 4-11 SPECIES F Cl`, the uniformity check
+verifies that each sublattice is uniform within itself (z=8 within
+the cation orbit, z=4 within the anion orbit at the relevant
+shells), and the per-(σ, τ, k) coordination tensor feeds the correct
+target into the fitness formula.
+
+### Reusable harness
+
+`docs/compare_fluorite_mcsqs.py` is structured like the B2 case
+(`compare_b2_multisub.py`) and reuses the per-sublattice α
+calculator + ATAT-output parser from it. Runnable with:
+
+```
+python3 docs/compare_fluorite_mcsqs.py --sizes 1 2 --budget 120 --json /tmp/fluorite.json
+```
+
 ## Reproducing this comparison
 
 ATAT 3.50 source: `https://axelvandewalle.github.io/www-avdw/atat/atat3_50.tar.gz`
