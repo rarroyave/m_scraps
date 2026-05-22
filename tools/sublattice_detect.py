@@ -73,12 +73,20 @@ class DetectionResult:
 
 # ---- Detection ------------------------------------------------------------
 
-def load_structure(poscar_path: Path) -> Structure:
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", BadPoscarWarning)
-        poscar = Poscar.from_file(poscar_path, check_for_potcar=False,
-                                  read_velocities=False)
-    return poscar.structure
+def load_structure(structure_path: Path) -> Structure:
+    """Auto-detect file format (POSCAR, CIF, etc.) via pymatgen's
+    Structure.from_file. Falls back to the POSCAR-only path if the
+    auto-detect raises -- preserves behavior on the SCRAPs-style
+    POSCARs (no species symbol line) that Poscar.from_file warns on
+    but reads correctly."""
+    try:
+        return Structure.from_file(str(structure_path))
+    except Exception:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BadPoscarWarning)
+            poscar = Poscar.from_file(structure_path, check_for_potcar=False,
+                                      read_velocities=False)
+        return poscar.structure
 
 
 def detect_orbits(structure: Structure, symprec: float = 1e-3,
