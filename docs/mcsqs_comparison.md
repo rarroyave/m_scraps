@@ -372,11 +372,20 @@ shells at N=128 and times out on setup at N=432.
 
 ### CSRO patterns — per-pair α targeting
 
-mcsqs has no direct per-pair-α API; targeting a specific
-non-zero α at a specific (species_i, species_j, shell) requires
-constructing per-cluster correlation targets via the `-corrfile`
-workflow, which is a non-trivial offline step beyond standard SQS
-generation. SCRAPs's `SRO` keyword targets per-pair α directly.
+mcsqs's `-tcf` (target-correlation file) flag accepts arbitrary per-
+cluster correlation targets. For 50/50 binary on each sublattice
+(the (Ni,Co) and (Ti,Zr) case here), the trigo-basis correlation
+function equals the Warren-Cowley α exactly, so target_correlation
+= target_α directly per cluster. The harness builds the corrfile
+automatically: it parses `clusters.out`, identifies each pair
+cluster as M-M, X-X, or M-X via coordinate parity (M sites have
+integer-mod-1 coords; X sites have half-integer-mod-1 coords for
+B2 with M at (0,0,0) and X at (1/2,1/2,1/2)), and assigns target
+α from the CSRO pattern.
+
+Format gotcha: mcsqs tokenizes `-tcf` by whitespace (not by line),
+so any decoration columns shift the value-to-cluster mapping.
+The tcf must be **one bare target value per line**.
 
 Three patterns, all targeting the 2NN intra-sublattice shell only
 (WEIGHT 0 1 0 0 0 — leaving other shells unconstrained, since perfect
@@ -390,24 +399,50 @@ target unreachable):
 | clustered | α(Ni-Co)@2NN = +0.5 | α(Ti-Zr)@2NN = +0.5 |
 | mixed | α(Ni-Co)@2NN = −0.5 | α(Ti-Zr)@2NN = +0.5 |
 
-Results (SCRAPs, 4 MPI ranks):
+Results at N=128 with mcsqs `-tcf` enabled (mcsqs 120 s budget,
+SCRAPs runs to convergence):
 
-| pattern | atoms | wall | α(Ni-Co)@2NN | α(Ti-Zr)@2NN | max\|α\| at other shells |
+| pattern | tool | wall | α(Ni-Co)@2NN | α(Ti-Zr)@2NN | max\|α\| elsewhere |
 |---|---|---:|---:|---:|---:|
-| ordered (tgt −1) | 128 | 0.6 s | **−1.000** | **−1.000** | 1.00 (physical) |
-| ordered (tgt −1) | 432 | 1.2 s | **−1.000** | **−1.000** | 1.00 (physical) |
-| clustered (tgt +0.5) | 128 | 0.3 s | **+0.500** | **+0.500** | 0.30 |
-| clustered (tgt +0.5) | 432 | 0.7 s | **+0.500** | **+0.500** | 0.33 |
-| mixed (tgt −0.5 / +0.5) | 128 | 0.3 s | **−0.500** | **+0.500** | 0.34 |
-| mixed (tgt −0.5 / +0.5) | 432 | 0.6 s | **−0.500** | **+0.500** | 0.48 |
+| ordered (tgt ∓1) | scraps | 1.0 s | **−1.000** | **−1.000** | 1.00 |
+| ordered (tgt ∓1) | mcsqs | 121 s | −0.248 | −0.155 | 0.04 |
+| clustered (tgt +0.5) | scraps | 1.6 s | **+0.500** | **+0.500** | 0.31 |
+| clustered (tgt +0.5) | mcsqs | 124 s | +0.045 | +0.127 | 0.27 |
+| mixed (tgt −0.5 / +0.5) | scraps | 0.9 s | **−0.500** | **+0.500** | 0.45 |
+| mixed (tgt −0.5 / +0.5) | mcsqs | 128 s | −0.078 | +0.127 | 0.02 |
 
-SCRAPs hits every target exactly. The non-zero α at "other shells"
-for the ordered pattern is **physical, not optimizer failure**: a
-perfect bipartite Ni-Co alternation on the M sublattice (which is
-what α=−1 at 2NN means) forces alternating-parity correlations at
-3NN (α=+1) and 5NN, and the same on the X sublattice for Ti-Zr.
-This is a fundamental property of the target itself, not something
-the optimizer chose to do.
+### Two ways of trading off
+
+The two tools formulate the multi-shell objective fundamentally
+differently and this shows up clearly here:
+
+- **SCRAPs** sums per-shell weighted squared deviations from per-
+  pair α targets. With `WEIGHT 0 1 0 0 0` (focus on the 2NN shell),
+  non-targeted shells contribute zero and the optimizer drives the
+  targeted α to its exact target. The "max\|α\| elsewhere" non-zero
+  values are physical: perfect ordering at 2NN (the bipartite
+  pattern α=−1 implies) inherently forces α=±1 at 3NN/5NN, and the
+  optimizer doesn't fight it because those shells have weight 0.
+
+- **mcsqs** sums weighted deviations across all clusters with built-
+  in weighting (`-wr`, `-wn`, `-wd` flags for range, point-count,
+  diameter decay; no per-cluster weight flag). It cannot zero the
+  contribution of a non-targeted cluster, so it trades target match
+  for low non-target α. mcsqs gets the *sign and direction* right
+  for every CSRO target but never reaches the target magnitude —
+  α plateaus around 5–25% of the requested value, with elsewhere
+  stayed near zero.
+
+Both tools are doing exactly what their loss functions ask. For
+users with a literature CSRO target to reproduce, SCRAPs's per-
+shell `WEIGHT` is the more direct match to "I want α exactly at
+this value on this shell, don't care about other shells." For users
+who want "as close to disordered as possible while respecting one
+explicit cluster constraint," mcsqs's built-in cluster weighting
+is the right model. The 100× faster wall time and exact-target
+behavior pushed me toward SCRAPs's formulation for this work, but
+neither is strictly better — they answer different chemistry
+questions.
 
 ### Summary
 

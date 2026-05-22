@@ -192,7 +192,95 @@ RNDSTR_TMPL = """{a:.4f} {a:.4f} {a:.4f} 90 90 90
 """
 
 
-def run_mcsqs(work_dir: Path, cell_dim: int, budget: int) -> tuple[float, Path | None, str]:
+# ----- mcsqs corrfile (CSRO target) helpers --------------------------------
+# Mcsqs's `-tcf=path` flag reads a target-correlation file. For pair
+# clusters on a 50/50 binary sublattice, the relationship
+# target_correlation = target_alpha holds exactly (binary 50/50 in the
+# trigo/Chebyshev basis: <sigma_i sigma_j> = alpha). For our B2
+# (Ni,Co)(Ti,Zr) cell each sublattice is binary 50/50, so we can directly
+# target per-sublattice alpha values via per-cluster correlations.
+
+def parse_clusters_out(path: Path) -> list[dict]:
+    """Parse mcsqs clusters.out into a list of cluster dicts.
+    Each block: multiplicity / diameter / npts / point_1 / ... / point_N."""
+    text = path.read_text()
+    out = []
+    for block in text.strip().split("\n\n"):
+        lines = [l.strip() for l in block.strip().split("\n") if l.strip()]
+        if len(lines) < 4:
+            continue
+        mult = int(lines[0])
+        diam = float(lines[1])
+        npts = int(lines[2])
+        points = []
+        for k in range(3, 3 + npts):
+            parts = lines[k].split()
+            points.append((float(parts[0]), float(parts[1]), float(parts[2])))
+        out.append({"mult": mult, "diam": diam, "npts": npts, "points": points})
+    return out
+
+
+def b2_sub_of_point(p: tuple[float, float, float]) -> int:
+    """For B2 with M at integer-parity coords (mod 1) and X at
+    half-integer-parity, return 0 for M, 1 for X. Uses floor-based
+    fractional part to dodge banker's-rounding pitfalls at .5."""
+    def frac(v):
+        return v - math.floor(v)
+    fr = [frac(c) for c in p]
+    all_int  = all(abs(f) < 0.05 or abs(f - 1.0) < 0.05 for f in fr)
+    all_half = all(abs(f - 0.5) < 0.05 for f in fr)
+    if all_int:  return 0
+    if all_half: return 1
+    return -1  # cross-sublattice or non-axis-aligned
+
+
+def write_b2_corrfile(clusters_out: Path, tcf_out: Path,
+                      pattern_targets: dict[tuple[int, int, float], float],
+                      diameter_tol: float = 0.01) -> None:
+    """Write a tcf file for our B2 case.
+    `pattern_targets` maps (sub_a, sub_b, diameter) -> target alpha.
+    Each cluster from clusters.out gets one line:
+        npts \t diameter \t target_correlation
+    Sub-pair lookup is symmetric -- (sub_a, sub_b) and (sub_b, sub_a)
+    map to the same target. Clusters not matching any key get target = 0
+    (i.e., SQS-random)."""
+    # mcsqs tcf format: one target correlation value per line, in
+    # clusters.out order. mcsqs tokenizes by whitespace (not by line),
+    # so any extra columns (npts, diameter, ...) would be consumed and
+    # the value-to-cluster mapping would shift -- only the bare target
+    # value belongs on each line.
+    clusters = parse_clusters_out(clusters_out)
+    lines = []
+    for c in clusters:
+        target = 0.0
+        if c["npts"] == 2:
+            sa = b2_sub_of_point(c["points"][0])
+            sb = b2_sub_of_point(c["points"][1])
+            for (qa, qb, qd), alpha in pattern_targets.items():
+                if abs(c["diam"] - qd) > diameter_tol:
+                    continue
+                if (sa, sb) == (qa, qb) or (sa, sb) == (qb, qa):
+                    target = alpha
+                    break
+        lines.append(f"{target:.6f}")
+    tcf_out.write_text("\n".join(lines) + "\n")
+
+
+def b2_csro_targets_for_pattern(pattern_name: str) -> dict[tuple[int, int, float], float]:
+    """Map a B2 CSRO pattern name to per-(sub_a, sub_b, diameter) target
+    alpha values for mcsqs corrfile generation. Diameter 3.0 = the 2NN
+    intra-sublattice shell for B2 with a = 3.0 Angstrom."""
+    if pattern_name == "ordered":
+        return {(0, 0, 3.0): -1.0, (1, 1, 3.0): -1.0}
+    if pattern_name == "clustered":
+        return {(0, 0, 3.0): +0.5, (1, 1, 3.0): +0.5}
+    if pattern_name == "mixed":
+        return {(0, 0, 3.0): -0.5, (1, 1, 3.0): +0.5}
+    return {}  # sqs: no per-cluster targets
+
+
+def run_mcsqs(work_dir: Path, cell_dim: int, budget: int,
+              csro_pattern: str | None = None) -> tuple[float, Path | None, str]:
     work_dir.mkdir(parents=True, exist_ok=True)
     (work_dir / "rndstr.in").write_text(RNDSTR_TMPL.format(a=B2_LATTICE))
     # Pre-specify the supercell shape (cubic N x N x N) to bypass mcsqs's
@@ -212,11 +300,21 @@ def run_mcsqs(work_dir: Path, cell_dim: int, budget: int) -> tuple[float, Path |
         cwd=work_dir, stdout=clus_log.open("w"), stderr=subprocess.STDOUT,
         timeout=30,
     )
-    natom = 2 * cell_dim ** 3
+    # CSRO targeting: if a pattern is given, write a target-correlation
+    # file mapping per-(sub_a, sub_b, diameter) alpha targets onto the
+    # clusters mcsqs enumerated. For 50/50 binary on each sublattice the
+    # trigo basis gives target_correlation = target_alpha directly.
+    mcsqs_args = ["mcsqs", f"-n={2 * cell_dim ** 3}"]
+    if csro_pattern and csro_pattern != "sqs":
+        targets = b2_csro_targets_for_pattern(csro_pattern)
+        if targets:
+            tcf_path = work_dir / "tcorr.in"
+            write_b2_corrfile(work_dir / "clusters.out", tcf_path, targets)
+            mcsqs_args.append(f"-tcf={tcf_path.name}")
     mcsqs_log = work_dir / "mcsqs.log"
     t0 = time.time()
     proc = subprocess.Popen(
-        ["mcsqs", f"-n={natom}"],
+        mcsqs_args,
         cwd=work_dir, stdout=mcsqs_log.open("w"), stderr=subprocess.STDOUT,
     )
     try:
@@ -507,9 +605,12 @@ def run_case(cell_dim: int, ranks: int, budget: int,
     )
     if not include_mcsqs:
         return sc, None
-    # mcsqs side (SQS only)
+    # mcsqs side (SQS uses default disordered targets; CSRO patterns use
+    # the per-cluster -tcf corrfile path -- see write_b2_corrfile).
     mc_dir = work_root / f"{pattern}_n{n_atoms}_mcsqs"
-    mc_wall, mc_poscar, mc_note = run_mcsqs(mc_dir, cell_dim, budget=budget)
+    mc_wall, mc_poscar, mc_note = run_mcsqs(
+        mc_dir, cell_dim, budget=budget, csro_pattern=pattern,
+    )
     if mc_poscar is None:
         mc = CaseResult(
             tool="mcsqs", cell_dim=cell_dim, n_atoms=n_atoms,
@@ -610,9 +711,13 @@ def parse_args() -> argparse.Namespace:
                         "on the intra-sublattice 2NN shell; non-targeted "
                         "pairs default to alpha=0 (SQS-like).")
     p.add_argument("--mcsqs-also", action="store_true",
-                   help="Include mcsqs in the SQS pattern only (mcsqs has "
-                        "no direct per-pair-alpha API; CSRO patterns are "
-                        "SCRAPs-only).")
+                   help="Include mcsqs in the comparison for every pattern. "
+                        "SQS uses mcsqs's default disordered correlations; "
+                        "CSRO patterns build a target-correlation file (tcf) "
+                        "mapping per-(sub_a, sub_b, diameter) alpha targets "
+                        "to the appropriate clusters in clusters.out. For "
+                        "50/50 binary per sublattice, target_correlation = "
+                        "target_alpha exactly (trigo basis convention).")
     p.add_argument("--work-root", type=Path, default=Path("/tmp/b2_multisub"),
                    help="Scratch directory for both tools")
     p.add_argument("--json", type=Path, default=None,
@@ -632,7 +737,7 @@ def main() -> int:
     args.work_root.mkdir(parents=True, exist_ok=True)
     all_results: dict[str, list[tuple[CaseResult, CaseResult | None]]] = {}
     for pattern in args.patterns:
-        include_mcsqs = args.mcsqs_also and pattern == "sqs"
+        include_mcsqs = args.mcsqs_also
         pat_results: list[tuple[CaseResult, CaseResult | None]] = []
         for cd in args.sizes:
             if cd % 2 != 0:
