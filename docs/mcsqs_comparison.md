@@ -498,6 +498,70 @@ calculator + ATAT-output parser from it. Runnable with:
 python3 docs/compare_fluorite_mcsqs.py --sizes 1 2 --budget 120 --json /tmp/fluorite.json
 ```
 
+## Multi-orbit non-uniform coordination (v0.4.2): Laves C15 + Heusler L2₁
+
+Generalizing the fluorite comparison to two more multi-orbit
+structure classes via `docs/compare_multi_orbit_mcsqs.py`:
+
+- **Laves C15 (MgCu₂-type, Fd-3m)** — 2 Wyckoff orbits: 8a Mg (z=4
+  Mg + 12 Cu nearest) and 16d Cu (z=6 Mg + 6 Cu). Substitute Mg
+  with 50/50 Mg/Ca and Cu with 50/50 Cu/Ni.
+- **Heusler L2₁ (Cu₂MnAl-type, Fm-3m)** — 3 Wyckoff orbits: 4a Mn,
+  4b Al, 8c Cu. Each orbit has different intra-orbit coordination
+  at the 2NN shell (Mn/Al z=12 each, Cu z=6) — non-uniformity that
+  trips the legacy uniformity check; v0.4.2 handles it. Substitute
+  each orbit with a binary 50/50 mixture (Mn/Fe, Al/Ga, Cu/Au).
+
+mcsqs `rndstr.in` is generated from the fully-expanded pymatgen
+structure with one line per atom (per-site mixed-occupation
+syntax). Cluster cutoffs: 0.5 × a (Laves), 0.6 × a (Heusler) — just
+covering 1NN and 2NN.
+
+### Results (SQS, all α = 0)
+
+| structure | atoms | tool | wall | max\|α\| intra | max\|α\| inter |
+|---|---:|---|---:|---:|---:|
+| Laves C15 | 24 | scraps-perpair | **0.7 s** | **0.0000** | **0.0000** |
+| Laves C15 | 24 | mcsqs | 0.1 s | 0.429 | 0.429 |
+| Laves C15 | 192 | scraps-perpair | **0.6 s** | **0.0000** | **0.0000** |
+| Laves C15 | 192 | mcsqs | 2.4 s | 0.174 | 0.119 |
+| Heusler L2₁ | 16 | scraps-perpair | **0.4 s** | **0.0000** | **0.0000** |
+| Heusler L2₁ | 16 | mcsqs | 0.03 s | 0.333 | 0.714 |
+| Heusler L2₁ | 128 | scraps-perpair | **0.5 s** | **0.0000** | **0.0000** |
+| Heusler L2₁ | 128 | mcsqs | 3.6 s | 0.362 | 0.200 |
+
+### Reading the table
+
+The pattern is identical to fluorite and B2: SCRAPs converges to
+exact per-sublattice α=0 in well under a second at every cell size,
+while mcsqs leaves non-zero residual (0.1–0.7) even at its
+convergence point. mcsqs's small-cell residuals (N≈16–24) are
+particularly high because the cell offers very few configurations
+for the correlation-engineering to optimize over — at N=192/128
+the residuals fall to the more typical 0.1–0.3 range we see in the
+B2 and fluorite cases.
+
+The Heusler 3-orbit case validates that v0.4.2 handles arbitrary
+sublattice counts: the per-(σ, τ, k) coordination tensor and
+per-sublattice c_j^τ reference are computed correctly for 3
+sublattices in one cell, with each orbit's α driven to exact zero
+independently. The same code path scales to 4-orbit (pyrochlore)
+and 5-orbit (sigma) cells, validated by the integration tests in
+`tools/tests/test_non_uniform_coordination.py`.
+
+### Reusable harness
+
+`docs/compare_multi_orbit_mcsqs.py` is config-driven (a
+`STRUCTURES` dict of `StructureSpec` entries) so adding new
+structure classes is a 5-line addition: space group + Wyckoff
+generators + per-orbit chemistry. Runnable with:
+
+```
+python3 docs/compare_multi_orbit_mcsqs.py \
+    --structures laves_c15 heusler_l21 fluorite \
+    --sizes 1 2 --budget 120 --json /tmp/multi_orbit.json
+```
+
 ## Reproducing this comparison
 
 ATAT 3.50 source: `https://axelvandewalle.github.io/www-avdw/atat/atat3_50.tar.gz`
