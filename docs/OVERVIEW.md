@@ -419,7 +419,19 @@ addition to `docs/mcsqs_comparison.md`.
 
 ## 7. Release history
 
-- **v0.4.1** (this commit) — Per-sublattice c_j fitness, B2 mcsqs
+- **v0.4.2** (this commit) — Per-Wyckoff-orbit SUBLATTICE on
+  lattices with non-uniform coordination (fluorite, sigma phase,
+  Laves, MAX phases). Generalized `Lattice::coordination_per_shell`
+  to check uniformity WITHIN each sublattice rather than across all
+  non-spectator atoms — different sublattices may legitimately have
+  different z (fluorite cation z=8 vs anion z=4). The per-sublattice
+  fitness machinery from v0.4.1 already handled the math; this
+  commit just lifts the safety check. Feasibility-warning math also
+  generalized to per-sublattice. Tests: 4 new fluorite cases in
+  `tools/tests/test_non_uniform_coordination.py` (fluorite without
+  SUBLATTICE still aborts; with per-Wyckoff SUBLATTICE runs cleanly;
+  SQS quality and CSRO targeting both work). 126 tests.
+- **v0.4.1** — Per-sublattice c_j fitness, B2 mcsqs
   comparison, multi-sublattice tutorial notebook. The fitness fix
   swaps the global N_j/N_M reference for the per-sublattice
   N_j/N_τ reference + per-(σ,τ,k) coordination tensor; without it

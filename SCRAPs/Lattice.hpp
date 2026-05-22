@@ -123,18 +123,36 @@ public:
     vector<vector<int>> maxneighbourspershell;  // [atom_index][shell]
     vector<vector<int>> numneighofeachshell();
     // Per-shell coordination number, derived from maxneighbourspershell.
-    // Asserts that every non-spectator atom has identical coordination in
-    // each shell (true for any single-Bravais-lattice-with-basis crystal:
-    // FCC, BCC, HCP, B2, L1_2, D0_3, etc.). Aborts via MPI_Abort if a
-    // non-uniform lattice is detected, since the SRO-fitness machinery
-    // assumes uniformity across the *designed* sublattice.
+    // Asserts that every non-spectator atom has identical coordination
+    // in each shell (true for any single-Bravais-lattice-with-basis
+    // crystal: FCC, BCC, HCP, B2, L1_2, D0_3, etc.). Aborts via
+    // MPI_Abort if a non-uniform lattice is detected.
     //
     // For HEB-type structures with a spectator sublattice (B atoms in
-    // AlB_2-type diborides), pass initialPlacement so spectator atoms are
+    // AlB_2 diborides), pass initialPlacement so spectator atoms are
     // excluded from the uniformity check; they legitimately have a
-    // different coordination structure from the metal sublattice and
-    // shouldn't trigger the abort.
-    vector<int> coordination_per_shell(const vector<int> &initialPlacement = {}) const;
+    // different coordination structure from the metal sublattice.
+    //
+    // For multi-sublattice structures with per-Wyckoff-orbit declared
+    // SUBLATTICE blocks (v0.4.2+), pass atomToSublattice so the
+    // uniformity check is applied *within* each sublattice rather
+    // than across all non-spectator atoms. Different sublattices may
+    // legitimately have different coordination (fluorite: cation z=8,
+    // anion z=4; sigma phase: z=12-15 per Wyckoff orbit); the
+    // per-sublattice fitness machinery (g_z_sub_sub_shell) handles
+    // these correctly as long as each sublattice is uniform within
+    // itself. atomToSublattice[i] = -1 marks atom i as spectator (or
+    // outside any SUBLATTICE block); pass empty for the legacy
+    // single-sublattice check.
+    //
+    // Return value: per-shell coordination from the reference (first
+    // non-spectator) atom. Same return for single-sublattice and
+    // multi-sublattice paths so callers that consume z for legacy
+    // feasibility math don't break; multi-sublattice callers should
+    // prefer the global g_z_sub_sub_shell tensor built in main().
+    vector<int> coordination_per_shell(
+        const vector<int> &initialPlacement = {},
+        const vector<int> &atomToSublattice = {}) const;
     friend Lattice operator+(const Lattice &lat1, Lattice &lat2);
     void maxneighshell();
 };

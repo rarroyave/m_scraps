@@ -377,28 +377,33 @@ vector<vector<int>> Lattice::numneighofeachshell()
     return numofneighs;
 }
 
-vector<int> Lattice::coordination_per_shell(const vector<int> &initialPlacement) const
+vector<int> Lattice::coordination_per_shell(
+    const vector<int> &initialPlacement,
+    const vector<int> &atomToSublattice) const
 {
-    // Returns the per-shell coordination number z_shell, computed over
-    // non-spectator atoms only (or all atoms if initialPlacement is empty
-    // or contains no spectator entries). The reference atom is the first
-    // non-spectator atom; remaining non-spectator atoms must agree in
-    // every shell or we abort with a sublattice diagnostic.
+    // Returns the per-shell coordination z_shell from the first
+    // non-spectator atom (the reference). The uniformity check is:
     //
-    // After neighbourMatrix() was rewritten with global shell numbering
-    // (commit 4f2172b), any non-uniformity detected here within the
-    // non-spectator subset reflects a genuine sublattice non-uniformity
-    // among the *designed* atoms (e.g. mixed Wyckoff positions with
-    // different coordination), not numerical jitter. The SCRAPS
-    // Warren-Cowley formulation assumes a uniform geometric reference
-    // for the designed sublattice, so we abort with a diagnostic that
-    // points to a tool that handles sublattice-resolved SRO.
+    //   - if atomToSublattice is empty: every non-spectator atom must
+    //     have identical coordination at every shell (legacy single-
+    //     sublattice contract; FCC/BCC/HCP/B2/L1_2/D0_3, AlB_2 with
+    //     spectator B, etc.);
     //
-    // See README "Supported lattice types" for the full list of
-    // supported (single-Bravais-with-basis: FCC, BCC, HCP, B2, L1_2,
-    // D0_3, AlB_2 + spectator B, ...) and unsupported (sigma, Laves,
-    // fluorite without spectator declaration, mixed-Wyckoff metals on
-    // a single sublattice, etc.) lattice classes.
+    //   - if atomToSublattice is non-empty (multi-sublattice mode,
+    //     v0.4.2+): uniformity is required *within* each sublattice
+    //     only. Different sublattices may legitimately have different
+    //     coordination structures (fluorite cation z=8 vs anion z=4;
+    //     sigma phase 5 Wyckoff orbits with z = 12..15; etc.). The
+    //     per-sublattice fitness in main.cpp uses g_z_sub_sub_shell,
+    //     a per-(sigma, tau, k) tensor built from one representative
+    //     atom per sublattice, which is correct as long as within-
+    //     sublattice uniformity holds.
+    //
+    // If a violation is detected, aborts via MPI_Abort with a diagnostic
+    // that names the offending pair and points at the right recovery
+    // path (split the sublattice into per-Wyckoff blocks for the
+    // multi-sublattice path, declare a SPECTATOR_BASIS_SPECIES for
+    // fixed sublattices, etc.).
     if (maxneighbourspershell.empty()) {
         return {};
     }
@@ -406,39 +411,85 @@ vector<int> Lattice::coordination_per_shell(const vector<int> &initialPlacement)
     auto isSpectator = [&](std::size_t i) -> bool {
         return i < initialPlacement.size() && initialPlacement[i] >= 0;
     };
+    auto subOf = [&](std::size_t i) -> int {
+        return (i < atomToSublattice.size()) ? atomToSublattice[i] : -1;
+    };
+    const bool multi_sublattice = !atomToSublattice.empty();
 
-    // Find the first non-spectator atom to use as the reference.
+    // Per-sublattice reference atom (the first non-spectator atom in
+    // each sublattice). For single-sublattice mode, there's only ever
+    // one entry keyed at sublattice id 0 from the "any non-spectator
+    // atom is the reference" path.
+    std::vector<long long> refOf;  // refOf[sub_id] = first atom index of that sub
+    auto getRef = [&](int sub_id) -> long long {
+        if (sub_id < 0) return -1;
+        if ((std::size_t) sub_id < refOf.size() && refOf[sub_id] >= 0)
+            return refOf[sub_id];
+        if ((std::size_t) sub_id >= refOf.size()) refOf.resize(sub_id + 1, -1);
+        for (std::size_t i = 0; i < n_sites; ++i) {
+            if (isSpectator(i)) continue;
+            if (subOf(i) != sub_id) continue;
+            refOf[sub_id] = (long long) i;
+            return refOf[sub_id];
+        }
+        return -1;
+    };
+
+    // Find the first non-spectator atom to use as the legacy reference
+    // (also the return value).
     std::size_t ref = 0;
     while (ref < n_sites && isSpectator(ref)) ref++;
     if (ref == n_sites) {
-        // No non-spectator atoms at all — degenerate, return empty.
-        return {};
+        return {};  // no non-spectator atoms
     }
     const std::size_t n_shells = maxneighbourspershell[ref].size();
+
     for (std::size_t s = 0; s < n_shells; ++s) {
-        const int z0 = maxneighbourspershell[ref][s];
-        for (std::size_t i = ref + 1; i < n_sites; ++i) {
+        for (std::size_t i = 0; i < n_sites; ++i) {
             if (isSpectator(i)) continue;
+            int sub_i = multi_sublattice ? subOf(i) : 0;
+            long long ref_for_i =
+                multi_sublattice ? getRef(sub_i) : (long long) ref;
+            if (ref_for_i < 0 || (std::size_t) ref_for_i == i) continue;
+            const int z0 = maxneighbourspershell[(std::size_t) ref_for_i][s];
             const int zi = (s < maxneighbourspershell[i].size())
                            ? maxneighbourspershell[i][s] : -1;
             if (zi != z0) {
-                cout << "ERROR: non-uniform coordination across atoms "
-                     << "(shell " << s << ": atom " << ref << " z=" << z0
-                     << ", atom " << i << " z=" << zi << ")." << endl
-                     << "  This indicates a multi-sublattice structure "
-                     << "with physically distinct site environments" << endl
-                     << "  among the designed atoms (sigma phase, Laves, "
-                     << "fluorite without SPECTATOR_BASIS_SPECIES," << endl
-                     << "  layered, etc.). The Warren-Cowley formulation "
-                     << "in SCRAPS assumes uniform coordination" << endl
-                     << "  across designed atoms. For AlB_2-type "
-                     << "diborides with a fixed boron sublattice, declare" << endl
-                     << "  the boron basis positions via "
-                     << "SPECTATOR_BASIS_SPECIES." << endl
-                     << "  Otherwise, for sublattice-resolved SRO use "
-                     << "ATAT's mcsqs " << endl
-                     << "  (www.brown.edu/Departments/Engineering/Labs/avdw/atat/)."
-                     << endl;
+                cout << "ERROR: non-uniform coordination at shell " << s
+                     << " (atom " << ref_for_i << " z=" << z0
+                     << ", atom " << i << " z=" << zi << ")." << endl;
+                if (multi_sublattice) {
+                    cout << "  Both atoms are in SUBLATTICE id " << sub_i
+                         << ", but they have different geometric"
+                         << " coordination." << endl
+                         << "  This violates the within-sublattice"
+                         << " uniformity required by the per-sublattice"
+                         << " fitness formula." << endl
+                         << "  Fix: split this sublattice into separate"
+                         << " SUBLATTICE blocks per Wyckoff orbit (use"
+                         << " tools/sublattice_detect.py" << endl
+                         << "  to auto-detect orbits from the POSCAR)."
+                         << endl;
+                } else {
+                    cout << "  This indicates a multi-sublattice structure"
+                         << " with physically distinct site environments"
+                         << endl
+                         << "  among the designed atoms (sigma phase,"
+                         << " Laves, fluorite without"
+                         << " SPECTATOR_BASIS_SPECIES, layered, etc.)."
+                         << endl
+                         << "  Fixes: (a) for HEB-type cells with a fixed"
+                         << " sublattice, declare it via"
+                         << endl
+                         << "      SPECTATOR_BASIS_SPECIES;"
+                         << endl
+                         << "  (b) for true multi-sublattice cells, split"
+                         << " each Wyckoff orbit into its own"
+                         << endl
+                         << "      SUBLATTICE block (v0.4.2+; use"
+                         << " tools/sublattice_detect.py to auto-detect)."
+                         << endl;
+                }
                 MPI_Abort(MPI_COMM_WORLD, 1);
             }
         }

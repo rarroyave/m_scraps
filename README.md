@@ -434,26 +434,23 @@ This appends draft `SUBLATTICE` blocks for each Wyckoff orbit with
 species. See `tools/sublattice_detect.py --help` for `--symprec`
 tuning and JSON output.
 
-### Not supported: multi-sublattice structures with non-uniform coordination
+### Supported: lattices with non-uniform coordination via per-Wyckoff SUBLATTICE (v0.4.2+)
 
-Lattices where atoms on a single sublattice have **physically
-different coordination numbers** (the SCRAPs Warren-Cowley formulation
-assumes uniform z within each designed sublattice):
+Lattices where different Wyckoff orbits have physically different
+coordination numbers (fluorite cation z=8 vs anion z=4; sigma phase
+5 orbits with z=12-15; Laves phases; MAX phases) work as long as
+each Wyckoff orbit gets its own `SUBLATTICE` block. The uniformity
+check applies *within* each sublattice rather than across all atoms,
+and the per-sublattice fitness uses the right per-(σ, τ, k)
+coordination tensor.
 
-- **Sigma phase** (σ, 5 Wyckoff positions with z = 12–15)
-- **Laves phases** (C14, C15, C36)
-- **Cage structures** (NaZn₁₃, Th₆Mn₂₃, A15)
-- **Layered structures** with in-plane vs out-of-plane coordination
-  asymmetry (graphite, hBN, MAX phases)
+```bash
+python3 tools/sublattice_detect.py POSCAR --write INPUT  # auto-detects orbits
+```
 
-In principle the v0.4.0 multi-sublattice path lets you split each
-Wyckoff position into its own `SUBLATTICE` block (so coordination is
-uniform within each), but `Lattice::coordination_per_shell()` currently
-checks across all non-spectator atoms and aborts before that
-configuration runs. Generalizing the coordination check to be
-per-sublattice is a tracked future-work item; until then, these
-structures must be handled via ATAT mcsqs's correlation-engineering
-approach.
+Without `SUBLATTICE` blocks, the same POSCARs still abort with the
+legacy non-uniform-coordination message (the optimizer assumes
+single-sublattice uniform z) — see `tests/fluorite_unsupported/`.
 
 For these lattice types, use ATAT's `mcsqs`
 (<https://www.brown.edu/Departments/Engineering/Labs/avdw/atat/>),

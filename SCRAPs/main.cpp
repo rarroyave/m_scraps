@@ -1599,12 +1599,15 @@ int main(int argc, char ** argv)
         }
     }
 
-    // Validate lattice supports the Warren-Cowley formulation on the
-    // *designed* (non-spectator) sublattice. Aborts with a sublattice-
-    // guidance diagnostic if non-spectator atoms have non-uniform per-shell
-    // coordination. Runs after initialPlacement is built so HEB-type cases
-    // can declare their spectator sublattice and pass.
-    vector<int> z_per_shell = templat.coordination_per_shell(initialPlacement);
+    // Validate lattice supports the Warren-Cowley formulation. With
+    // SUBLATTICE blocks declared (multi-sublattice mode, v0.4.2+),
+    // uniformity is checked WITHIN each sublattice rather than across
+    // all non-spectator atoms -- so fluorite/sigma/Laves/MAX-phase-
+    // style cells work as long as each Wyckoff orbit is its own
+    // SUBLATTICE block. Without SUBLATTICE, the legacy single-
+    // sublattice global-uniformity check applies.
+    vector<int> z_per_shell = templat.coordination_per_shell(
+        initialPlacement, g_atom_to_sublattice);
 
     // Feasibility check (rank 0 only): warn the user if the configured
     // ELEMENT counts make any weighted target pair count non-integer, in
@@ -1623,33 +1626,43 @@ int main(int argc, char ** argv)
     // assuming alpha=0 since that's the common case for which the
     // floor is most surprising to users.
     if (id == 0) {
-        // M = non-spectator subset: start from ELEMENT and subtract spectator allocations.
+        // Per-sublattice feasibility check. The expected target pair count
+        // is target_ij^k = N_i * z[sigma->tau][k] * N_j / N_tau, matching
+        // the per-sublattice fitness formula in fitnessvalue/
+        // fitness_from_pairGr. For the default-synthesized single-
+        // sublattice partition (no SUBLATTICE keyword, or HEB-spectator
+        // with all non-spectator atoms on the synthesized default
+        // sublattice), this reduces exactly to the legacy formula
+        // N_i * z_k * N_j / N_M.
         vector<int> eachElement_M = eachElement;
         for (int v : initialPlacement) {
             if (v >= 0) eachElement_M[v] -= 1;
         }
-        int numofatoms_M = 0;
-        for (int s = 0; s < typeofatoms; ++s) numofatoms_M += eachElement_M[s];
 
         double fit2_floor = 0.0;
         int n_nonint = 0;
-        int n_shells_check = std::min(max_num_neighs, (int) z_per_shell.size());
-        for (int k = 0; k < n_shells_check; ++k) {
+        for (int k = 0; k < max_num_neighs; ++k) {
             double w = (k < (int) weights.size()) ? weights[k] : 1.0;
             if (w == 0.0) continue;
-            const double z = (double) z_per_shell[k];
-            if (z <= 0) continue;
             for (int i = 0; i < typeofatoms; ++i) {
                 if (eachElement_M[i] == 0) continue;
+                int sig = g_species_to_sublattice[i];
+                if (sig < 0) continue;
                 for (int j = 0; j < typeofatoms; ++j) {
                     if (i == j) continue;
                     if (eachElement_M[j] == 0) continue;
-                    double target = (double) eachElement_M[i] * z
-                                    * (double) eachElement_M[j] / (double) numofatoms_M;
+                    int tau = g_species_to_sublattice[j];
+                    if (tau < 0) continue;
+                    double z_st = g_z_sub_sub_shell[sig][tau][k];
+                    if (z_st <= 0.0) continue;
+                    double N_tau = (double) g_sub_count[tau];
+                    if (N_tau <= 0.0) continue;
+                    double target = (double) eachElement_M[i] * z_st
+                                    * (double) eachElement_M[j] / N_tau;
                     double gap = target - std::round(target);
                     if (std::fabs(gap) > 1e-9) {
                         fit2_floor += w * gap * gap;
-                        if (n_nonint < 6) {  // show up to first 6 to avoid log noise
+                        if (n_nonint < 6) {
                             cout << "  shell " << k << " pair[" << i << "][" << j
                                  << "]: target=" << target
                                  << " (nearest integer " << std::round(target)
