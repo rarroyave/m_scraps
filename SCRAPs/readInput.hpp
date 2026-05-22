@@ -72,6 +72,16 @@ public:
     // overridden by max(50, autoMcstepFactor * total_atoms) once the
     // supercell size is known. Default 0 leaves MCiter as parsed.
     int autoMcstepFactor;
+    // Heuristic 2b: one-keyword auto-tune for first-time users.
+    //   AUTO_BUDGET 1 = basic       (MCSTEP = 8*N,  TOTALIter = 15, NESTS = 4,  patience 3)
+    //   AUTO_BUDGET 2 = thorough    (MCSTEP = 20*N, TOTALIter = 25, NESTS = 8,  patience 5)
+    //   AUTO_BUDGET 3 = exhaustive  (MCSTEP = 50*N, TOTALIter = 40, NESTS = 16, patience 8)
+    // When set, fills in any of MCiter, iterTotal, num_of_nests, and
+    // earlyStopPatience that the user did NOT specify explicitly --
+    // explicit user values always win. Computed in main() once POSCAR
+    // (and therefore total_atoms) is known. Default 0 = off (no
+    // auto-tune; MCSTEP, TOTALIter, NESTS are required as before).
+    int autoBudget;
     // Reproducibility: seed for std::mt19937. 0 = use std::random_device
     // (default, non-reproducible). Non-zero gives deterministic runs per
     // rank: each rank uses (rngSeed XOR rank_salt) so different ranks

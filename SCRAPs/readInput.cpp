@@ -48,6 +48,7 @@ readInput::readInput()
     : typeofatoms(0), globalIter(0), num_of_nests(0), MCiter(0),
       iterTotal(0), num_of_shells(0),
       earlyStopPatience(0), earlyStopTol(1e-6), autoMcstepFactor(0),
+      autoBudget(0),
       rngSeed(0), randomOnly(0), convergenceLog(""),
       fastSwaps(1), targetedSwaps(0), targetedSwapProb(0.7),
       initNestFile(""),
@@ -251,7 +252,7 @@ namespace {
 const std::set<std::string> KNOWN_KEYS = {
     "TYP", "GITER", "ELEMENT", "CELL_DIM", "NESTS", "MCSTEP",
     "TOTALITER", "MAXSHELLNUM", "WEIGHT", "SRO",
-    "AUTO_MCSTEP", "RNG_SEED", "RANDOM_ONLY", "CONVERGENCE_LOG",
+    "AUTO_MCSTEP", "AUTO_BUDGET", "RNG_SEED", "RANDOM_ONLY", "CONVERGENCE_LOG",
     "FAST_SWAPS", "TARGETED_SWAPS", "TARGETED_SWAP_PROB",
     "EARLY_STOP_PATIENCE", "EARLY_STOP_TOL",
     "SPECTATOR_BASIS_SPECIES",
@@ -359,6 +360,10 @@ void readInput::input() {
             if(key.compare("AUTO_MCSTEP") == 0)
             {
                 ss >> autoMcstepFactor;
+            }
+            if(key.compare("AUTO_BUDGET") == 0)
+            {
+                ss >> autoBudget;
             }
             if(key.compare("RNG_SEED") == 0)
             {
@@ -499,10 +504,18 @@ void readInput::input() {
         }
     };
     require_positive(typeofatoms, "TYP");
-    require_positive(num_of_nests, "NESTS");
-    require_positive(MCiter, "MCSTEP");
-    require_positive(iterTotal, "TOTALIter");
     require_positive(num_of_shells, "MAXSHELLNUM");
+    // MCSTEP / TOTALIter / NESTS are required unless AUTO_BUDGET is
+    // set, in which case main() fills them in after POSCAR is read.
+    if (autoBudget == 0) {
+        require_positive(num_of_nests, "NESTS");
+        require_positive(MCiter, "MCSTEP");
+        require_positive(iterTotal, "TOTALIter");
+    } else if (autoBudget < 1 || autoBudget > 3) {
+        input_abort("AUTO_BUDGET = " + std::to_string(autoBudget)
+                    + " out of range; valid values are 1 (basic), "
+                    + "2 (thorough), 3 (exhaustive).");
+    }
     if ((int) eachElement.size() != typeofatoms) {
         input_abort("ELEMENT lists " + std::to_string(eachElement.size())
                     + " counts but TYP says " + std::to_string(typeofatoms)

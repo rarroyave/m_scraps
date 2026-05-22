@@ -1415,7 +1415,51 @@ int main(int argc, char ** argv)
     unordered_map<int, int> numneighs;
     int total_atoms = atoms.size()*dim[0]*dim[1]*dim[2];
 
-    // Heuristic 2: auto-scale MCSTEP from supercell size if AUTO_MCSTEP is set.
+    // Heuristic 2a: one-keyword auto-tune for first-time users.
+    //   AUTO_BUDGET 1 / 2 / 3 sets MCSTEP, TOTALIter, NESTS, and
+    //   EARLY_STOP_PATIENCE from the per-profile defaults below.
+    //   Explicit MCSTEP / TOTALIter / NESTS in INPUT always win (the
+    //   parser leaves them at 0 only if the user didn't set them).
+    if (inputfile.autoBudget > 0) {
+        struct AutoBudgetProfile {
+            const char *name;
+            int mc_factor;       // MCSTEP = max(50, mc_factor * total_atoms)
+            int total_iter;
+            int nests;
+            int patience;
+        };
+        const AutoBudgetProfile profiles[] = {
+            {"",           0,  0,  0, 0},  // unused (1-based indexing)
+            {"basic",      8, 15,  4, 3},
+            {"thorough",  20, 25,  8, 5},
+            {"exhaustive",50, 40, 16, 8},
+        };
+        const AutoBudgetProfile &p = profiles[inputfile.autoBudget];
+        int auto_mc = std::max(50, p.mc_factor * total_atoms);
+        if (id == 0) {
+            cout << "AUTO_BUDGET=" << inputfile.autoBudget
+                 << " (" << p.name << ") -> defaults:" << endl;
+        }
+        if (MCiter == 0) {
+            MCiter = auto_mc;
+            if (id == 0) cout << "  MCSTEP = " << MCiter << endl;
+        }
+        if (iterTotal == 0) {
+            iterTotal = p.total_iter;
+            if (id == 0) cout << "  TOTALIter = " << iterTotal << endl;
+        }
+        if (num_of_nests == 0) {
+            num_of_nests = p.nests;
+            if (id == 0) cout << "  NESTS = " << num_of_nests << endl;
+        }
+        if (inputfile.earlyStopPatience == 0) {
+            inputfile.earlyStopPatience = p.patience;
+            if (id == 0) cout << "  EARLY_STOP_PATIENCE = "
+                              << inputfile.earlyStopPatience << endl;
+        }
+    }
+
+    // Heuristic 2b: auto-scale MCSTEP from supercell size if AUTO_MCSTEP is set.
     // MCiter (= INPUT keyword MCSTEP) is the number of MC swap attempts per
     // outer iteration per nest. The right scaling for "fixed sampling per
     // atom" is k * N with k ~ 5-10; default factor 7 in our cell-size sweep.

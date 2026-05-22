@@ -9,11 +9,12 @@ on:
 
 jobs:
   pytest:
-    name: full test suite (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.11", "3.12"]
 
     steps:
@@ -26,21 +27,37 @@ jobs:
           cache: pip
           cache-dependency-path: tools/requirements.txt
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r tools/requirements.txt
 
-      - name: Install MPI + Eigen (for the C++ build + end-to-end tests)
+      - name: Install MPI + Eigen (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libopenmpi-dev openmpi-bin libeigen3-dev
 
-      - name: Build SCRAPS
+      - name: Install MPI + Eigen (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install open-mpi eigen
+
+      - name: Build SCRAPS (Ubuntu)
+        if: runner.os == 'Linux'
         env:
           MPICXX: mpic++
           EIGEN_INC: /usr/include/eigen3
         run: ./build.sh
 
+      - name: Build SCRAPS (macOS)
+        if: runner.os == 'macOS'
+        env:
+          MPICXX: /opt/homebrew/bin/mpic++
+          EIGEN_INC: /opt/homebrew/opt/eigen/include/eigen3
+        run: ./build.sh
+
       - name: Run full test suite (Python verifiers + end-to-end optimization)
+        env:
+          MPIRUN: ${{ runner.os == 'macOS' && '/opt/homebrew/bin/mpirun' || 'mpirun' }}
         run: pytest tools/tests/ -v
