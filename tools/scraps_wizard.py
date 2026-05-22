@@ -439,10 +439,16 @@ def run_pipeline(template: Template,
     alpha_lines: list[str] = []
     if len(template.orbits) == 1:
         verify = REPO_ROOT / "tools" / "verify_sro.py"
+        # Filter to species actually present in the structure (verify_sro
+        # rejects --species lists that don't match the POSCAR's species-
+        # block count). Zero-count species (HTP sweeps on simplex edges)
+        # would otherwise crash this step.
+        present_species = [sp for sp, c in
+                           zip(species_order, element_counts) if c > 0]
         proc = subprocess.run(
             [sys.executable, str(verify),
              str(work_dir / "SCRAPS.vasp"),
-             "--species", ",".join(species_order),
+             "--species", ",".join(present_species),
              "--shells", "2", "--json"],
             capture_output=True, text=True, timeout=60,
         )
@@ -464,13 +470,13 @@ def run_pipeline(template: Template,
             proc2 = subprocess.run(
                 [sys.executable, str(verify),
                  str(work_dir / "SCRAPS.vasp"),
-                 "--species", ",".join(species_order),
+                 "--species", ",".join(present_species),
                  "--shells", "2"],
                 capture_output=True, text=True, timeout=60,
             )
             if proc2.returncode in (0, 1):
                 for line in proc2.stdout.splitlines():
-                    if "Shell" in line or any(sp in line for sp in species_order):
+                    if "Shell" in line or any(sp in line for sp in present_species):
                         alpha_lines.append(line)
     else:
         # Multi-sublattice: invoke the per-sublattice calculator.

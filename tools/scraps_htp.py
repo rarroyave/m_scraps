@@ -273,25 +273,33 @@ def run_one_composition(template_name: str,
     # (multi-sublattice uses the per-sublattice calculator).
     try:
         if len(template.orbits) == 1:
-            verify = REPO_ROOT / "tools" / "verify_sro.py"
-            species_csv = ",".join(swept_composition.keys())
-            proc = subprocess.run(
-                [sys.executable, str(verify),
-                 str(work_dir / "SCRAPS.vasp"),
-                 "--species", species_csv,
-                 "--shells", "2", "--json"],
-                capture_output=True, text=True, timeout=60,
-            )
-            if proc.returncode in (0, 1):
-                data = json.loads(proc.stdout)
-                vals = []
-                for sh in data.get("shells", []):
-                    for row in sh.get("alpha_matrix", []):
-                        for v in row:
-                            if isinstance(v, (int, float)):
-                                vals.append(abs(v))
-                if vals:
-                    result.max_alpha = max(vals)
+            # Filter to species with positive count -- on simplex-edge
+            # compositions (binaries, ternaries within a quaternary
+            # sweep) some species have count 0 and SCRAPs writes them
+            # out of the POSCAR. verify_sro would reject a longer
+            # --species list than the POSCAR's species-block count.
+            present = [sp for sp, c in swept_composition.items() if c > 0]
+            if len(present) >= 2:
+                verify = REPO_ROOT / "tools" / "verify_sro.py"
+                proc = subprocess.run(
+                    [sys.executable, str(verify),
+                     str(work_dir / "SCRAPS.vasp"),
+                     "--species", ",".join(present),
+                     "--shells", "2", "--json"],
+                    capture_output=True, text=True, timeout=60,
+                )
+                if proc.returncode in (0, 1):
+                    data = json.loads(proc.stdout)
+                    vals = []
+                    for sh in data.get("shells", []):
+                        for row in sh.get("alpha_matrix", []):
+                            for v in row:
+                                if isinstance(v, (int, float)):
+                                    vals.append(abs(v))
+                    if vals:
+                        result.max_alpha = max(vals)
+            # Pure compositions (1 present species) have no SRO defined;
+            # leave result.max_alpha = None to signal that.
     except Exception:
         pass
 
