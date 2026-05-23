@@ -168,6 +168,147 @@ def test_same_species_sro_pure_species_warns(tmp_path):
 # Convergence: same-species SRO actually drives the target value
 # ---------------------------------------------------------------------------
 
+def test_expansion_banner_discloses_symmetric_split(tmp_path):
+    """The expansion banner should explicitly say the symmetric split is
+    one of infinitely many cross-species patterns satisfying the sum rule
+    (so users know they can override it by writing cross-species lines)."""
+    inp = textwrap.dedent("""\
+        TYP     3
+        GITER   100
+        ELEMENT 36 36 36
+        Cell_DIM 3 3 3
+        NESTS 4
+        MCSTEP 50
+        TOTALIter 2
+        MAXSHELLNUM 2
+        WEIGHT 1 1
+        SRO 2 2 0 -0.10
+        """)
+    rc, log = run_scraps(tmp_path, inp)
+    assert rc == 0, f"scraps failed: {log[-500:]}"
+    assert "symmetric split" in log
+    assert "infinitely many" in log
+
+
+# ---------------------------------------------------------------------------
+# Order-independent explicit cross-species override (v0.4.13)
+# ---------------------------------------------------------------------------
+
+def _final_targets(log: str, i: int, j: int, shell: int) -> float | None:
+    """The expansion banner prints the *symmetric beta* for skipped cells
+    too, but the explicit-override note carries the actual applied alpha
+    as 'alpha=<value>'. For non-skipped cells, the indented `SRO i j
+    shell beta` line shows what was written. We just verify via the
+    independent verify_sro.py harness in the convergence tests below;
+    here we only check the parser's bookkeeping in the log."""
+    return None
+
+
+def test_explicit_cross_species_overrides_symmetric_regardless_of_order(tmp_path):
+    """If the user writes BOTH a same-species line and an explicit
+    cross-species line for one of its expanded cells, the explicit value
+    must win regardless of which line comes first in INPUT.
+
+    Concretely: SRO 2 2 0 -0.10 expands symmetrically to alpha(Cr-Ni) =
+    alpha(Cr-Co) = +0.05. If the user also writes SRO 2 0 0 +0.08, the
+    final alpha(Cr-Ni) must be +0.08 regardless of input order, and the
+    expansion banner must announce that the (0, 2, 0) cell was skipped."""
+    base_lines = [
+        "TYP 3",
+        "GITER 100",
+        "ELEMENT 36 36 36",
+        "Cell_DIM 3 3 3",
+        "NESTS 4",
+        "MCSTEP 50",
+        "TOTALIter 2",
+        "MAXSHELLNUM 2",
+        "WEIGHT 1 1",
+    ]
+    explicit = "SRO 2 0 0 0.08"   # alpha(Cr-Ni) = +0.08, asymmetric
+    same = "SRO 2 2 0 -0.10"      # alpha(Cr-Cr) = -0.10
+
+    # Order A: explicit before same-species
+    inp_a = "\n".join(base_lines + [explicit, same]) + "\n"
+    rc_a, log_a = run_scraps(tmp_path / "order_a", inp_a)
+    assert rc_a == 0, f"scraps failed (A): {log_a[-500:]}"
+    # Order B: same-species before explicit
+    inp_b = "\n".join(base_lines + [same, explicit]) + "\n"
+    rc_b, log_b = run_scraps(tmp_path / "order_b", inp_b)
+    assert rc_b == 0, f"scraps failed (B): {log_b[-500:]}"
+
+    # Both orders must show the skip note on the (i=2, j=0) cell
+    for log in (log_a, log_b):
+        assert "skipped: explicit cross-species override" in log, (
+            "expansion did not skip the explicitly-overridden cell"
+        )
+        # And the applied alpha in the skip note must be 0.08
+        assert "alpha=0.08" in log, (
+            "expansion banner did not surface the explicit override value"
+        )
+
+
+def test_consistent_same_species_plus_cross_species_no_warning(tmp_path):
+    """If the user writes a same-species line AND cross-species lines
+    that ARE consistent with the symmetric split, the implied-alpha_ii
+    warning must NOT fire (the user just verbosely wrote what the
+    expansion would have produced anyway)."""
+    inp = textwrap.dedent("""\
+        TYP     3
+        GITER   100
+        ELEMENT 36 36 36
+        Cell_DIM 3 3 3
+        NESTS 4
+        MCSTEP 50
+        TOTALIter 2
+        MAXSHELLNUM 2
+        WEIGHT 1 1
+        SRO 2 2 0 -0.10
+        SRO 2 0 0 0.05
+        SRO 2 1 0 0.05
+        """)
+    rc, log = run_scraps(tmp_path, inp)
+    assert rc == 0, f"scraps failed: {log[-500:]}"
+    # Both expanded cells were preempted by explicit lines, but the
+    # explicit values agree with the symmetric split so the implied
+    # alpha_ii should equal the user's stated alpha_ii.
+    assert "requested alpha(2,2)" not in log, (
+        "implied-alpha_ii warning fired even though explicit cross-species "
+        "values agree with the symmetric split"
+    )
+
+
+def test_inconsistent_same_species_plus_cross_species_warns(tmp_path):
+    """If the explicit cross-species lines override the symmetric split
+    in a way that does NOT sum to the user-stated alpha_ii, fire the
+    implied-vs-requested mismatch warning. This is the key honesty
+    signal: the optimizer can't satisfy mutually inconsistent targets.
+
+    Take alpha(Cr-Cr) = -0.10 (stated). The symmetric split is
+    alpha(Cr-Ni) = alpha(Cr-Co) = +0.05. If we override both explicit
+    cells with alpha = 0.0, the implied alpha(Cr-Cr) is 0, not -0.10
+    -- the warning should fire."""
+    inp = textwrap.dedent("""\
+        TYP     3
+        GITER   100
+        ELEMENT 36 36 36
+        Cell_DIM 3 3 3
+        NESTS 4
+        MCSTEP 50
+        TOTALIter 2
+        MAXSHELLNUM 2
+        WEIGHT 1 1
+        SRO 2 2 0 -0.10
+        SRO 2 0 0 0.0
+        SRO 2 1 0 0.0
+        """)
+    rc, log = run_scraps(tmp_path, inp)
+    assert rc == 0, f"scraps failed: {log[-500:]}"
+    assert "requested alpha(2,2)" in log, (
+        "implied-alpha_ii mismatch warning did not fire"
+    )
+    assert "implies alpha(2,2) = 0" in log or "implies alpha(2,2) = -0" in log
+
+
 def test_same_species_sro_drives_target(tmp_path):
     """End-to-end: `SRO 2 2 0 -0.10` should make the achieved
     alpha(Cr-Cr) at 1NN reach -0.10 (within integer-feasibility

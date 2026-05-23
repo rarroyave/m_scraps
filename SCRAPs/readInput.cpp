@@ -39,6 +39,7 @@ THE SOFTWARE.
 #include <cctype>
 #include <cstdlib>
 #include <cmath>
+#include <map>
 #include <set>
 #include <mpi.h>
 
@@ -633,10 +634,19 @@ void readInput::input() {
     //
     //     alpha_ij = -c_i * alpha_ii / (1 - c_i)  for every j != i
     //
-    // The symmetric choice (all alpha_ij equal) is the minimum-deviation
-    // expansion: it spreads the same-species deviation equally across
-    // the cross-species partners. Users who want an asymmetric split
-    // can write the cross-species SRO lines directly.
+    // The symmetric choice (all alpha_ij equal) is one of infinitely
+    // many cross-species patterns satisfying the sum rule. Users who
+    // want an asymmetric split can write cross-species SRO lines
+    // directly. As of v0.4.13:
+    //   (a) Explicit cross-species lines take precedence over the
+    //       symmetric split for the cells they cover, *regardless of
+    //       input order* (order-independent override).
+    //   (b) If two same-species expansions write the same cross-species
+    //       cell with different beta values, a conflict warning fires.
+    //   (c) After all values are resolved, the implied alpha_ii is
+    //       recomputed from the final cross-species pattern via the sum
+    //       rule and compared to the user-stated alpha_ii; a mismatch
+    //       warning fires.
     int nTyp = typeofatoms;
     int nShell = num_of_shells > 0 ? num_of_shells : 5;
     targetSROpair.assign(
@@ -654,9 +664,22 @@ void readInput::input() {
         }
     }
 
-    // Two passes: first expand same-species entries into cross-species
-    // ones; then apply all (which are now i != j) to targetSROpair.
-    vector<SROEntry> expanded;
+    // Partition validated entries into explicit cross-species (i != j)
+    // and same-species (i == j) lists. Build a set of canonical cell
+    // keys (min(i,j), max(i,j), shell) for explicit entries so the
+    // expansion pass can skip them without depending on input order.
+    struct CellKey { int a; int b; int shell; };
+    auto cellLess = [](const CellKey &x, const CellKey &y) {
+        if (x.a != y.a) return x.a < y.a;
+        if (x.b != y.b) return x.b < y.b;
+        return x.shell < y.shell;
+    };
+    auto canon = [](int i, int j, int shell) {
+        return CellKey{std::min(i,j), std::max(i,j), shell};
+    };
+    std::set<CellKey, decltype(cellLess)> explicit_keys(cellLess);
+    vector<SROEntry> explicit_cross;
+    vector<SROEntry> same_species;
     for (const auto &e : sroEntries) {
         if (e.i < 0 || e.i >= nTyp || e.j < 0 || e.j >= nTyp) {
             cout << "Warning: SRO species index out of range (TYP=" << nTyp
@@ -669,37 +692,108 @@ void readInput::input() {
             continue;
         }
         if (e.i == e.j) {
-            // Same-species: expand via sum rule.
-            int i = e.i;
-            if (c_frac[i] <= 0.0 || c_frac[i] >= 1.0) {
-                cout << "Warning: SRO same-species line SRO " << i
-                     << " " << i << " " << e.shell << " " << e.alpha
-                     << " ignored -- species " << i
-                     << " has fraction " << c_frac[i]
-                     << " (must be in (0, 1) for sum-rule expansion)."
-                     << endl;
-                continue;
-            }
-            double beta = -c_frac[i] * e.alpha / (1.0 - c_frac[i]);
-            cout << "[SRO] expanding same-species SRO " << i << " "
-                 << i << " " << e.shell << " " << e.alpha
-                 << " via Warren-Cowley sum rule -> alpha(i,j) = "
-                 << beta << " for each j != i:" << endl;
-            for (int j = 0; j < nTyp; ++j) {
-                if (j == i) continue;
-                cout << "        SRO " << i << " " << j << " "
-                     << e.shell << " " << beta << endl;
-                expanded.push_back({i, j, e.shell, beta});
-            }
+            same_species.push_back(e);
         } else {
-            expanded.push_back(e);
+            explicit_cross.push_back(e);
+            explicit_keys.insert(canon(e.i, e.j, e.shell));
         }
     }
 
-    // Apply all expanded entries (all now have i != j; the same-species
-    // ones expanded into N-1 cross-species each).
-    for (const auto &e : expanded) {
+    // Apply explicit cross-species first (order-independent: the
+    // expansion phase below will skip any cell the user pinned).
+    for (const auto &e : explicit_cross) {
         targetSROpair[e.i][e.j][e.shell] = e.alpha;
         targetSROpair[e.j][e.i][e.shell] = e.alpha;
+    }
+
+    // Expand each same-species entry via the symmetric split, but only
+    // into cells the user did not pin explicitly. Track which cells
+    // each expansion wrote so we can warn on disagreements between
+    // two same-species lines that target the same cross-species cell.
+    std::map<long long, double> expansion_writes;  // canon-key -> beta
+    auto packKey = [nTyp, nShell](const CellKey &ck) {
+        long long k = ck.a;
+        k = k * (long long)(nTyp + 1) + ck.b;
+        k = k * (long long)(nShell + 1) + ck.shell;
+        return k;
+    };
+    for (const auto &e : same_species) {
+        int i = e.i;
+        if (c_frac[i] <= 0.0 || c_frac[i] >= 1.0) {
+            cout << "Warning: SRO same-species line SRO " << i
+                 << " " << i << " " << e.shell << " " << e.alpha
+                 << " ignored -- species " << i
+                 << " has fraction " << c_frac[i]
+                 << " (must be in (0, 1) for sum-rule expansion)."
+                 << endl;
+            continue;
+        }
+        double beta = -c_frac[i] * e.alpha / (1.0 - c_frac[i]);
+        cout << "[SRO] expanding same-species SRO " << i << " "
+             << i << " " << e.shell << " " << e.alpha
+             << " via Warren-Cowley sum rule -> alpha(i,j) = "
+             << beta << " for each j != i (symmetric split; one of"
+             << " infinitely many cross-species patterns satisfying"
+             << " the sum rule -- write cross-species SRO lines"
+             << " directly to control the split):" << endl;
+        for (int j = 0; j < nTyp; ++j) {
+            if (j == i) continue;
+            CellKey ck = canon(i, j, e.shell);
+            if (explicit_keys.count(ck)) {
+                cout << "        SRO " << i << " " << j << " "
+                     << e.shell << " " << beta
+                     << "  (skipped: explicit cross-species override "
+                     << "present, "
+                     << "alpha=" << targetSROpair[i][j][e.shell] << ")"
+                     << endl;
+                continue;
+            }
+            long long pk = packKey(ck);
+            auto it = expansion_writes.find(pk);
+            if (it != expansion_writes.end()
+                && std::abs(it->second - beta) > 1e-9) {
+                cout << "Warning: same-species SRO expansions disagree"
+                     << " on cell (" << ck.a << "," << ck.b
+                     << ") shell " << ck.shell
+                     << ": previous symmetric split wrote "
+                     << it->second << ", this one writes "
+                     << beta << ". Last write wins -- write an explicit"
+                     << " cross-species SRO line to disambiguate."
+                     << endl;
+            }
+            expansion_writes[pk] = beta;
+            cout << "        SRO " << i << " " << j << " "
+                 << e.shell << " " << beta << endl;
+            targetSROpair[i][j][e.shell] = beta;
+            targetSROpair[j][i][e.shell] = beta;
+        }
+    }
+
+    // Diagnostic pass: for each user-stated alpha_ii, recompute the
+    // implied alpha_ii from the final cross-species pattern via the
+    // sum rule
+    //     alpha_ii = -(1/c_i) sum_{j != i} c_j * alpha_ij
+    // and warn if it disagrees with what the user wrote. This is the
+    // honest report of what the optimizer will actually try to hit.
+    for (const auto &e : same_species) {
+        int i = e.i;
+        if (c_frac[i] <= 0.0 || c_frac[i] >= 1.0) continue;  // warned above
+        double sum = 0.0;
+        for (int j = 0; j < nTyp; ++j) {
+            if (j == i) continue;
+            sum += c_frac[j] * targetSROpair[i][j][e.shell];
+        }
+        double implied = -sum / c_frac[i];
+        if (std::abs(implied - e.alpha) > 1e-6) {
+            cout << "Warning: requested alpha(" << i << "," << i
+                 << ") at shell " << e.shell << " = " << e.alpha
+                 << ", but the final cross-species pattern implies"
+                 << " alpha(" << i << "," << i << ") = " << implied
+                 << " via the Warren-Cowley sum rule (difference "
+                 << (implied - e.alpha) << "). Typically this means"
+                 << " explicit cross-species SRO lines override the"
+                 << " symmetric split and do not sum to the requested"
+                 << " same-species target." << endl;
+        }
     }
 }
