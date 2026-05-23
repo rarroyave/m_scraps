@@ -112,7 +112,9 @@ def run_one(label: str, cell_dim: int, target_csro: bool,
         # directly: it auto-expands SRO i i shell alpha into the
         # corresponding cross-species lines via the Warren-Cowley sum
         # rule (for NiCoCr equiatomic c_i=1/3, alpha_ii=-0.10 expands to
-        # alpha_ij=+0.05 for each j != i). Species index 2 = Cr.
+        # alpha_ij=+0.05 for each j != i). Species index 2 = Cr. v0.4.13
+        # adds order-independent explicit overrides and a warning when
+        # explicit cross-species lines would break the implied alpha_ii.
         sro_targets = [(2, 2, 0, -0.10)]    # alpha(Cr-Cr) at 1NN = -0.10
         target_alpha = -0.10
     work_dir = work_root / label

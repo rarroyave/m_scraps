@@ -41,26 +41,34 @@ cross-species α — by the Warren-Cowley sum rule, for every species i,
 So `α(Cr-Cr)` is determined by `α(Cr-Co)` and `α(Cr-Ni)` and the
 composition; adding it to the loss would over-constrain.
 
-**As of v0.4.12**, you can still write the natural literature form
-in INPUT, and SCRAPs auto-expands via the sum rule:
+**As of v0.4.12**, you can write the natural literature form in INPUT,
+and SCRAPs auto-expands via the sum rule:
 
 ```
 SRO 2 2 0 -0.10    # alpha(Cr-Cr) at 1NN = -0.10
 ```
 
 The parser uses the symmetric split α(Cr-Co) = α(Cr-Ni) = +0.05
-(minimum-deviation expansion: spreads the residual equally over the
+(one of infinitely many cross-species patterns satisfying the sum
+rule; the symmetric choice spreads the residual equally over the
 cross-species partners) and prints:
 
 ```
 [SRO] expanding same-species SRO 2 2 0 -0.1 via Warren-Cowley sum
-rule -> alpha(i,j) = 0.05 for each j != i:
+rule -> alpha(i,j) = 0.05 for each j != i (symmetric split; one of
+infinitely many cross-species patterns satisfying the sum rule --
+write cross-species SRO lines directly to control the split):
         SRO 2 0 0 0.05
         SRO 2 1 0 0.05
 ```
 
 If you want an asymmetric split (e.g. more Cr-Co preference than
-Cr-Ni), write the two cross-species lines explicitly instead.
+Cr-Ni), write a cross-species line explicitly: **as of v0.4.13** the
+explicit value wins regardless of input order, and SCRAPs recomputes
+the implied α(Cr-Cr) from the final cross-species pattern via the sum
+rule and warns if it no longer matches your stated `SRO 2 2 0 -0.10`.
+That way you always know whether the optimizer is chasing a
+self-consistent target.
 
 ## Setup
 
@@ -154,7 +162,7 @@ Each subdirectory contains a `POSCAR`, `INPUT`, `SCRAPS.vasp`
 (SCRAPs-native output), and `sqs.cif` (DFT-ready format).
 `results.json` aggregates the achieved α and timing for all six runs.
 
-Tested against SCRAPs `v0.4.11`. Run on macOS arm64 with 4 MPI ranks
+Tested against SCRAPs `v0.4.13`. Run on macOS arm64 with 4 MPI ranks
 (Apple silicon, default OpenMPI build via `brew install open-mpi`).
 
 ## Citing this study
