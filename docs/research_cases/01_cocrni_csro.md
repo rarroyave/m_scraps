@@ -31,31 +31,36 @@ This case study walks through:
 ## A subtlety: same-species α via the Warren-Cowley sum rule
 
 `scraps-perpair`'s fitness function sums over pair-count residuals
-`(N_ij^k - T_ij^k)²` for **cross-species pairs only** (i ≠ j).
-Same-species pairs (i = i) appear in the α matrix but are not in the
-fitness sum. The `SRO i j shell alpha` keyword accepts any (i, j)
-but the optimizer only acts on i ≠ j.
+`(N_ij^k - T_ij^k)²` for **cross-species pairs only** (i ≠ j),
+because same-species α at fixed composition isn't independent of
+cross-species α — by the Warren-Cowley sum rule, for every species i,
 
-The Warren-Cowley sum rule provides a clean workaround: for every
-species i,
+  $$\sum_j c_j \, \alpha_{ij} = 0 \quad\Longleftrightarrow\quad
+    \alpha_{ii} = -\frac{1}{c_i}\sum_{j \ne i} c_j \, \alpha_{ij}$$
 
-  $$\sum_j c_j \, \alpha_{ij} = 0$$
+So `α(Cr-Cr)` is determined by `α(Cr-Co)` and `α(Cr-Ni)` and the
+composition; adding it to the loss would over-constrain.
 
-For NiCoCr equiatomic ($c_j = 1/3$ each):
-
-  $$\alpha(\mathrm{Cr\text{-}Cr}) + \alpha(\mathrm{Cr\text{-}Co}) + \alpha(\mathrm{Cr\text{-}Ni}) = 0$$
-
-To target α(Cr-Cr) = -0.10, we need α(Cr-Co) + α(Cr-Ni) = +0.10.
-The simplest symmetric choice is α(Cr-Co) = α(Cr-Ni) = +0.05.
-
-In INPUT:
+**As of v0.4.12**, you can still write the natural literature form
+in INPUT, and SCRAPs auto-expands via the sum rule:
 
 ```
-SRO 0 2 0 +0.05    # Ni-Cr at 1NN
-SRO 1 2 0 +0.05    # Co-Cr at 1NN
+SRO 2 2 0 -0.10    # alpha(Cr-Cr) at 1NN = -0.10
 ```
 
-(Species indices: Ni=0, Co=1, Cr=2. Shell 0 = FCC 1NN.)
+The parser uses the symmetric split α(Cr-Co) = α(Cr-Ni) = +0.05
+(minimum-deviation expansion: spreads the residual equally over the
+cross-species partners) and prints:
+
+```
+[SRO] expanding same-species SRO 2 2 0 -0.1 via Warren-Cowley sum
+rule -> alpha(i,j) = 0.05 for each j != i:
+        SRO 2 0 0 0.05
+        SRO 2 1 0 0.05
+```
+
+If you want an asymmetric split (e.g. more Cr-Co preference than
+Cr-Ni), write the two cross-species lines explicitly instead.
 
 ## Setup
 

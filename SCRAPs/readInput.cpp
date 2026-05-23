@@ -619,12 +619,44 @@ void readInput::input() {
 
     // Resolve per-pair, per-shell SRO targets. Default to zeros; symmetrize
     // user-supplied entries (alpha_ij = alpha_ji).
+    //
+    // Same-species expansion (v0.4.12+): SRO lines with i == j (e.g.
+    // SRO 2 2 0 -0.10 to specify alpha(Cr-Cr) at 1NN) are mathematically
+    // not independent of the cross-species entries: by the Warren-Cowley
+    // sum rule, for each species i,
+    //     sum_j c_j * alpha_ij = 0
+    // so alpha_ii is determined by the alpha_ij (j != i) at fixed
+    // composition. SCRAPs's fitness sums only over i != j (the
+    // independent degrees of freedom), so a literal i == i SRO would
+    // have no effect. Instead we auto-expand each i == i entry into
+    // N-1 cross-species entries using the symmetric split:
+    //
+    //     alpha_ij = -c_i * alpha_ii / (1 - c_i)  for every j != i
+    //
+    // The symmetric choice (all alpha_ij equal) is the minimum-deviation
+    // expansion: it spreads the same-species deviation equally across
+    // the cross-species partners. Users who want an asymmetric split
+    // can write the cross-species SRO lines directly.
     int nTyp = typeofatoms;
     int nShell = num_of_shells > 0 ? num_of_shells : 5;
     targetSROpair.assign(
         nTyp,
         vector<vector<double>>(nTyp, vector<double>(nShell, 0.0))
     );
+    // Composition fractions (need ELEMENT counts; safe to compute here
+    // since input() has already validated ELEMENT size == typeofatoms).
+    double total_atoms = 0.0;
+    for (int v : eachElement) total_atoms += v;
+    vector<double> c_frac(nTyp, 0.0);
+    if (total_atoms > 0.0) {
+        for (int i = 0; i < nTyp; ++i) {
+            c_frac[i] = (double) eachElement[i] / total_atoms;
+        }
+    }
+
+    // Two passes: first expand same-species entries into cross-species
+    // ones; then apply all (which are now i != j) to targetSROpair.
+    vector<SROEntry> expanded;
     for (const auto &e : sroEntries) {
         if (e.i < 0 || e.i >= nTyp || e.j < 0 || e.j >= nTyp) {
             cout << "Warning: SRO species index out of range (TYP=" << nTyp
@@ -636,6 +668,37 @@ void readInput::input() {
                  << nShell << "): " << e.shell << endl;
             continue;
         }
+        if (e.i == e.j) {
+            // Same-species: expand via sum rule.
+            int i = e.i;
+            if (c_frac[i] <= 0.0 || c_frac[i] >= 1.0) {
+                cout << "Warning: SRO same-species line SRO " << i
+                     << " " << i << " " << e.shell << " " << e.alpha
+                     << " ignored -- species " << i
+                     << " has fraction " << c_frac[i]
+                     << " (must be in (0, 1) for sum-rule expansion)."
+                     << endl;
+                continue;
+            }
+            double beta = -c_frac[i] * e.alpha / (1.0 - c_frac[i]);
+            cout << "[SRO] expanding same-species SRO " << i << " "
+                 << i << " " << e.shell << " " << e.alpha
+                 << " via Warren-Cowley sum rule -> alpha(i,j) = "
+                 << beta << " for each j != i:" << endl;
+            for (int j = 0; j < nTyp; ++j) {
+                if (j == i) continue;
+                cout << "        SRO " << i << " " << j << " "
+                     << e.shell << " " << beta << endl;
+                expanded.push_back({i, j, e.shell, beta});
+            }
+        } else {
+            expanded.push_back(e);
+        }
+    }
+
+    // Apply all expanded entries (all now have i != j; the same-species
+    // ones expanded into N-1 cross-species each).
+    for (const auto &e : expanded) {
         targetSROpair[e.i][e.j][e.shell] = e.alpha;
         targetSROpair[e.j][e.i][e.shell] = e.alpha;
     }

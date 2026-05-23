@@ -7,7 +7,7 @@
     "achieved_alpha_CrCr_1NN": 0.0,
     "max_alpha_offdiag": 0.0,
     "fitness": 0.0,
-    "wall_seconds": 0.62,
+    "wall_seconds": 0.41,
     "output_dir": "results/sqs_n108"
   },
   {
@@ -18,7 +18,7 @@
     "achieved_alpha_CrCr_1NN": -0.09722222222222232,
     "max_alpha_offdiag": 0.04861111111111105,
     "fitness": 1.46969,
-    "wall_seconds": 0.69,
+    "wall_seconds": 1.0,
     "output_dir": "results/csro_n108"
   },
   {
@@ -29,7 +29,7 @@
     "achieved_alpha_CrCr_1NN": 0.0019838523644752915,
     "max_alpha_offdiag": 0.0019838523644752915,
     "fitness": 1.15947,
-    "wall_seconds": 1.0,
+    "wall_seconds": 1.99,
     "output_dir": "results/sqs_n256"
   },
   {
@@ -39,8 +39,8 @@
     "target_alpha_CrCr_1NN": -0.1,
     "achieved_alpha_CrCr_1NN": -0.09840830449826976,
     "max_alpha_offdiag": 0.04922722029988469,
-    "fitness": 1.45221,
-    "wall_seconds": 0.97,
+    "fitness": 1.3616,
+    "wall_seconds": 1.21,
     "output_dir": "results/csro_n256"
   },
   {
@@ -51,7 +51,7 @@
     "achieved_alpha_CrCr_1NN": -0.0009919194851695234,
     "max_alpha_offdiag": 0.0010100281364979757,
     "fitness": 1.15246,
-    "wall_seconds": 1.95,
+    "wall_seconds": 3.17,
     "output_dir": "results/sqs_n500"
   },
   {
@@ -61,8 +61,8 @@
     "target_alpha_CrCr_1NN": -0.1,
     "achieved_alpha_CrCr_1NN": -0.10078869695650061,
     "max_alpha_offdiag": 0.05009258591251242,
-    "fitness": 1.2526,
-    "wall_seconds": 1.7,
+    "fitness": 1.35126,
+    "wall_seconds": 2.34,
     "output_dir": "results/csro_n500"
   }
 ]

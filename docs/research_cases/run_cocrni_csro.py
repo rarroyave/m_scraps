@@ -108,18 +108,13 @@ def run_one(label: str, cell_dim: int, target_csro: bool,
     target_alpha = 0.0
     if target_csro:
         # Reproduce Zhang 2020 Nature: alpha(Cr-Cr) at 1NN = -0.10.
-        # SCRAPs's fitness sums over i != j (cross-species pairs only),
-        # so we target Cr-Cr avoidance INDIRECTLY via the Warren-Cowley
-        # sum rule: for each species i,
-        #     sum_j c_j * alpha_ij = 0
-        # For NiCoCr equiatomic (c_j = 1/3 each):
-        #     alpha(Cr-Cr) + alpha(Cr-Ni) + alpha(Cr-Co) = 0
-        # so alpha(Cr-Cr) = -0.10 implies alpha(Cr-Ni) + alpha(Cr-Co) = +0.10
-        # We split symmetrically: alpha(Cr-Ni) = alpha(Cr-Co) = +0.05.
-        # Species indices: Ni=0, Co=1, Cr=2. Shell 0 = FCC 1NN (z=12).
-        sro_targets = [(0, 2, 0, +0.05),     # Ni-Cr at 1NN
-                       (1, 2, 0, +0.05)]     # Co-Cr at 1NN
-        target_alpha = -0.10                 # implied alpha(Cr-Cr)
+        # As of v0.4.12, SCRAPs accepts the natural same-species form
+        # directly: it auto-expands SRO i i shell alpha into the
+        # corresponding cross-species lines via the Warren-Cowley sum
+        # rule (for NiCoCr equiatomic c_i=1/3, alpha_ii=-0.10 expands to
+        # alpha_ij=+0.05 for each j != i). Species index 2 = Cr.
+        sro_targets = [(2, 2, 0, -0.10)]    # alpha(Cr-Cr) at 1NN = -0.10
+        target_alpha = -0.10
     work_dir = work_root / label
     work_dir.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
