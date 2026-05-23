@@ -39,3 +39,12 @@ paper/paper.pdf
 paper/*.aux
 paper/*.log
 paper/*.out
+
+# Research-case per-cell run outputs (rebuildable; keep only the
+# summary JSON + matplotlib figure that the markdown embeds)
+docs/research_cases/results/*/POSCAR
+docs/research_cases/results/*/INPUT
+docs/research_cases/results/*/SCRAPS.vasp
+docs/research_cases/results/*/scraps.log
+docs/research_cases/results/*/scraps
+docs/research_cases/results/*/sqs.cif

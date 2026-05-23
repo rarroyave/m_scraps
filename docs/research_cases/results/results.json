@@ -1,0 +1,68 @@
+[
+  {
+    "label": "sqs_n108",
+    "cell_dim": 3,
+    "n_atoms": 108,
+    "target_alpha_CrCr_1NN": 0.0,
+    "achieved_alpha_CrCr_1NN": 0.0,
+    "max_alpha_offdiag": 0.0,
+    "fitness": 0.0,
+    "wall_seconds": 0.62,
+    "output_dir": "results/sqs_n108"
+  },
+  {
+    "label": "csro_n108",
+    "cell_dim": 3,
+    "n_atoms": 108,
+    "target_alpha_CrCr_1NN": -0.1,
+    "achieved_alpha_CrCr_1NN": -0.09722222222222232,
+    "max_alpha_offdiag": 0.04861111111111105,
+    "fitness": 1.46969,
+    "wall_seconds": 0.69,
+    "output_dir": "results/csro_n108"
+  },
+  {
+    "label": "sqs_n256",
+    "cell_dim": 4,
+    "n_atoms": 256,
+    "target_alpha_CrCr_1NN": 0.0,
+    "achieved_alpha_CrCr_1NN": 0.0019838523644752915,
+    "max_alpha_offdiag": 0.0019838523644752915,
+    "fitness": 1.15947,
+    "wall_seconds": 1.0,
+    "output_dir": "results/sqs_n256"
+  },
+  {
+    "label": "csro_n256",
+    "cell_dim": 4,
+    "n_atoms": 256,
+    "target_alpha_CrCr_1NN": -0.1,
+    "achieved_alpha_CrCr_1NN": -0.09840830449826976,
+    "max_alpha_offdiag": 0.04922722029988469,
+    "fitness": 1.45221,
+    "wall_seconds": 0.97,
+    "output_dir": "results/csro_n256"
+  },
+  {
+    "label": "sqs_n500",
+    "cell_dim": 5,
+    "n_atoms": 500,
+    "target_alpha_CrCr_1NN": 0.0,
+    "achieved_alpha_CrCr_1NN": -0.0009919194851695234,
+    "max_alpha_offdiag": 0.0010100281364979757,
+    "fitness": 1.15246,
+    "wall_seconds": 1.95,
+    "output_dir": "results/sqs_n500"
+  },
+  {
+    "label": "csro_n500",
+    "cell_dim": 5,
+    "n_atoms": 500,
+    "target_alpha_CrCr_1NN": -0.1,
+    "achieved_alpha_CrCr_1NN": -0.10078869695650061,
+    "max_alpha_offdiag": 0.05009258591251242,
+    "fitness": 1.2526,
+    "wall_seconds": 1.7,
+    "output_dir": "results/csro_n500"
+  }
+]
