@@ -507,6 +507,24 @@ def cmd_simplex(args) -> int:
     if args.resolution < 1:
         print(f"ERROR: --resolution must be >= 1", file=sys.stderr)
         return 2
+    n_sp = len(species)
+    # Equiatomic (each species at 1/n_sp) lives on the simplex grid only
+    # when resolution % n_species == 0. Warn the user otherwise so they
+    # don't unknowingly miss the chemistry-central point of an HEA sweep.
+    if args.resolution % n_sp != 0:
+        nearest_lower = (args.resolution // n_sp) * n_sp
+        nearest_upper = nearest_lower + n_sp
+        suggested = nearest_upper if nearest_lower == 0 else (
+            nearest_lower if (args.resolution - nearest_lower)
+                              < (nearest_upper - args.resolution)
+            else nearest_upper
+        )
+        print(f"[scraps-htp] NOTE: resolution {args.resolution} does not "
+              f"divide n_species ({n_sp}); the equiatomic composition "
+              f"(each species at 1/{n_sp}) is NOT on the simplex grid. "
+              f"Use --resolution {suggested} (or any multiple of "
+              f"{n_sp}) to include it.",
+              file=sys.stderr)
     comps = simplex_compositions(species, args.resolution)
     return _dispatch_sweep("simplex", args, comps)
 

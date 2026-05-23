@@ -253,3 +253,48 @@ def test_fixed_argument_requires_one_unfixed_orbit():
     args = argparse.Namespace(fixed=["1:Ti:1.0"])  # missing orbit 2
     with pytest.raises(SystemExit, match="Exactly one orbit"):
         h.parse_fixed_compositions(args, orbits)
+
+
+# ---- equiatomic-not-on-grid warning ---------------------------------------
+
+def test_simplex_warns_when_resolution_doesnt_divide_n_species(tmp_path):
+    """For a 5-component sweep at resolution 4, the equiatomic
+    (1/5 each) composition is not on the simplex grid because the
+    grid points sum to 4. The warning should fire and suggest
+    resolution 5 (the nearest multiple of 5).
+
+    Uses --template _nonexistent_ so the sweep aborts immediately
+    after _dispatch_sweep's template check -- we test the warning
+    output, not the SCRAPs runner."""
+    proc = subprocess.run(
+        [sys.executable, str(HTP), "simplex",
+         "--template", "_nonexistent_template_",
+         "--species", "Co,Cr,Fe,Mn,Ni",
+         "--resolution", "4",
+         "--output-dir", str(tmp_path / "out")],
+        capture_output=True, text=True, timeout=30,
+    )
+    # Warning fires before the template-existence check
+    assert "equiatomic" in proc.stderr
+    assert "n_species (5)" in proc.stderr
+    assert "--resolution 5" in proc.stderr
+    # Template error also fires (= proves we exited before any sweep work)
+    assert "Unknown template" in proc.stderr or "unknown template" in proc.stderr
+    assert proc.returncode != 0
+
+
+def test_simplex_no_warning_when_resolution_divides_n_species(tmp_path):
+    """5 species at resolution 5 -> equiatomic IS on the grid;
+    no warning. Same trick: nonexistent template to skip the sweep."""
+    proc = subprocess.run(
+        [sys.executable, str(HTP), "simplex",
+         "--template", "_nonexistent_template_",
+         "--species", "Co,Cr,Fe,Mn,Ni",
+         "--resolution", "5",
+         "--output-dir", str(tmp_path / "out")],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert "equiatomic" not in proc.stderr
+    assert "does not divide" not in proc.stderr
+    # Template error still fires
+    assert proc.returncode != 0
