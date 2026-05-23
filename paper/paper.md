@@ -18,7 +18,7 @@ authors:
 affiliations:
   - name: Department of Materials Science and Engineering, Texas A&M University, USA
     index: 1
-date: 22 May 2026
+date: 23 May 2026
 bibliography: paper.bib
 ---
 
@@ -104,6 +104,21 @@ competitive with `mcsqs` on speed and SQS quality.
 
 Beyond the per-pair API, the fork includes:
 
+- **Natural same-species SRO targets with Warren-Cowley sum-rule
+  auto-expansion.** SCRAPs's fitness sums over cross-species pairs
+  only ($i \ne j$), since at fixed composition $\alpha_{ii}$ is
+  linearly determined by the cross-species $\alpha_{ij}$ through
+  $\sum_j c_j \alpha_{ij} = 0$. Users nevertheless write the natural
+  literature form (`SRO 2 2 0 -0.10` for $\alpha_{\mathrm{Cr,Cr}}^{(1)}
+  = -0.10$); the parser auto-expands via the symmetric split
+  $\alpha_{ij} = -c_i \alpha_{ii} / (1 - c_i)$ for each $j \ne i$.
+  Explicit cross-species `SRO i j shell alpha` lines override the
+  symmetric split regardless of input order, and a diagnostic warning
+  fires when the implied $\alpha_{ii}$ recomputed from the final
+  cross-species pattern disagrees with the user-stated same-species
+  value, so the optimizer never silently chases a mutually inconsistent
+  target.
+
 - **Multi-sublattice fitness with per-sublattice $c_j^{\tau}$
   reference and per-$(\sigma, \tau, k)$ coordination tensor.** Each
   `SUBLATTICE` block declares a set of basis positions and an allowed
@@ -182,13 +197,22 @@ Six classical ordered structures (B2, L1$_2$, L1$_0$, D0$_3$, L1$_1$,
 and L2$_1$/Heusler) and six multi-sublattice structure classes
 (fluorite, Laves C15, Heusler L2$_1$ end-to-end, sigma $\sigma$-FeCr,
 spinel, pyrochlore) are recovered as worked test cases in the
-repository. A 141-test pytest suite, every test pinned via
+repository. A 183-test pytest suite, every test pinned via
 `RNG_SEED`, covers structure verification, feasibility math,
 end-to-end optimization regressions, convergence-trajectory checks,
 ASE I/O round-tripping, multi-sublattice parser validation, Wyckoff-
-orbit detection, and per-sublattice SQS / CSRO quality on
-non-uniform-coordination cells. Continuous integration on Ubuntu
-builds the C++ and runs the full suite against Python 3.11 and 3.12.
+orbit detection, per-sublattice SQS / CSRO quality on non-uniform-
+coordination cells, and same-species SRO sum-rule expansion with
+explicit-override diagnostics. Continuous integration on Ubuntu builds
+the C++ and runs the full suite against Python 3.11 and 3.12.
+
+A worked end-to-end research case reproducing the Zhang et al. NiCoCr
+1NN Cr-Cr avoidance pattern [@Zhang:2020] across 108-, 256-, and 500-
+atom FCC supercells (`docs/research_cases/01_cocrni_csro.md`) reaches
+the literature target $\alpha_{\mathrm{Cr,Cr}}^{(1)} = -0.10$ to
+within 0.003 at every cell size in under 2 s of wall time per
+supercell on a laptop, and exercises the natural same-species INPUT
+form together with the sum-rule auto-expansion described above.
 
 Head-to-head comparisons with ATAT's `mcsqs` 3.50 on four
 structurally distinct multi-sublattice cells (`docs/mcsqs_comparison.md`)
