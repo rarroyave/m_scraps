@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 
 set_scraps_mpi_environment() {
+    if [ -z "${SCRAPS_BREW:-}" ]; then
+        if command -v brew >/dev/null 2>&1; then
+            SCRAPS_BREW="$(command -v brew)"
+        elif [ -x /opt/homebrew/bin/brew ]; then
+            SCRAPS_BREW=/opt/homebrew/bin/brew
+        elif [ -x /usr/local/bin/brew ]; then
+            SCRAPS_BREW=/usr/local/bin/brew
+        else
+            SCRAPS_BREW=""
+        fi
+    fi
+
     if [ -z "${MPICXX:-}" ]; then
-        if command -v brew >/dev/null 2>&1 && brew_prefix="$(brew --prefix open-mpi 2>/dev/null)"; then
+        if [ -n "$SCRAPS_BREW" ] && brew_prefix="$("$SCRAPS_BREW" --prefix open-mpi 2>/dev/null)"; then
             MPICXX="$brew_prefix/bin/mpic++"
         elif command -v mpic++ >/dev/null 2>&1; then
             MPICXX="$(command -v mpic++)"
@@ -35,5 +47,5 @@ set_scraps_mpi_environment() {
         return 1
     fi
 
-    export MPICXX MPIRUN
+    export SCRAPS_BREW MPICXX MPIRUN
 }
