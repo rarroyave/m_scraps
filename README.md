@@ -18,22 +18,31 @@ scalar applied uniformly to every species pair.
 
 See the commit messages on `main` for the bug-by-bug breakdown.
 
-## Build
+## Install and build
 
 Requires a working MPI compiler, Eigen headers, and a C++17 (or newer)
-compiler. On macOS with Homebrew:
+compiler. The canonical checkout is `~/src/tools/scraps-perpair`. On macOS with
+Homebrew:
 
 ```bash
 brew install eigen open-mpi
-./build.sh
+./install.sh
 ```
 
-The build script invokes `/opt/homebrew/bin/mpic++` explicitly — Anaconda's
-bundled MPI compiler is broken on Apple Silicon (looks for a missing
-`arm64-apple-darwin*-clang++`), so you have to bypass it. On Linux or
-Intel Mac with system MPI, edit `build.sh` to use plain `mpic++`.
+The installer discovers the Homebrew prefix, selects matching `mpic++` and
+`mpirun` binaries, builds the C++ core, creates an isolated Python environment
+from `tools/requirements-lock.txt`, and installs stable commands under
+`~/.local/bin`: `scraps-wizard`, `scraps-run`, `scraps-verify`, and
+`scraps-htp`. Set `MPICXX`, `MPIRUN`, or `EIGEN_INC` explicitly to override
+auto-detection. This avoids accidentally pairing Anaconda's MPICH launcher with
+a Homebrew Open MPI build.
 
 Output binary: `SCRAPs/scraps`.
+
+Run the complete regression suite with `./scripts/test.sh -q`. MPI needs local
+socket access, so restricted execution sandboxes may need to permit local MPI
+communication. Store production sweeps and optimizer outputs outside Git under
+`~/runs/scraps-perpair` and run long jobs durably on the Mac Studio.
 
 ### Launching: use the matching `mpirun`
 
@@ -51,7 +60,7 @@ fix is to launch with the matching mpirun:
 /opt/homebrew/bin/mpirun -np 4 SCRAPs/scraps     # macOS Homebrew
 ```
 
-`tools/run_sqs.py` and the pytest suite auto-resolve the right
+The installed launchers, `tools/run_sqs.py`, and the pytest suite auto-resolve the right
 `mpirun` by looking for it next to the `mpic++` from `build.sh`
 (controlled by the `MPICXX` env var) before falling back to PATH.
 

@@ -35,6 +35,11 @@ each "rank" runs an independent search and only one survives. The
 helper `find_mpirun()` exists in many tests for exactly this reason
 — copy it; don't roll your own resolution.
 
+The canonical checkout is `~/src/tools/scraps-perpair`; do not develop in the
+legacy `~/codes/scraps-perpair` rollback copy. Run production calculations on
+the Mac Studio and keep generated cells, logs, sweeps, and checkpoints under
+`~/runs/scraps-perpair`, not inside the repository.
+
 ---
 
 ## Build, test, run
@@ -42,8 +47,8 @@ helper `find_mpirun()` exists in many tests for exactly this reason
 Single source of truth:
 
 ```bash
-bash build.sh                       # builds SCRAPs/scraps
-python -m pytest tools/tests -q     # full suite, ~3 min, 183 tests
+./install.sh                        # MPI build + locked Python environment
+./scripts/test.sh -q                # 183 collected; 4 generated-fixture tests skip on a clean clone
 python -m pytest tools/tests/test_<file>.py -x -q   # single file, faster
 ```
 

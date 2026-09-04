@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source_path="${BASH_SOURCE[0]}"
+while [ -h "$source_path" ]; do
+    source_dir="$(cd -P "$(dirname "$source_path")" && pwd)"
+    source_path="$(readlink "$source_path")"
+    [[ "$source_path" == /* ]] || source_path="$source_dir/$source_path"
+done
+root="$(cd -P "$(dirname "$source_path")/.." && pwd)"
+source "$root/scripts/mpi-env.sh"
+set_scraps_mpi_environment
+python_bin="${SCRAPS_PYTHON:-$root/.venv/bin/python}"
+[ -x "$python_bin" ] || { echo "Run $root/install.sh first." >&2; exit 1; }
+exec "$python_bin" "$root/tools/scraps_wizard.py" "$@"

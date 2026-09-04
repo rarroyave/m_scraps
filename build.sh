@@ -1,14 +1,25 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Build SCRAPS with the per-pair SRO extension.
 #
-# Tested on macOS arm64 with Homebrew Eigen + Open MPI.
-# On Linux or Intel Mac, replace /opt/homebrew/... paths with your system
-# MPI and Eigen locations.
+# Tested with Homebrew Open MPI on macOS and system Open MPI on Linux.
 
-set -e
+set -euo pipefail
 
-MPICXX="${MPICXX:-/opt/homebrew/bin/mpic++}"
-EIGEN_INC="${EIGEN_INC:-/opt/homebrew/opt/eigen/include/eigen3}"
+root="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$root/scripts/mpi-env.sh"
+set_scraps_mpi_environment
+
+if [ -z "${EIGEN_INC:-}" ]; then
+    if command -v brew >/dev/null 2>&1 && brew_prefix="$(brew --prefix eigen 2>/dev/null)"; then
+        EIGEN_INC="$brew_prefix/include/eigen3"
+    elif command -v pkg-config >/dev/null 2>&1 && pkg_eigen="$(pkg-config --cflags-only-I eigen3 2>/dev/null)"; then
+        EIGEN_INC="${pkg_eigen#-I}"
+    elif [ -d /usr/include/eigen3 ]; then
+        EIGEN_INC="/usr/include/eigen3"
+    else
+        EIGEN_INC=""
+    fi
+fi
 
 if [ ! -x "$MPICXX" ]; then
     echo "ERROR: MPI compiler not found at $MPICXX"
@@ -24,7 +35,7 @@ if [ ! -d "$EIGEN_INC" ]; then
     exit 1
 fi
 
-cd "$(dirname "$0")/SCRAPs"
+cd "$root/SCRAPs"
 
 echo "Building with $MPICXX (Eigen at $EIGEN_INC)..."
 "$MPICXX" -std=c++17 -O2 \
