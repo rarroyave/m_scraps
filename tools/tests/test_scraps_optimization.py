@@ -93,6 +93,24 @@ BCC_POSCAR = textwrap.dedent("""\
     """)
 
 
+def oriented_bcc_poscar(transform: list[list[int]]) -> str:
+    """Return a BCC POSCAR in a general integer-oriented setting.
+
+    These cells are crystallographically BCC, but their lattice vectors are
+    deliberately not restricted to the conventional cubic axes.  They guard
+    the periodic-image and Wigner--Seitz geometry code used by every SCRAPS
+    workflow, not just a particular application workflow.
+    """
+    from pymatgen.core import Lattice, Structure
+    from pymatgen.io.vasp import Poscar
+
+    structure = Structure(
+        Lattice.cubic(3.0), ["X", "X"], [[0, 0, 0], [0.5, 0.5, 0.5]]
+    )
+    structure.make_supercell(transform)
+    return Poscar(structure).get_str()
+
+
 def run_scraps(work_dir: Path, poscar: str, input_text: str, ranks: int = 4) -> dict:
     """Run scraps in `work_dir` and return a parsed result dict.
 
@@ -193,6 +211,41 @@ def test_bcc_50_50_binary_hits_zero(tmp_path):
         """)
     out = run_scraps(tmp_path, BCC_POSCAR, inp)
     assert out["fitness"] == 0
+
+
+@pytest.mark.parametrize(
+    "transform",
+    [
+        [[1, -1, 0], [0, 0, 1], [1, 1, 0]],  # rotated orthorhombic BCC
+        [[1, -1, 0], [0, 0, 1], [1, 1, 1]],  # skew/triclinic BCC
+    ],
+    ids=["rotated", "skew"],
+)
+def test_oriented_bcc_ternary_matches_independent_sro_oracle(tmp_path, transform):
+    """A valid oriented BCC SQS must not silently acquire an empty graph.
+
+    The 3x4x3 tiling has 144 sites, so each ternary component has 48 sites
+    and the random pair counts through the third BCC shell are integral.
+    A zero internal fitness is accepted only when the independent
+    Pymatgen-based Warren--Cowley calculation also reports zero.
+    """
+    inp = textwrap.dedent("""\
+        TYP     3
+        GITER   1000
+        ELEMENT 48 48 48
+        Cell_DIM        3 4 3
+        NESTS   8
+        MCSTEP  200
+        AUTO_MCSTEP 7
+        TOTALIter 25
+        MAXSHELLNUM 3
+        WEIGHT 1 1 1
+        RNG_SEED 20261006
+        EARLY_STOP_PATIENCE 5
+        """)
+    out = run_scraps(tmp_path, oriented_bcc_poscar(transform), inp)
+    assert out["fitness"] == 0, out["log"][-2000:]
+    assert max_alpha(out["scraps_vasp"], "A,B,C", shells=3) < 1e-6
 
 
 def test_infeasible_plateau_is_deterministic(tmp_path):

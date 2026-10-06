@@ -1398,9 +1398,24 @@ int main(int argc, char ** argv)
     // delayed until after we build initialPlacement below, so spectator
     // atoms can be excluded.
 
-// Switch to maximum shell number if exceeds MAXIMUM allowed in given lattice
-    if(templat.maxneigh < max_num_neighs)
-        max_num_neighs = templat.maxneigh;
+    // A requested shell that lies beyond the Wigner--Seitz radius cannot be
+    // represented by this finite periodic cell.  The previous behavior
+    // silently lowered MAXSHELLNUM, which could make the optimizer report a
+    // perfect fit while an external calculation still evaluated the omitted
+    // shell(s).  Refuse the run instead: increasing/reshaping the supercell
+    // is a physical input requirement, not an optimizer tuning choice.
+    if (templat.maxneigh < max_num_neighs) {
+        if (id == 0) {
+            cout << "ERROR: MAXSHELLNUM=" << max_num_neighs
+                 << " requests more shells than this periodic cell can "
+                 << "represent safely (only " << templat.maxneigh
+                 << " shell(s) lie inside its Wigner-Seitz radius)." << endl
+                 << "  Increase or reshape Cell_DIM, then rerun; SCRAPS "
+                 << "will not silently change the scientific objective." << endl;
+        }
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        return 1;
+    }
     if((int)weights.size() < max_num_neighs)
     {
         cout << "WEIGHTS SIZE (" << weights.size()

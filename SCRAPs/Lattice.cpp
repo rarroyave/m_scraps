@@ -85,7 +85,12 @@ point3d cross(const point3d &vec1,const point3d &vec2)
 {
     double _x, _y, _z;
     _x = vec1.y*vec2.z - vec1.z*vec2.y;
-    _y = vec1.x*vec2.z - vec1.z*vec2.x;
+    // Right-handed cross product.  The prior expression was the negative
+    // of the y component.  That error is invisible for many axis-aligned
+    // cubic cells, but corrupts face heights in mindist() for rotated or
+    // skewed cells, which can collapse the neighbor cutoff to zero and
+    // falsely report a perfect SQS with no neighbors at all.
+    _y = vec1.z*vec2.x - vec1.x*vec2.z;
     _z = vec1.x*vec2.y - vec1.y*vec2.x;
     return point3d(_x, _y, _z);
 }
@@ -174,7 +179,6 @@ Lattice operator+(const Lattice &lat1, const Lattice &lat2)
 
 double Lattice::imageDistance(point3d latpoint1, point3d latpoint2)
 {
-    double realdis;
     Eigen::Vector3d point1, point2;
     point1 << latpoint1.x, latpoint1.y, latpoint1.z;
     point2 << latpoint2.x, latpoint2.y, latpoint2.z;
@@ -182,10 +186,36 @@ double Lattice::imageDistance(point3d latpoint1, point3d latpoint2)
     fracpoint1 = frac*point1;
     fracpoint2 = frac*point2;
     deltafrac12 = fracpoint1 - fracpoint2;
-    deltafrac12 = deltafrac12 - Eigen::Vector3d(round(deltafrac12(0)), round(deltafrac12(1)), round(deltafrac12(2)));
-    realdisp = real*deltafrac12;
-    realdis = realdisp(0)*realdisp(0) + realdisp(1)*realdisp(1) + realdisp(2)*realdisp(2);
-    return sqrt(realdis);
+
+    // Rounding each fractional component independently is only guaranteed
+    // to find the closest periodic image for orthogonal/reduced cells.  In a
+    // skew (triclinic) cell a lattice-vector combination with a coefficient
+    // beyond +/-1 can be shorter.  Use the rounded image only as an initial
+    // upper bound, then enumerate every lattice image that can mathematically
+    // improve it.  If |real * (f-n)| < best, then
+    // |f_i-n_i| <= ||real^-1||_F * best for every fractional component.
+    // That bound makes this finite search valid for arbitrary nonsingular
+    // three-dimensional lattices, rather than a heuristic fixed stencil.
+    Eigen::Vector3d rounded(
+        round(deltafrac12(0)), round(deltafrac12(1)), round(deltafrac12(2)));
+    double best = (real * (deltafrac12 - rounded)).norm();
+    const double radius = frac.norm() * best + 1.0e-12;
+
+    int lower[3], upper[3];
+    for (int d = 0; d < 3; ++d) {
+        lower[d] = static_cast<int>(floor(deltafrac12(d) - radius));
+        upper[d] = static_cast<int>(ceil(deltafrac12(d) + radius));
+    }
+    for (int i = lower[0]; i <= upper[0]; ++i) {
+        for (int j = lower[1]; j <= upper[1]; ++j) {
+            for (int k = lower[2]; k <= upper[2]; ++k) {
+                Eigen::Vector3d image(i, j, k);
+                const double candidate = (real * (deltafrac12 - image)).norm();
+                if (candidate < best) best = candidate;
+            }
+        }
+    }
+    return best;
 }
 
 // removedublicates(): a per-atom shell-distance deduplicator that was
@@ -514,4 +544,3 @@ void Lattice::maxneighshell()
     }
     atoms_shell_atom = temp_atoms;
 }
-
