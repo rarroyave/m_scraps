@@ -110,13 +110,15 @@ public:
     Eigen::Matrix3d frac;
 
 //   Lattice():basisset(latstruct()), celldim({1, 1, 1});
-    Lattice(latstruct _basisset, vector<int> dim, vector<struct point3d> _atoms);
+    Lattice(latstruct _basisset, vector<int> dim, vector<struct point3d> _atoms,
+            int requested_shells = 0);
     vector<vector<int>> neighbours;
     vector<vector<double>> distances;
     vector<vector<vector<int>>> atoms_shell_atom;
     void initialize();
     vector<vector<double>> distanceMatrix();
     vector<vector <int>> neighbourMatrix();
+    void periodicNeighbourGraph(int requested_shells);
     double mindist();
     int neighmax();
     double imageDistance(point3d latpoint1, point3d latpoint2);

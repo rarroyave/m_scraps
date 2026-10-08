@@ -164,10 +164,11 @@ void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector
     // neighbors only — this is the M-M-only neighbor census.
     for (int i = 0; i < numofatoms; ++i) {
         if (i < (int)initialPlacement.size() && initialPlacement[i] >= 0) continue;
-        for (int j = 0; j < numofatoms; ++j) {
-            if (j < (int)initialPlacement.size() && initialPlacement[j] >= 0) continue;
-            if (lat.neighbours[i][j] > 0) {
-                pairGr[nest[i]][nest[j]][lat.neighbours[i][j] - 1] += 1;
+        for (int k = 0; k < numofmaxneighs; ++k) {
+            if (k >= (int)lat.atoms_shell_atom[i].size()) continue;
+            for (int j : lat.atoms_shell_atom[i][k]) {
+                if (j < (int)initialPlacement.size() && initialPlacement[j] >= 0) continue;
+                pairGr[nest[i]][nest[j]][k] += 1;
             }
         }
     }
@@ -1386,7 +1387,7 @@ int main(int argc, char ** argv)
     
 
     cout << "Creating Lattice....." << endl;
-    Lattice templat(basis, dim, atoms);
+    Lattice templat(basis, dim, atoms, max_num_neighs);
     cout << "Lattice Built....." << endl;
 
     // Validate lattice supports the Warren-Cowley formulation before

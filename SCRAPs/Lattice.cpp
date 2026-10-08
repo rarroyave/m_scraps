@@ -120,12 +120,14 @@ double distance(const point3d &vec1,const point3d &vec2){
 }
 
 
-Lattice::Lattice(latstruct _basisset, vector<int> dim, vector<struct point3d> _atoms)
+Lattice::Lattice(latstruct _basisset, vector<int> dim, vector<struct point3d> _atoms,
+                 int requested_shells)
 {
     basisset = _basisset;
     celldim = dim;
     atoms = _atoms;
     initialize();
+    if (requested_shells > 0) periodicNeighbourGraph(requested_shells);
     
 }
 
@@ -385,6 +387,14 @@ vector<vector<int>> Lattice::numneighofeachshell()
 {
     int latticeSites = supercell.size();
     vector<vector<int>> numofneighs; // Number of neighbours in each shell
+    if (!atoms_shell_atom.empty()) {
+        for (int i = 0; i < latticeSites; ++i) {
+            vector<int> counts;
+            for (const auto &shell : atoms_shell_atom[i]) counts.push_back((int)shell.size());
+            numofneighs.push_back(counts);
+        }
+        return numofneighs;
+    }
     vector<int> tempneighs;
     int shell = 0, countperatom;
     //string atomsinshell;
@@ -405,6 +415,64 @@ vector<vector<int>> Lattice::numneighofeachshell()
     }
  //   std::cout << "maximum num of neighbours are  " << numofneighs << endl;
     return numofneighs;
+}
+
+void Lattice::periodicNeighbourGraph(int requested_shells)
+{
+    // A simple minimum-image N x N matrix loses multiplicity when a physical
+    // shell intersects a Wigner--Seitz boundary.  Enumerate image-distinct
+    // edges (center, neighbor, lattice translation) instead.  The optimizer
+    // already consumes atoms_shell_atom as an adjacency list, so repeated
+    // neighbor indices correctly retain those multiplicities.
+    struct Edge { int center, neighbor; Eigen::Vector3i image; double distance; };
+    const int n = (int)supercell.size();
+    std::vector<Edge> accepted;
+    std::vector<double> prior_shells;
+    for (int radius = 1; radius <= 8; ++radius) {
+        std::vector<Edge> edges;
+        for (int i = 0; i < n; ++i) {
+            Eigen::Vector3d ri(supercell[i].x, supercell[i].y, supercell[i].z);
+            for (int j = 0; j < n; ++j) {
+                Eigen::Vector3d rj(supercell[j].x, supercell[j].y, supercell[j].z);
+                for (int a = -radius; a <= radius; ++a) for (int b = -radius; b <= radius; ++b) for (int c = -radius; c <= radius; ++c) {
+                    if (i == j && a == 0 && b == 0 && c == 0) continue;
+                    Eigen::Vector3i image(a, b, c);
+                    double d = (rj + real * image.cast<double>() - ri).norm();
+                    if (d > 1.e-9) edges.push_back({i, j, image, d});
+                }
+            }
+        }
+        std::vector<double> distances;
+        distances.reserve(edges.size());
+        for (const auto &edge : edges) distances.push_back(edge.distance);
+        std::sort(distances.begin(), distances.end());
+        std::vector<double> shell_centers;
+        for (double d : distances) {
+            if (shell_centers.empty() || (d - shell_centers.back()) / shell_centers.back() > 0.02)
+                shell_centers.push_back(d);
+        }
+        if ((int)shell_centers.size() <= requested_shells) continue;
+        // Require stability under a larger image stencil before accepting;
+        // this is a completeness check, not a geometry heuristic.
+        std::vector<double> current(shell_centers.begin(), shell_centers.begin() + requested_shells);
+        if (!prior_shells.empty()) {
+            bool stable = true;
+            for (int k = 0; k < requested_shells; ++k)
+                stable = stable && std::abs(current[k] - prior_shells[k]) < 1.e-8;
+            if (stable) { accepted.swap(edges); prior_shells.swap(current); break; }
+        }
+        prior_shells.swap(current);
+    }
+    if (accepted.empty()) throw std::runtime_error("could not construct a stable periodic neighbor multigraph");
+    atoms_shell_atom.assign(n, vector<vector<int>>(requested_shells));
+    for (const auto &edge : accepted) {
+        int shell = -1;
+        for (int k = 0; k < requested_shells; ++k)
+            if (std::abs(edge.distance - prior_shells[k]) / prior_shells[k] <= 0.02) { shell = k; break; }
+        if (shell >= 0) atoms_shell_atom[edge.center][shell].push_back(edge.neighbor);
+    }
+    maxneigh = requested_shells;
+    maxneighbourspershell = numneighofeachshell();
 }
 
 vector<int> Lattice::coordination_per_shell(

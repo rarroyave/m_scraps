@@ -248,6 +248,40 @@ def test_oriented_bcc_ternary_matches_independent_sro_oracle(tmp_path, transform
     assert max_alpha(out["scraps_vasp"], "A,B,C", shells=3) < 1e-6
 
 
+@pytest.mark.parametrize("plane,count,rows", [
+    ("110", 72, ((2, -2, -4), (2, -2, 2), (12, 12, 0))),
+    ("112", 72, ((2, -2, 0), (3, 3, -3), (8, 8, 16))),
+    ("123", 84, ((10, -8, 2), (1, 1, -1), (4, 8, 12))),
+])
+def test_source_sized_xu_cells_run_with_periodic_image_multiplicity(tmp_path, plane, count, rows):
+    """Exact Xu cells must retain their first shell instead of WS-cutoff aborting.
+
+    This is intentionally only a graph/execution regression, not a claim that
+    alpha=0 reproduces Xu's unarchived ATAT objective.
+    """
+    from pymatgen.core import Lattice, Structure
+    from pymatgen.io.vasp import Poscar
+    import numpy as np
+
+    primitive_rows = np.array(((1, 1, -1), (1, -1, 1), (-1, 1, 1)), dtype=int)
+    transform = np.rint(np.array(rows) @ np.linalg.inv(primitive_rows)).astype(int)
+    structure = Structure(Lattice(3.225 / 2 * primitive_rows), ["X"], [[0, 0, 0]])
+    structure.make_supercell(transform)
+    assert len(structure) == count
+    inp = textwrap.dedent(f"""\
+        TYP 3
+        ELEMENT {count // 3} {count // 3} {count // 3}
+        Cell_DIM 1 1 1
+        MAXSHELLNUM 1
+        WEIGHT 1
+        AUTO_BUDGET 1
+        RNG_SEED 20261007
+        EARLY_STOP_PATIENCE 2
+        """)
+    out = run_scraps(tmp_path / plane, Poscar(structure).get_str(), inp)
+    assert "Wigner-Seitz radius" not in out["log"]
+
+
 def test_infeasible_plateau_is_deterministic(tmp_path):
     """25:50:25 ternary on FCC k=3 (n=108) is infeasible at shell 1.
 
