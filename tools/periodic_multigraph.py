@@ -28,6 +28,24 @@ class PeriodicShell:
         return int(counts[0])
 
 
+def warren_cowley(structure: Structure, shell: PeriodicShell):
+    """Return image-aware Warren--Cowley alpha and directed pair counts."""
+    names = [str(site.specie) for site in structure]
+    species = list(dict.fromkeys(names))
+    index = {name: i for i, name in enumerate(species)}
+    site_species = np.array([index[name] for name in names])
+    counts = np.zeros((len(species), len(species)), dtype=int)
+    np.add.at(counts, (site_species[shell.centers], site_species[shell.neighbors]), 1)
+    population = np.bincount(site_species, minlength=len(species))
+    alpha = np.empty_like(counts, dtype=float)
+    for i in range(len(species)):
+        for j in range(len(species)):
+            alpha[i, j] = 1.0 - counts[i, j] * len(structure) / (
+                shell.coordination * population[i] * population[j]
+            )
+    return alpha, counts, species
+
+
 def periodic_shells(structure: Structure, n_shells: int, *, relative_tolerance: float = 2e-2) -> list[PeriodicShell]:
     """Return the first ``n_shells`` complete periodic-image shells.
 

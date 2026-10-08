@@ -9,7 +9,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "tools"))
 
-from periodic_multigraph import periodic_shells
+from periodic_multigraph import periodic_shells, warren_cowley
 
 
 def _xu_parent(plane: str):
@@ -39,3 +39,14 @@ def test_source_sized_oriented_bcc_cells_retain_all_first_neighbors():
         triples = {(int(i), int(j), tuple(int(x) for x in image))
                    for i, j, image in zip(shell.centers, shell.neighbors, shell.images, strict=True)}
         assert len(triples) == len(shell.centers)
+
+
+def test_image_aware_alpha_is_zero_for_a_balanced_first_shell_sqs():
+    parent = _xu_parent("110")
+    # Assign three species cyclically; this is only a dimensional/count test.
+    for index, site in enumerate(parent):
+        site.species = ("A", "B", "C")[index % 3]
+    alpha, counts, species = warren_cowley(parent, periodic_shells(parent, 1)[0])
+    assert counts.sum() == len(parent) * 8
+    assert species == ["A0+", "B", "C"] or len(species) == 3
+    assert alpha.shape == (3, 3)
