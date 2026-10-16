@@ -163,6 +163,144 @@ This produces a 108-atom FCC supercell with α(Ni-Cr) ≈ −0.10, α(Co-Cr) ≈
 −0.05, α(Ni-Co) ≈ 0, and α(Cr-Cr) ≈ +0.15 (which emerges naturally from
 the sum rule Σ_j c_j α_ij = 0).
 
+## Optimizing pairs, triplets, and quadruplets
+
+An opt-in decorated-figure backend optimizes symmetry-resolved cluster
+correlations in the native C++ search. The legacy Warren–Cowley pair objective
+and defaults remain unchanged when `FIGURES_FILE` is absent. The exporter
+supports independently constrained sublattices, shared species, fixed spectators, and
+pair/triplet/quadruplet cutoffs. `SRO` and `TARGETED_SWAPS` are rejected in
+figure mode. Multi-sublattice performance has not yet been benchmarked.
+
+Install the optional preprocessor in the Python environment used for SCRAPs:
+
+```bash
+python -m pip install 'icet==4.0'
+```
+
+```python
+from ase.build import bulk
+from scraps_ase import run_sqs_from_atoms
+
+sqs = run_sqs_from_atoms(
+    bulk("Cu", "fcc", a=3.6, cubic=True),
+    species=["Ni", "Cu"], element_counts=[16, 16], cell_dim=(2, 2, 2),
+    figure_cutoffs=[4.0, 3.0, 3.0],  # maximum diameter in Å: pair, triplet, quadruplet
+    figure_objective="weighted_l1", figure_wd=1.0, figure_wn=0.5,
+    auto_budget=1, rng_seed=42, ranks=4, work_dir="weighted_figures",
+)
+```
+
+The CLI accepts `--figure-cutoffs 4.0,3.0,3.0` together with `--species Ni,Cu`,
+`--figure-objective`,
+`--figure-wd`, `--figure-wn`, `--figure-wr`, and `--figure-tol`.
+For two disordered sublattices, pass the same `sublattices` partition as in
+pair mode. Concentrations are normalized separately on each sublattice;
+within- and cross-sublattice pairs, triplets and quadruplets are included:
+
+```python
+carbonitride = run_sqs_from_atoms(
+    bulk("NaCl", "rocksalt", a=4.5),  # two-site primitive cell
+    species=["Ti", "Zr", "Hf", "C", "N"],
+    element_counts=[4, 3, 1, 6, 2], cell_dim=(2, 2, 2),
+    sublattices=[(0, [0], [0, 1, 2]), (1, [1], [3, 4])],
+    figure_cutoffs=[4.0, 4.0, 4.0], figure_wd=1.0, figure_wn=0.5,
+    auto_budget=1, rng_seed=42, ranks=4, work_dir="carbonitride_figures",
+)
+```
+
+For an AlB₂ primitive ordered as metal, B, B, use
+`spectator_basis_species=[(1, boron_species_index), (2, boron_species_index)]`.
+Without explicit local counts, the B count must equal the number of fixed sites. Pure sublattices can also
+be declared with a single allowed species. Fixed sites have no nonconstant
+chemical point functions: icet omits redundant spectator-containing figures,
+while retaining every fixed site's geometry and occupation. Thus a geometric
+metal–metal–B triplet does not become an independent chemical triplet target.
+The total number of species may exceed five. Every search move preserves the
+local composition and every fixed occupation.
+
+To allow the same element on multiple sublattices, supply a fourth tuple member
+with local integer counts, aligned with that group's species indices. Supply
+counts on every group; their sums plus fixed spectator occupations must equal
+`element_counts`. This extension requires figure mode. For example, a B2 cell
+with Fe-rich and Al-rich sublattices can use:
+
+```python
+from ase import Atoms
+
+b2 = Atoms("FeAl", scaled_positions=[[0, 0, 0], [0.5, 0.5, 0.5]],
+           cell=[2.9, 2.9, 2.9], pbc=True)
+sqs = run_sqs_from_atoms(
+    b2, species=["Fe", "Al"], element_counts=[8, 8], cell_dim=(2, 2, 2),
+    sublattices=[(0, [0], [0, 1], [6, 2]), (1, [1], [0, 1], [2, 6])],
+    figure_cutoffs=[4.2, 4.2, 4.2], figure_wd=1.0, figure_wn=0.5,
+    auto_budget=1, rng_seed=42, ranks=4, work_dir="b2_shared_species",
+)
+```
+
+The corresponding INPUT lines are
+`SUBLATTICE 0 BASIS 0 SPECIES 0 1 COUNTS 6 2` and
+`SUBLATTICE 1 BASIS 1 SPECIES 0 1 COUNTS 2 6`. Declared groups remain distinct
+in the symmetry enumeration even when their allowed elements are identical.
+Their correlation targets use local fractions, rather than the global 50:50
+composition. The original three-member tuples remain supported for disjoint
+species sets. Legacy Warren–Cowley pair mode still requires disjoint species.
+
+The CLI accepts `--sublattices partition.json --cell-dim 2,2,2` with figure
+mode; the JSON is a list such as `[[0,[0],[0,1,2]],[1,[1],[3,4]]]`.
+Shared-species groups include counts: `[[0,[0],[0,1],[6,2]],[1,[1],[0,1],[2,6]]]`.
+Here `--composition` supplies **global** fractions in `--species` order,
+and explicit dimensions determine the cell instead of `--target-atoms`.
+For this example use `--composition 0.25,0.1875,0.0625,0.375,0.125`.
+The existing `--spectator-basis-species` CLI uses active-site fractions;
+use pure groups in the JSON instead when combining pure and disordered groups.
+
+These weights are exploratory settings, not property-calibrated defaults.
+For a figure with order $n_\alpha$ and maximum intersite distance $d_\alpha$,
+
+$$w_\alpha = \exp(-w_d d_\alpha/d_0)\,w_n^{n_\alpha-2},\qquad
+F_{L1}=\frac{\sum_\alpha w_\alpha|\Pi_\alpha-\Pi_\alpha^*|}{\sum_\alpha w_\alpha}.$$
+
+Here $d_0$ is the smallest included diameter (the NN distance when NN pairs
+are included). Decay applies to **pairs as well as higher-order figures**.
+`FIGURE_WD > 0` penalizes long range; `0 < FIGURE_WN < 1` penalizes higher
+order. Normalization is global across decorated components, not separately
+by order: the number of components therefore still matters. Orbit
+multiplicity enters the average defining each correlation, not an extra
+objective weight. Targets use independent random-site concentration moments,
+which can be nonzero for asymmetric compositions. Finite fixed-composition
+and periodically aliased figures need not attain those targets exactly.
+
+For direct INPUT use (the Python API generates these lines and `FIGURES`):
+
+| Keyword | Default | Meaning |
+| --- | --- | --- |
+| `FIGURES_FILE path` | absent | Enable native figure objective using exported incidence/basis data |
+| `FIGURE_OBJECTIVE weighted_l1\|atat` | `weighted_l1` | Normalized weighted absolute error, or ATAT 3.52 objective |
+| `FIGURE_WD value` | `0` | Nonnegative diameter decay |
+| `FIGURE_WN value` | `1` | Order multiplier, strictly positive and at most 1 |
+| `FIGURE_WR value` | `1` | Nonnegative exact-match-range reward, ATAT mode only |
+| `FIGURE_TOL value` | `0.001` | Nonnegative match tolerance (also used in final residual report) |
+
+`atat` follows the mcsqs 3.52 objective's order-coupled matching ranges and
+weighted residual subset; it is not simply `weighted_l1` minus one range.
+Its source uses a `0.001` near-zero threshold on the **unnormalized** weighted
+residual sum and returns `-FLT_MAX` below that threshold. Strong distance
+decay can therefore yield the sentinel even with sizable correlation errors.
+For compatibility this behavior is retained. It never alone certifies a
+match: inspect `FIGURE_CORRELATIONS.csv` and the separately reported maximum
+residual. `weighted_l1` avoids this sentinel and normalizes weights stably.
+See the [ATAT objective documentation](https://axelvandewalle.github.io/www-avdw/atat/manual/node49.html).
+
+`FIGURES.json` records the exported basis, targets, geometry, and icet
+metadata. `FIGURE_CORRELATIONS.csv` contains final per-component errors;
+`FIGURE_OCCUPATIONS.txt` records final species indices in native lattice
+order for independent verification. `FAST_SWAPS 1` updates only affected
+figures; `FAST_SWAPS 0` recomputes them as a correctness reference. Cuckoo,
+SA, PT, compound swaps, and MPI final selection all use the chosen objective.
+Negative scores do not trigger legacy zero-error termination; configured
+iteration/plateau limits remain applicable.
+
 ## Picking Cell_DIM: feasibility and a one-shot wrapper
 
 For SQS targets (α=0) the expected pair count `N_i · z_k · N_j / N`

@@ -295,6 +295,116 @@ interleave their writes (the test helper handles both modes).
 
 ---
 
+### 2.9 Opt-in higher-order figure objective
+
+`tools/higher_order.py` uses icet 4.x to enumerate decorated symmetry orbits,
+map their periodic figures to SCRAPs site order, and export point-function
+values in the API's species order. Supported figures have order 2–4, with
+one or more disordered sublattices and optional fixed spectators. Shared species
+are supported with explicit per-group integer counts in figure mode. Each local point function gets a global basis
+row, with zero entries outside its allowed species set; each term references
+the row appropriate to its site. Concentration moments use the site's local
+species fractions. Symmetry enumeration preserves declared sublattice identities,
+including groups with identical allowed physical species. icet removes
+fixed-site constant factors rather than introducing redundant chemical figures;
+fully fixed sites remain present in the geometry and occupation constraints.
+The exporter validates its explicit products against icet cluster vectors
+before writing. Random-alloy targets are products of concentration-weighted
+point-function moments; they are not assumed zero and do not correct for
+finite-cell sampling without replacement.
+
+`SCRAPs/FigureObjective.hpp` reads `FIGURES_FILE` and computes orbit averages.
+Each term stores a coefficient and `(site, point-function)` factors;
+coefficients sum to one within each decorated component. Periodic images
+that map to the same site remain repeated factors, rather than being
+collapsed into a lower-order cluster. A site-to-term incidence list enables
+swap updates. The union of both sites' incidence lists visits shared terms
+once; rejected moves leave accepted state untouched. Full recomputation
+refreshes the incremental state every 1,024 proposals and at final scoring.
+
+`main.cpp` routes every global fitness call and local search kernel to this
+backend when enabled. It retains the native cuckoo population/MPI gathering
+and the SA/PT acceptance and temperature machinery. Compound moves compose
+swap updates before a joint decision; `FAST_SWAPS 0` supplies a full-evaluation
+reference. `RNG_SEED` seeds a separate reproducible figure-kernel stream.
+A separate best-evaluated archive survives SA uphill moves and PT exchanges
+without changing chain state. Figure-mode cuckoo proposals accept improvements
+or numerical ties (1e-12), rather than applying the legacy pair-count error
+band to normalized correlations. The legacy pair path remains the default. Pair-specific `TARGETED_SWAPS`,
+and `SRO` fail clearly in figure mode. Swaps use the existing same-sublattice
+site pools and skip fixed spectators. Randomization preserves each local count.
+Legacy pair-coordination uniformity is not required by the figure objective.
+The existing pair neighbor graph is still built, but figure mode suppresses
+the legacy SRO diagnostic; use `FIGURE_CORRELATIONS.csv` for its actual targets.
+
+The input controls are `FIGURES_FILE`, `FIGURE_OBJECTIVE` (`weighted_l1` or
+`atat`), `FIGURE_WD` (default 0), `FIGURE_WN` (default 1), `FIGURE_WR`
+(default 1), and `FIGURE_TOL` (default 0.001). All are validated and known to
+the INPUT parser. In normalized weighted-L1 mode,
+$w_\alpha=\exp(-w_d d_\alpha/d_0)w_n^{n_\alpha-2}$ applies to every decorated
+component, including pairs. One global denominator preserves relative order
+penalties. No extra multiplicity weighting or per-order normalization is
+applied. Geometric decay is a prior for interaction importance, not a
+property-error guarantee.
+
+ATAT mode reproduces the 3.52 `calc_objective_func` prescription: initialize
+one range per order to its largest included diameter plus $d_0$, truncate at
+the first mismatched diameter, cap each higher-order range by the preceding
+order, and normalize residuals over diameters at least the minimum range
+minus ATAT's `zero_tolerance=0.001`. Subtract
+$w_r\sum_{p=0}^{n_{max}-2}w_n^p R_p/d_0$ from this error. Compatibility also
+retains ATAT's `-FLT_MAX` sentinel when the unnormalized weighted residual
+sum is below 0.001. This can arise through very small weights despite
+unmatched correlations. Final reporting therefore evaluates maximum residual
+independently; negative/sentinel fitness never drives the old zero-error
+termination check. Cutoff completeness and the icet point basis must also
+match before comparing to an ATAT run: objective compatibility alone is not
+identical feature-space compatibility.
+
+The version-1 text format remains supported for unconstrained systems
+and is whitespace-delimited (no comments):
+
+```text
+SCRAPS_FIGURES 1
+N_sites N_species N_basis_rows N_components
+<9 cell values, row-vector order>
+<N_sites fractional xyz positions, SCRAPs basis-major z/y/x order>
+<N_basis_rows rows of N_species point-function values>
+<for each component: order diameter target N_terms>
+<for each term: coefficient site_0 basis_0 ... site_(order-1) basis_(order-1)>
+```
+
+Constrained exports use `SCRAPS_FIGURES 2`. Immediately after the basis
+matrix, version 2 inserts one row per site: `N_allowed species_0 ...`.
+The native reader checks these allowed sets against the `SUBLATTICE` and
+`SPECTATOR_BASIS_SPECIES` declarations after expanding the lattice, and rejects
+version 1 for constrained systems. Python validates full site/species coverage,
+disjoint basis sets and integer counts against each group's capacity before export.
+The JSON additionally records basis/site allowed sets and local basis moments.
+Explicit local counts use format version 3. After the allowed-species rows,
+each site has `group_index count_0 ... count_(TYP-1)`: active groups use INPUT
+declaration order and their full local budget; fixed sites use group `-1` and
+a one-hot occupation count. The native reader checks this metadata against
+INPUT, rejecting stale targets after a local-composition or partition change.
+For overlapping species the exporter uses distinct auxiliary alphabets only
+during symmetry enumeration, preserving physical atomic-number ordering
+within each group. Exported occupations and structures use physical species.
+For shared species, append `COUNTS n0 n1 ...` to every `SUBLATTICE` line,
+aligned with its `SPECIES` list. These local budgets plus fixed occupations
+must sum exactly to `ELEMENT`. The Python API uses four-member tuples
+`(id, basis_positions, species_indices, counts)`; CLI partition JSON follows
+the same layout. The native optimizer initializes and conserves each local
+budget. Without explicit counts, disjoint-species behavior is retained.
+Legacy Warren–Cowley pair mode rejects this extension because its pair
+reference arrays do not resolve shared species by sublattice.
+
+The C++ reader checks dimensions, finite values, indices, coefficient
+normalization, presence of pairs, and consistency of the cell/site ordering
+with POSCAR and `Cell_DIM`. The exporter writes a companion JSON containing
+provenance and feature metadata. Final component correlations and native
+occupations are saved separately for independent reconstruction. Performance
+and scientific superiority over pair-only optimization remain to be measured.
+
 ## 3. "Is SCRAPS lucky, or is it actually optimizing?"
 
 The reproducibility / ablation keywords in §2.4 exist mainly to

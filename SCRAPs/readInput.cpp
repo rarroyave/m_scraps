@@ -254,6 +254,7 @@ const std::set<std::string> KNOWN_KEYS = {
     "TYP", "GITER", "ELEMENT", "CELL_DIM", "NESTS", "MCSTEP",
     "TOTALITER", "MAXSHELLNUM", "WEIGHT", "SRO",
     "AUTO_MCSTEP", "AUTO_BUDGET", "RNG_SEED", "RANDOM_ONLY", "CONVERGENCE_LOG",
+    "FIGURES_FILE", "FIGURE_OBJECTIVE", "FIGURE_WD", "FIGURE_WN", "FIGURE_WR", "FIGURE_TOL",
     "FAST_SWAPS", "TARGETED_SWAPS", "TARGETED_SWAP_PROB",
     "EARLY_STOP_PATIENCE", "EARLY_STOP_TOL",
     "SPECTATOR_BASIS_SPECIES",
@@ -271,6 +272,7 @@ void readInput::input() {
     // afterwards, once TYP and MAXSHELLNUM are known.
     struct SROEntry { int i; int j; int shell; double alpha; };
     vector<SROEntry> sroEntries;
+    bool figureOptionsSeen = false;
     std::ifstream inp ("./INPUT");
     if (inp.is_open()) {
         while (inp.good()) {
@@ -299,6 +301,13 @@ void readInput::input() {
                 std::cout << "Warning: unrecognized INPUT keyword \""
                           << key << "\" (line ignored)" << std::endl;
             }
+            if (key.rfind("FIGURE_", 0) == 0) figureOptionsSeen = true;
+            if (key == "FIGURES_FILE" && !(ss >> figuresFile)) input_abort("FIGURES_FILE requires a path");
+            if (key == "FIGURE_OBJECTIVE" && !(ss >> figureObjective)) input_abort("FIGURE_OBJECTIVE requires a mode");
+            if (key == "FIGURE_WD" && !(ss >> figureWd)) input_abort("FIGURE_WD requires a number");
+            if (key == "FIGURE_WN" && !(ss >> figureWn)) input_abort("FIGURE_WN requires a number");
+            if (key == "FIGURE_WR" && !(ss >> figureWr)) input_abort("FIGURE_WR requires a number");
+            if (key == "FIGURE_TOL" && !(ss >> figureTol)) input_abort("FIGURE_TOL requires a number");
             if(key.compare("TYP") == 0)
             {
                 ss >> typeofatoms;
@@ -438,7 +447,7 @@ void readInput::input() {
             }
             if(key.compare("SUBLATTICE") == 0)
             {
-                // Format: SUBLATTICE <id> BASIS <b1> <b2> ... SPECIES <s1> <s2> ...
+                // Format: SUBLATTICE <id> BASIS <b1> ... SPECIES <s1> ... [COUNTS <n1> ...]
                 // BASIS and SPECIES section keywords can appear in either order
                 // and any token before the first section keyword (other than id)
                 // is treated as a parse error for this line.
@@ -458,6 +467,10 @@ void readInput::input() {
                             target = &spec.basisPositions;
                         } else if (upper == "SPECIES") {
                             target = &spec.speciesAllowed;
+                        } else if (upper == "COUNTS") {
+                            if (spec.countsSpecified) input_abort("SUBLATTICE repeats COUNTS section");
+                            spec.countsSpecified = true;
+                            target = &spec.speciesCounts;
                         } else {
                             if (target == nullptr) {
                                 cout << "Warning: SUBLATTICE token \"" << token
@@ -478,6 +491,7 @@ void readInput::input() {
                         }
                     }
                 }
+                if (malformed && spec.countsSpecified) input_abort("malformed SUBLATTICE COUNTS");
                 if (!malformed) {
                     sublattices.push_back(std::move(spec));
                 }
@@ -559,11 +573,20 @@ void readInput::input() {
     // Per-cell basis-bound checks (basis index < atoms.size()) happen later
     // in main() once POSCAR has been parsed. Here we only enforce the
     // structural invariants that depend on INPUT alone: species in
-    // [0, TYP); each species in at most one sublattice; each basis position
+    // [0, TYP); shared species require explicit figure-mode counts; each basis position
     // in at most one sublattice; ids unique; each sublattice non-empty.
     if (!sublattices.empty()) {
         std::set<int> seenIds, seenSpecies, seenBasis;
+        bool localCounts = false;
+        for (const auto &s : sublattices) localCounts |= s.countsSpecified;
+        if (localCounts && figuresFile.empty())
+            input_abort("SUBLATTICE COUNTS currently requires FIGURES_FILE");
         for (const auto &s : sublattices) {
+            if (localCounts && (!s.countsSpecified || s.speciesCounts.size() != s.speciesAllowed.size()))
+                input_abort("SUBLATTICE COUNTS must be supplied for every group and align with SPECIES");
+            for (int count : s.speciesCounts) if (count < 0)
+                input_abort("SUBLATTICE COUNTS must be nonnegative");
+            std::set<int> localSpecies;
             if (!seenIds.insert(s.id).second) {
                 input_abort("SUBLATTICE id " + std::to_string(s.id)
                             + " declared more than once.");
@@ -583,10 +606,13 @@ void readInput::input() {
                                 + " out of range [0, TYP="
                                 + std::to_string(typeofatoms) + ").");
                 }
-                if (!seenSpecies.insert(sp).second) {
+                if (!localSpecies.insert(sp).second)
+                    input_abort("SUBLATTICE repeats a species within its SPECIES list");
+                bool shared = !seenSpecies.insert(sp).second || spectatorSpecies.count(sp);
+                if (shared && !localCounts) {
                     input_abort("SUBLATTICE: species " + std::to_string(sp)
-                                + " assigned to more than one sublattice "
-                                + "(species must be disjoint across sublattices).");
+                                + " assigned to more than one sublattice or fixed sites "
+                                + "(species must be disjoint unless FIGURES_FILE and explicit COUNTS are used).");
                 }
             }
             for (int bi : s.basisPositions) {
@@ -616,6 +642,19 @@ void readInput::input() {
             }
             cout << "]" << endl;
         }
+    }
+
+    if (figureObjective != "weighted_l1" && figureObjective != "atat")
+        input_abort("FIGURE_OBJECTIVE must be weighted_l1 or atat");
+    if (!std::isfinite(figureWd) || figureWd < 0.0 || !std::isfinite(figureWn)
+        || figureWn <= 0.0 || figureWn > 1.0 || !std::isfinite(figureWr)
+        || figureWr < 0.0 || !std::isfinite(figureTol) || figureTol < 0.0)
+        input_abort("FIGURE parameters require WD, WR, TOL >= 0 and 0 < WN <= 1 (finite)");
+    if (figureOptionsSeen && figuresFile.empty())
+        input_abort("FIGURE parameters require FIGURES_FILE");
+    if (!figuresFile.empty()) {
+        if (!sroEntries.empty()) input_abort("FIGURES_FILE replaces SRO targets; specify targets in the figure file");
+        if (targetedSwaps) input_abort("FIGURES_FILE does not support pair-targeted TARGETED_SWAPS");
     }
 
     // Resolve per-pair, per-shell SRO targets. Default to zeros; symmetrize
