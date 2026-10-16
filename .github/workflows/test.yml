@@ -46,7 +46,7 @@ jobs:
       - name: Build SCRAPS (Ubuntu)
         if: runner.os == 'Linux'
         env:
-          MPICXX: mpic++
+          MPICXX: /usr/bin/mpic++
           EIGEN_INC: /usr/include/eigen3
         run: ./build.sh
 

@@ -1,5 +1,10 @@
+import sys
+from pathlib import Path
+
 import numpy as np
 from pymatgen.core import Lattice, Structure
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pair_sqs_fallback import anneal_random_pairs, random_pair_targets
 from periodic_multigraph import periodic_shells
