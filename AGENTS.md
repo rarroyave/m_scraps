@@ -228,7 +228,11 @@ checker for arbitrary per-pair α patterns yet.
 
 For structures with two or more chemically-disordered Wyckoff
 orbits, every disordered orbit gets its own `SUBLATTICE` block.
-Species and basis positions must be **disjoint** across blocks.
+For the legacy Warren–Cowley pair objective, species and basis positions must
+be **disjoint** across blocks. Figure mode supports shared species with
+explicit local counts: `(id, basis_positions, species_indices, counts)` for
+every group, serialized as `SUBLATTICE ... SPECIES ... COUNTS ...`. Basis
+positions remain disjoint; local budgets plus spectators must sum to ELEMENT.
 Python-API form:
 
 ```python

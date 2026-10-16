@@ -64,6 +64,9 @@ def parse_args() -> argparse.Namespace:
                    help="HEB-style spectator sublattice spec: 'basis_idx:species_idx,...' "
                         "(e.g. '1:5,2:5' for AlB2 with B as species 5 on basis 1,2). "
                         "When set, --composition lists fractions for ACTIVE species only.")
+    p.add_argument("--sublattices", type=Path,
+                   help="JSON list of [id, basis_positions, species_indices, optional_local_counts]; requires --figure-cutoffs and --cell-dim. Composition is global.")
+    p.add_argument("--cell-dim", help="Explicit replication x,y,z (required with --sublattices)")
     p.add_argument("--ranks", type=int, default=4,
                    help="MPI ranks for mpirun (default 4)")
     p.add_argument("--nests", type=int, default=24,
@@ -86,6 +89,13 @@ def parse_args() -> argparse.Namespace:
                         "then $MPIRUN, then PATH `mpirun`). PATH-resolved `mpirun` is unsafe "
                         "when multiple MPIs are installed -- mixing (e.g.) MPICH's Hydra "
                         "with an Open-MPI-linked scraps gives silent singleton fallback.")
+    p.add_argument("--figure-cutoffs", help="Pair,triplet,quadruplet diameter cutoffs in Angstrom; enables figure objective")
+    p.add_argument("--species", help="Chemical symbols in composition order; required with --figure-cutoffs")
+    p.add_argument("--figure-objective", choices=("weighted_l1", "atat"), default="weighted_l1")
+    p.add_argument("--figure-wd", type=float, default=0.0)
+    p.add_argument("--figure-wn", type=float, default=1.0)
+    p.add_argument("--figure-wr", type=float, default=1.0)
+    p.add_argument("--figure-tol", type=float, default=1e-3)
     p.add_argument("--dry-run", action="store_true",
                    help="Generate the work directory and INPUT but skip mpirun")
     return p.parse_args()
@@ -197,6 +207,9 @@ def main() -> int:
     warnings.filterwarnings("ignore")
     args = parse_args()
 
+    if not args.figure_cutoffs and (args.figure_objective != "weighted_l1" or
+            args.figure_wd != 0 or args.figure_wn != 1 or args.figure_wr != 1 or args.figure_tol != 1e-3):
+        raise ValueError("figure parameters require --figure-cutoffs")
     fractions = [float(x) for x in args.composition.split(",")]
     if abs(sum(fractions) - 1.0) > 1e-6:
         print(f"ERROR: composition fractions sum to {sum(fractions):.6f}, not 1.0",
@@ -211,14 +224,38 @@ def main() -> int:
     struct, _ = load_structure(args.poscar)
     spectator_pairs = parse_spectator_spec(args.spectator_basis_species)
 
+    sublattices = None
+    if args.sublattices:
+        import json
+        if not args.figure_cutoffs or not args.cell_dim:
+            raise ValueError("--sublattices requires --figure-cutoffs and --cell-dim")
+        if spectator_pairs:
+            raise ValueError("CLI --sublattices includes pure groups; do not combine with --spectator-basis-species")
+        sublattices = json.loads(args.sublattices.read_text())
+    if args.cell_dim and not args.sublattices:
+        raise ValueError("--cell-dim currently requires --sublattices")
+
     print(f"Step 1/3: picking Cell_DIM near target atoms={args.target_atoms}")
     if spectator_pairs:
         print(f"  Spectator sublattice: {spectator_pairs} "
               f"(active composition only in --composition)")
     cubic_only = args.cubic_only
-    report = pick_cell(struct, fractions, args.target_atoms,
-                       args.shells, weights, args.k_range, cubic_only,
-                       spectator_pairs)
+    if sublattices is not None:
+        from types import SimpleNamespace
+        dims = tuple(int(x) for x in args.cell_dim.split(','))
+        if len(dims) != 3 or min(dims) <= 0:
+            raise ValueError("--cell-dim requires three positive integers")
+        total = len(struct)*dims[0]*dims[1]*dims[2]
+        counts = integer_counts(fractions, total)
+        if counts is None:
+            raise ValueError("composition is not integer-feasible for --cell-dim")
+        report = SimpleNamespace(cell_dim=dims,total_atoms=total,species_counts=counts,
+                                 is_cubic=len(set(dims)) == 1,feasible=False,
+                                 fitness_lower_bound=float('nan'))
+    else:
+        report = pick_cell(struct, fractions, args.target_atoms,
+                           args.shells, weights, args.k_range, cubic_only,
+                           spectator_pairs)
     if report is None:
         print(f"ERROR: no valid Cell_DIM in range {args.k_range} for "
               f"composition {fractions} and basis {len(struct)}",
@@ -229,7 +266,9 @@ def main() -> int:
     tag = "" if report.is_cubic else " [non-cubic]"
     print(f"  -> Cell_DIM {cell_str} = {report.total_atoms} atoms"
           f"  ELEMENT {' '.join(str(c) for c in report.species_counts)}{tag}")
-    if report.feasible:
+    if sublattices is not None:
+        print("  -> Explicit constrained cell; figure feasibility is not inferred from pair counts.")
+    elif report.feasible:
         print(f"  -> FEASIBLE (exact SQS achievable)")
     else:
         print(f"  -> INFEASIBLE: fitness floor >= {report.fitness_lower_bound:.4f}")
@@ -251,6 +290,23 @@ def main() -> int:
                 weights, args.nests, args.total_iter,
                 args.mcstep_per_atom, args.patience, args.tol,
                 spectator_pairs=spectator_pairs)
+
+    if args.figure_cutoffs:
+        from pymatgen.io.ase import AseAtomsAdaptor
+        from scraps_ase import make_scraps_inputs
+        if not args.species:
+            raise ValueError("--species is required with --figure-cutoffs")
+        make_scraps_inputs(
+            args.work_dir, AseAtomsAdaptor.get_atoms(struct), report.species_counts,
+            report.cell_dim, max_shellnum=args.shells, weights=weights,
+            nests=args.nests, total_iter=args.total_iter, auto_mcstep=args.mcstep_per_atom,
+            early_stop_patience=args.patience, early_stop_tol=args.tol,
+            spectator_basis_species=spectator_pairs, sublattices=sublattices,
+            figure_species=args.species.split(","),
+            figure_cutoffs=[float(x) for x in args.figure_cutoffs.split(",")],
+            figure_objective=args.figure_objective, figure_wd=args.figure_wd,
+            figure_wn=args.figure_wn, figure_wr=args.figure_wr, figure_tol=args.figure_tol)
+        print("  Figure objective enabled; preceding feasibility report concerns legacy pairs only.")
 
     if args.dry_run:
         print(f"  (dry run; INPUT and POSCAR are in {args.work_dir})")

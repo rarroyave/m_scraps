@@ -184,7 +184,14 @@ def make_scraps_inputs(
     auto_budget: int = 0,
     sro_targets: Optional[Sequence[tuple[int, int, int, float]]] = None,
     spectator_basis_species: Optional[Sequence[tuple[int, int]]] = None,
-    sublattices: Optional[Sequence[tuple[int, Sequence[int], Sequence[int]]]] = None,
+    sublattices: Optional[Sequence[tuple[int, Sequence[int], Sequence[int]] | tuple[int, Sequence[int], Sequence[int], Sequence[int]]]] = None,
+    figure_cutoffs: Optional[Sequence[float]] = None,
+    figure_species: Optional[Sequence[str]] = None,
+    figure_objective: str = "weighted_l1",
+    figure_wd: float = 0.0,
+    figure_wn: float = 1.0,
+    figure_wr: float = 1.0,
+    figure_tol: float = 1e-3,
     extra_lines: str = "",
 ) -> tuple[Path, Path]:
     """Write `POSCAR` and `INPUT` files into `work_dir` from ASE Atoms.
@@ -198,8 +205,11 @@ def make_scraps_inputs(
     `sublattices` is an optional list of (id, basis_positions, species_indices)
     tuples for multi-sublattice SQS (v0.4.1+). Each tuple becomes one
     `SUBLATTICE id BASIS b1 b2 ... SPECIES s1 s2 ...` line. Species and
-    basis positions must be disjoint across sublattices; when omitted,
-    SCRAPS uses the default single-sublattice behavior.
+    basis positions must be disjoint across sublattices in legacy pair mode; when omitted,
+    SCRAPS uses the default single-sublattice behavior. In figure mode a fourth
+    tuple member supplies integer local counts aligned with species_indices.
+    Supply it for every group to allow shared species. These counts plus fixed
+    spectators must sum to element_counts, and each group must fill its sites.
 
     `auto_budget` selects a one-keyword MC-budget profile (v0.4.5+):
     1 = basic, 2 = thorough, 3 = exhaustive. When set, the C++ side
@@ -208,6 +218,14 @@ def make_scraps_inputs(
     `total_iter`, or `early_stop_patience` to override the auto-filled
     defaults selectively. Default 0 = off (the legacy mode where
     explicit values are required).
+
+    `figure_cutoffs` enables the native cluster-function objective (pair,
+    triplet, quadruplet diameter cutoffs in Angstrom). Requires icet 4.x and
+    `figure_species` in ELEMENT order. It replaces the legacy pair objective;
+    Shared species with explicit local counts and fixed spectators are supported;
+    SRO targets are not.
+    `figure_wd` controls exponential diameter decay, `figure_wn` the order
+    penalty, and `figure_wr`/`figure_tol` the ATAT-style exact-match reward.
 
     Returns `(poscar_path, input_path)`.
     """
@@ -232,6 +250,27 @@ def make_scraps_inputs(
             f"but supercell will have {expected} atoms "
             f"({len(atoms)} basis x {cell_dim})"
         )
+
+    if figure_cutoffs is None and (figure_species is not None or figure_objective != "weighted_l1"
+            or figure_wd != 0 or figure_wn != 1 or figure_wr != 1 or figure_tol != 1e-3):
+        raise ValueError("figure parameters require figure_cutoffs")
+    if any(len(entry) == 4 for entry in (sublattices or [])) and figure_cutoffs is None:
+        raise ValueError("explicit sublattice counts require figure_cutoffs")
+    if figure_cutoffs is not None:
+        if sro_targets:
+            raise ValueError("figure mode requires random-alloy targets; SRO targets are unsupported")
+        if figure_species is None:
+            raise ValueError("figure_species is required in ELEMENT order for figure export")
+        if figure_objective not in ("weighted_l1", "atat"):
+            raise ValueError("figure_objective must be weighted_l1 or atat")
+        import math
+        if (not all(math.isfinite(x) for x in (figure_wd, figure_wn, figure_wr, figure_tol))
+                or figure_wd < 0 or not 0 < figure_wn <= 1 or figure_wr < 0 or figure_tol < 0):
+            raise ValueError("figure weights must be finite: wd/wr/tol >= 0 and 0 < wn <= 1")
+        from higher_order import export_figures
+        export_figures(work_dir / "FIGURES", atoms, figure_species, element_counts,
+                       cell_dim, figure_cutoffs, sublattices=sublattices,
+                       spectator_basis_species=spectator_basis_species)
 
     write_scraps_poscar(atoms, poscar)
 
@@ -264,13 +303,20 @@ def make_scraps_inputs(
         bi, sp = entry
         body += f"SPECTATOR_BASIS_SPECIES {bi} {sp}\n"
     for entry in (sublattices or []):
-        sub_id, basis_pos, species_idx = entry
+        if len(entry) not in (3, 4):
+            raise ValueError("sublattice entries require id, basis, species, and optional counts")
+        sub_id, basis_pos, species_idx = entry[:3]
         basis_str = " ".join(str(b) for b in basis_pos)
         species_str = " ".join(str(s) for s in species_idx)
-        body += f"SUBLATTICE {sub_id} BASIS {basis_str} SPECIES {species_str}\n"
+        local_counts = " COUNTS " + " ".join(str(c) for c in entry[3]) if len(entry) == 4 else ""
+        body += f"SUBLATTICE {sub_id} BASIS {basis_str} SPECIES {species_str}{local_counts}\n"
     for entry in (sro_targets or []):
         i, j, shell, alpha = entry
         body += f"SRO {i} {j} {shell} {alpha:g}\n"
+    if figure_cutoffs is not None:
+        body += (f"FIGURES_FILE FIGURES\nFIGURE_OBJECTIVE {figure_objective}\n"
+                 f"FIGURE_WD {figure_wd:.17g}\nFIGURE_WN {figure_wn:.17g}\n"
+                 f"FIGURE_WR {figure_wr:.17g}\nFIGURE_TOL {figure_tol:.17g}\n")
     if extra_lines:
         body += extra_lines if extra_lines.endswith("\n") else (extra_lines + "\n")
 
@@ -319,6 +365,10 @@ def run_sqs_from_atoms(
     work_dir = Path(work_dir).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
 
+    if scraps_kwargs.get("figure_cutoffs") is not None:
+        if "figure_species" in scraps_kwargs and list(scraps_kwargs["figure_species"]) != list(species):
+            raise ValueError("figure_species must match the output species ordering")
+        scraps_kwargs["figure_species"] = species
     make_scraps_inputs(work_dir, atoms, element_counts, cell_dim, **scraps_kwargs)
 
     if scraps_bin is None:

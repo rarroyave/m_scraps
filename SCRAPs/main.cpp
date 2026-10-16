@@ -41,6 +41,8 @@ THE SOFTWARE.
 #include <chrono>
 #include <random>
 #include "readInput.hpp"
+#include "FigureObjective.hpp"
+#include <iomanip>
 #include <mpi.h>
 #include <math.h>
 #include <unistd.h>
@@ -55,6 +57,21 @@ static unsigned long g_rng_seed_base = 0;
 // from inputfile.fastSwaps. When true, empty_nests dispatches to
 // empty_nests_fast at the top.
 static bool g_fast_swaps = true;
+static FigureObjective g_figures;
+static double g_figure_best_score = std::numeric_limits<double>::infinity();
+static std::vector<int> g_figure_best;
+
+// An archive is separate from SA/PT chain state so retaining the best visited
+// structure does not change temperature sampling or replica exchanges.
+static void archive_figure(const std::vector<int>& nest, double proposed_score) {
+    if (proposed_score < g_figure_best_score) {
+        double exact = g_figures.score(g_figures.correlations(nest));
+        if (exact < g_figure_best_score) {
+            g_figure_best_score = exact;
+            g_figure_best = nest;
+        }
+    }
+}
 // Process-level controls for targeted (residual-biased) swap proposals.
 // When g_targeted_swaps is true, empty_nests_fast proposes
 // g_targeted_swap_prob of swaps biased toward the species pair (i,j,k)
@@ -85,13 +102,16 @@ static int g_cluster_swap_K = 1;       // 1 = single-swap MC (default)
 // spectator basis positions and species, so every kernel can assume a
 // non-empty partition. g_atom_to_sublattice[i] = -1 means atom i is a
 // spectator. g_species_to_sublattice[s] = -1 means species s is a
-// spectator species. g_allowed_species_by_sublattice[sub] is the set
+// spectator species in the legacy disjoint-species pair path. Figure mode
+// does not use that species-to-group map: a physical species may span groups.
+// g_allowed_species_by_sublattice[sub] is the set
 // of global species indices that may occupy positions in sublattice
 // `sub` (used by randomizeLattice and the targeted-swap residual
 // scoring).
 static std::vector<int> g_atom_to_sublattice;
 static std::vector<int> g_species_to_sublattice;
 static std::vector<std::vector<int>> g_allowed_species_by_sublattice;
+static std::vector<std::vector<int>> g_counts_by_sublattice;
 // Per-sublattice atom count: g_sub_count[sigma] = total atoms on sublattice sigma.
 static std::vector<int> g_sub_count;
 // Per-sublattice-pair coordination tensor:
@@ -237,6 +257,11 @@ void printtoscreen(vector<int> nest, const Lattice &lat, int _typesatoms, vector
 // `center != surr` (compare species directly).
 double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
+    if (g_figures.active()) {
+        double score = g_figures.score(g_figures.correlations(nest));
+        archive_figure(nest, score);
+        return score;
+    }
     // Spectator-aware Warren-Cowley fitness:
     //   - center atoms with initialPlacement[i] >= 0 are skipped entirely
     //     (no SRO is defined for fixed-sublattice positions);
@@ -374,7 +399,8 @@ int get_best_nest(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, v
     sortthenests(_nests, _fitness, max_num_neighs);
     if(n == 1)
     {
-        int fitness_new = fitnessvalue(_newnests[0], lat, _typeatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
+        double fitness_new = fitnessvalue(_newnests[0], lat, _typeatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
+        if (!g_figures.active()) fitness_new = static_cast<int>(fitness_new);
         if (fitness_new < _fitness[0])
         {
             _nests = _newnests;
@@ -403,8 +429,68 @@ during global optimization.
 
  */
 
+// General decorated-figure kernel; all global search and MPI paths dispatch
+// here through empty_nests, while full recomputation remains an audit path.
+int empty_nests_figures(vector<vector<int>>& nests, int iterations,
+                        vector<double>& fitness, const vector<int>& fixed) {
+    static thread_local std::mt19937 generator;
+    static thread_local bool seeded = false;
+    if (!seeded) {
+        generator.seed(g_rng_seed_base ? g_rng_seed_base : std::random_device{}());
+        seeded = true;
+    }
+    std::uniform_int_distribution<int> site(0, g_figures.sites - 1);
+    std::uniform_real_distribution<double> uniform(0.0, 1.0);
+    for (size_t n = 0; n < nests.size(); ++n) {
+        auto current = nests[n];
+        auto correlations = g_figures.correlations(current);
+        double energy = g_figures.score(correlations);
+        archive_figure(current, energy);
+        for (int step = 0; step < iterations; ++step) {
+            auto candidate = current;
+            auto proposed = correlations;
+            for (int k = 0; k < g_cluster_swap_K; ++k) {
+                int a = site(generator);
+                if (fixed[a] >= 0) continue;
+                const auto& peers = g_atoms_by_sublattice[g_atom_to_sublattice[a]];
+                std::uniform_int_distribution<int> peer(0, peers.size() - 1);
+                int b = peers[peer(generator)];
+                if (candidate[a] == candidate[b]) continue;
+                if (g_fast_swaps) proposed = g_figures.swapped(candidate, proposed, a, b);
+                std::swap(candidate[a], candidate[b]);
+            }
+            if (!g_fast_swaps) proposed = g_figures.correlations(candidate);
+            double next = g_figures.score(proposed);
+            archive_figure(candidate, next);
+            double delta = next - energy;
+            bool accept = delta < 0.0;
+            if (g_use_sa) {
+                accept = delta <= 0.0 || (g_sa_current_T > 0.0
+                    && uniform(generator) < std::exp(-delta / g_sa_current_T));
+            } else if (!accept && std::abs(delta) < 1e-12) {
+                accept = uniform(generator) > 0.5;
+            }
+            if (accept) {
+                current = std::move(candidate);
+                correlations = std::move(proposed);
+                energy = next;
+            }
+            // Bound roundoff accumulation without making rejection mutate
+            // accepted correlations. This also audits long accepted chains.
+            if ((step + 1) % 1024 == 0) {
+                correlations = g_figures.correlations(current);
+                energy = g_figures.score(correlations);
+            }
+        }
+        nests[n] = std::move(current);
+        fitness[n] = g_figures.score(g_figures.correlations(nests[n]));
+    }
+    return 0;
+}
+
 int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness , const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
+    if (g_figures.active()) return empty_nests_figures(_nests, iter, origfitness, initialPlacement);
     // Dispatch by MC_KERNEL then FAST_SWAPS:
     //   MC_KERNEL = sa     -> SA acceptance with exponential temperature
     //                         schedule (delta-fitness inside).
@@ -1134,9 +1220,9 @@ vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size
 {
     // initialPlacement[i] = -1 for atoms whose species should be randomized,
     // or a species index (>=0) for atoms whose species is fixed (spectator
-    // sublattice positions). For atoms with fixed species, _maxAtomNum is
-    // consumed upfront in the spectator pass; the random pass then only
-    // touches the free positions and may not draw spectator species.
+    // sublattice positions). The random pass consumes independent local
+    // budgets for free positions; a species fixed elsewhere may also be
+    // allowed on an active sublattice in figure mode.
     // Reproducible-seed-aware RNG, same pattern as in empty_nests.
     static thread_local std::mt19937 gen;
     static thread_local bool seeded = false;
@@ -1163,13 +1249,14 @@ vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size
         }
         // Per-sublattice random pass: each free position draws from the
         // species allowed on its own sublattice, rejecting draws that
-        // exceed the species' ELEMENT budget. Replaces the legacy flat
+        // exceed the species' local budget. Replaces the legacy flat
         // shuffle (which would happily put a metal atom on a carbon site
         // in a multi-sublattice cell). When the partition is a single
         // sublattice spanning all non-spectator basis positions and
         // species (the default synthesized in main() when no SUBLATTICE
         // keyword is present), this reduces exactly to the legacy
         // behavior modulo RNG-trajectory equivalence.
+        auto remaining = g_counts_by_sublattice;
         int i = 0;
         while (i < _size) {
             if (initialPlacement[i] >= 0) {
@@ -1181,9 +1268,10 @@ vector<vector<int>> randomizeLattice(int numofnests, int _typeofatoms, int _size
             std::uniform_int_distribution<> subdis(
                 0, (int) allowed.size() - 1);
             atom = allowed[(int) subdis(gen)];
-            if (atomNum[atom] < _maxAtomNum[atom]) {
+            if (remaining[sub][atom] > 0) {
                 _numofatoms[i] = atom;
                 atomNum[atom] += 1;
+                --remaining[sub][atom];
                 i++;
             }
             // Capacity-mismatch infinite loops are prevented by the
@@ -1217,7 +1305,7 @@ int get_cuckoos(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
     std::copy ( localnests.begin(), localnests.begin() + numofnests, _newnests.begin());
     empty_nests(_newnests, _newnests, iter, fitness, lat, _typesatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
     sortthenests(_newnests, fitness, max_num_neighs);
-    cout << " NEW NESTS FITNESS =<----1----> " << fitness[0] << " <----2----> " << fitness[1] << " <----3----> " << fitness[2] << endl;
+    cout << " NEW NESTS FITNESS = " << fitness[0] << endl;
     return 0;
 }
 void printFinalCoords2File(vector<int> nest, const Lattice &lat, int _typesofatoms, vector<int> _eachElements)
@@ -1389,6 +1477,37 @@ int main(int argc, char ** argv)
     cout << "Creating Lattice....." << endl;
     Lattice templat(basis, dim, atoms, max_num_neighs);
     cout << "Lattice Built....." << endl;
+    if (!inputfile.figuresFile.empty()) {
+        try {
+            g_figures.mode = inputfile.figureObjective;
+            g_figures.wd = inputfile.figureWd;
+            g_figures.wn = inputfile.figureWn;
+            g_figures.wr = inputfile.figureWr;
+            g_figures.tolerance = inputfile.figureTol;
+            g_figures.load(inputfile.figuresFile, templat.supercell.size(), typeofatoms);
+            for (int row = 0; row < 3; ++row) for (int col = 0; col < 3; ++col) {
+                if (std::abs(g_figures.cell[3 * row + col] - templat.real(col, row)) > 1e-7)
+                    throw std::runtime_error("FIGURES_FILE cell differs from POSCAR/Cell_DIM");
+            }
+            for (size_t i = 0; i < templat.supercell.size(); ++i) {
+                const auto& p = templat.supercell[i];
+                Eigen::Vector3d f = templat.frac * Eigen::Vector3d(p.x, p.y, p.z);
+                for (int j = 0; j < 3; ++j) {
+                    double diff = f(j) - g_figures.positions[3 * i + j];
+                    if (std::abs(diff - std::round(diff)) > 1e-7)
+                        throw std::runtime_error("FIGURES_FILE site order differs from SCRAPs lattice");
+                }
+            }
+        } catch (const std::exception& error) {
+            if (id == 0) std::cerr << "ERROR: " << error.what() << std::endl;
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1;
+        }
+        if (id == 0) cout << "FIGURES_FILE: " << g_figures.components.size()
+            << " decorated components, objective=" << g_figures.mode
+            << "; replaces legacy pair fitness (WEIGHT/SRO)." << endl;
+    }
+
 
     // Validate lattice supports the Warren-Cowley formulation before
     // running optimization. coordination_per_shell() aborts with a
@@ -1636,25 +1755,77 @@ int main(int argc, char ** argv)
             return 1;
         }
     }
-    // Per-sublattice ELEMENT-capacity check: sum of ELEMENT[s] for the
-    // species in sublattice S must equal capacity(S) = |basis(S)| * n_cells.
-    // Catches "you assigned 4 metal species totaling 16 atoms but the
-    // metal sublattice has 32 positions" mismatches that would otherwise
-    // hang randomizeLattice or produce nonsense.
-    for (const auto &sub : inputfile.sublattices) {
-        int capacity = (int) sub.basisPositions.size() * n_cells;
+    // Local budgets are conserved independently even when species are shared.
+    g_counts_by_sublattice.assign(inputfile.sublattices.size(), vector<int>(typeofatoms, 0));
+    vector<int> allocated(typeofatoms, 0);
+    for (int sp : initialPlacement) if (sp >= 0) ++allocated[sp];
+    for (size_t group = 0; group < inputfile.sublattices.size(); ++group) {
+        const auto& sub = inputfile.sublattices[group];
+        int capacity = static_cast<int>(sub.basisPositions.size()) * n_cells;
         int demand = 0;
-        for (int sp : sub.speciesAllowed) demand += eachElement[sp];
+        for (size_t j = 0; j < sub.speciesAllowed.size(); ++j) {
+            int sp = sub.speciesAllowed[j];
+            int count = sub.countsSpecified ? sub.speciesCounts[j] : eachElement[sp];
+            g_counts_by_sublattice[group][sp] = count;
+            allocated[sp] += count;
+            demand += count;
+        }
         if (demand != capacity) {
-            cout << "ERROR: SUBLATTICE " << sub.id << " has capacity "
-                 << capacity << " atoms (" << sub.basisPositions.size()
-                 << " basis x " << n_cells << " cells) but its species "
-                 << "ELEMENT counts sum to " << demand
-                 << ". These must be equal. Aborting." << endl;
+            if (id == 0) cerr << "ERROR: SUBLATTICE " << sub.id << " has capacity "
+                << capacity << " but its species counts sum to " << demand << endl;
             MPI_Abort(MPI_COMM_WORLD, 1);
             return 1;
         }
     }
+    if (allocated != eachElement) {
+        if (id == 0) cerr << "ERROR: SUBLATTICE counts plus fixed sites must equal ELEMENT" << endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        return 1;
+    }
+    if (g_figures.active()) {
+        for (const auto& sub : inputfile.sublattices) {
+            if (sub.countsSpecified && g_figures.siteGroups.empty()) {
+                if (id == 0) cerr << "ERROR: SUBLATTICE COUNTS requires FIGURES_FILE format version 3" << endl;
+                MPI_Abort(MPI_COMM_WORLD, 1);
+                return 1;
+            }
+        }
+        if (g_figures.allowedSpecies.empty() &&
+            (!inputfile.spectatorBasisSpecies.empty() || inputfile.sublattices.size() != 1 ||
+             inputfile.sublattices[0].speciesAllowed.size() != static_cast<size_t>(typeofatoms))) {
+            if (id == 0) cerr << "ERROR: constrained FIGURES_FILE requires format version 2" << endl;
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            return 1;
+        }
+        for (int i = 0; i < total_atoms && !g_figures.allowedSpecies.empty(); ++i) {
+            vector<int> allowed = initialPlacement[i] >= 0
+                ? vector<int>{initialPlacement[i]}
+                : g_allowed_species_by_sublattice[g_atom_to_sublattice[i]];
+            std::sort(allowed.begin(), allowed.end());
+            if (!g_figures.siteGroups.empty()) {
+                int group = g_atom_to_sublattice[i];
+                vector<int> counts(typeofatoms, 0);
+                if (initialPlacement[i] >= 0) {
+                    group = -1;
+                    counts[initialPlacement[i]] = 1;
+                } else {
+                    counts = g_counts_by_sublattice[group];
+                }
+                if (g_figures.siteGroups[i] != group || g_figures.siteCounts[i] != counts) {
+                    if (id == 0) cerr << "ERROR: FIGURES_FILE group/count metadata disagree with SUBLATTICE at site " << i << endl;
+                    MPI_Abort(MPI_COMM_WORLD, 1);
+                    return 1;
+                }
+            }
+            if (allowed != g_figures.allowedSpecies[i]) {
+                if (id == 0) cerr << "ERROR: FIGURES_FILE allowed species disagree with "
+                    "SUBLATTICE/SPECTATOR_BASIS_SPECIES at site " << i << endl;
+                MPI_Abort(MPI_COMM_WORLD, 1);
+                return 1;
+            }
+        }
+    }
+
     if (id == 0 && inputfile.sublattices.size() > 1) {
         cout << "[SUBLATTICE] active partition: "
              << inputfile.sublattices.size() << " sublattices, "
@@ -1715,8 +1886,8 @@ int main(int argc, char ** argv)
     // style cells work as long as each Wyckoff orbit is its own
     // SUBLATTICE block. Without SUBLATTICE, the legacy single-
     // sublattice global-uniformity check applies.
-    vector<int> z_per_shell = templat.coordination_per_shell(
-        initialPlacement, g_atom_to_sublattice);
+    if (!g_figures.active())
+        templat.coordination_per_shell(initialPlacement, g_atom_to_sublattice);
 
     // Feasibility check (rank 0 only): warn the user if the configured
     // ELEMENT counts make any weighted target pair count non-integer, in
@@ -1734,7 +1905,7 @@ int main(int argc, char ** argv)
     // divisibility constraint still applies; the warning is printed
     // assuming alpha=0 since that's the common case for which the
     // floor is most surprising to users.
-    if (id == 0) {
+    if (id == 0 && !g_figures.active()) {
         // Per-sublattice feasibility check. The expected target pair count
         // is target_ij^k = N_i * z[sigma->tau][k] * N_j / N_tau, matching
         // the per-sublattice fitness formula in fitnessvalue/
@@ -1859,6 +2030,8 @@ int main(int argc, char ** argv)
             MPI_Abort(MPI_COMM_WORLD, 1);
         }
         vector<int> per_species(typeofatoms, 0);
+        auto local_counts = g_counts_by_sublattice;
+        for (auto& counts : local_counts) std::fill(counts.begin(), counts.end(), 0);
         for (int i = 0; i < total_atoms; ++i) {
             int s = init_nest[i];
             if (s < 0 || s >= typeofatoms) {
@@ -1870,6 +2043,15 @@ int main(int argc, char ** argv)
                 MPI_Abort(MPI_COMM_WORLD, 1);
             }
             per_species[s] += 1;
+            if (initialPlacement[i] < 0) {
+                int group = g_atom_to_sublattice[i];
+                const auto& allowed = g_allowed_species_by_sublattice[group];
+                if (std::find(allowed.begin(), allowed.end(), s) == allowed.end()) {
+                    if (id == 0) cerr << "ERROR: INIT_NEST violates SUBLATTICE allowed species" << endl;
+                    MPI_Abort(MPI_COMM_WORLD, 1);
+                }
+                ++local_counts[group][s];
+            }
             if (initialPlacement[i] >= 0 && initialPlacement[i] != s) {
                 if (id == 0) {
                     cout << "ERROR: INIT_NEST atom " << i << " has species "
@@ -1888,6 +2070,10 @@ int main(int argc, char ** argv)
                 }
                 MPI_Abort(MPI_COMM_WORLD, 1);
             }
+        }
+        if (local_counts != g_counts_by_sublattice) {
+            if (id == 0) cerr << "ERROR: INIT_NEST violates SUBLATTICE species counts" << endl;
+            MPI_Abort(MPI_COMM_WORLD, 1);
         }
         if (!nests.empty()) nests[0] = init_nest;
         if (!new_nests.empty()) new_nests[0] = init_nest;
@@ -1974,7 +2160,7 @@ int main(int argc, char ** argv)
     // termination; in cuckoo/SA mode the original behavior is kept.
     auto loop_condition = [&]() -> bool {
         if (iters >= iterTotal) return false;
-        if (g_use_pt) return true;  // PT: only TOTALIter terminates
+        if (g_use_pt || g_figures.active()) return true;  // Negative figure scores are valid.
         return error > epsi;
     };
     while (loop_condition())
@@ -2118,6 +2304,7 @@ int main(int argc, char ** argv)
             }
         }
     }
+    if (g_figures.active() && !g_figure_best.empty()) nests[0] = g_figure_best;
     vector<int> nest1D;
     if (id != 0) {
         for (int i = 0; i < nestsperproc; i++)
@@ -2142,10 +2329,31 @@ int main(int argc, char ** argv)
         }
         fitness = fitnessofnests(nests, templat, typeofatoms, eachElement, max_num_neighs, weights, targetSROpair, initialPlacement);
         sortthenests(nests, fitness, max_num_neighs);
+        if (g_figures.active()) cout << std::setprecision(17);
         cout << "FINAL fitness (best across all " << nests.size() << " merged nests) = "
              << fitness[0] << endl;
-        printtoscreen(nests[0], templat, typeofatoms, eachElement, initialPlacement);
+        if (!g_figures.active())
+            printtoscreen(nests[0], templat, typeofatoms, eachElement, initialPlacement);
         printFinalCoords2File(nests[0], templat, typeofatoms, eachElement);
+        if (g_figures.active()) {
+            auto correlations = g_figures.correlations(nests[0]);
+            std::ofstream report("FIGURE_CORRELATIONS.csv");
+            report << "component,order,diameter,target,correlation,error\n" << std::setprecision(17);
+            double maxError = 0.0;
+            for (size_t c = 0; c < correlations.size(); ++c) {
+                const auto& component = g_figures.components[c];
+                double residual = std::abs(correlations[c] - component.target);
+                maxError = std::max(maxError, residual);
+                report << c << ',' << component.order << ',' << component.diameter << ','
+                    << component.target << ',' << correlations[c] << ',' << residual << '\n';
+            }
+            std::ofstream occupations("FIGURE_OCCUPATIONS.txt");
+            for (int species : nests[0]) occupations << species << '\n';
+            cout << "FIGURE maximum absolute residual = " << std::setprecision(17) << maxError
+                 << "; all components within FIGURE_TOL: "
+                 << (maxError <= g_figures.tolerance ? "yes" : "no") << endl;
+        }
+
     //cout << "HELOO" << endl;
         auto done = std::chrono::high_resolution_clock::now();
         std::cout << "TIME TAKEN ->  ";

@@ -51,6 +51,9 @@ using namespace std;
 class readInput{
 public:
  // Input Variables
+    std::string figuresFile;
+    std::string figureObjective = "weighted_l1";
+    double figureWd = 0.0, figureWn = 1.0, figureWr = 1.0, figureTol = 1e-3;
     int typeofatoms;
     int globalIter;
     vector<int> maxAtomNum;
@@ -160,18 +163,21 @@ public:
     // Multi-sublattice support. Each SUBLATTICE block in INPUT declares
     // (a) which basis positions belong to that sublattice and (b) which
     // global species indices (0..TYP-1) are allowed there. Species and
-    // basis positions must be disjoint across sublattices: each species
+    // basis positions must be disjoint in legacy pair mode: each species
     // lives on exactly one sublattice and each basis position belongs to
     // exactly one sublattice (or to a SPECTATOR_BASIS_SPECIES rule).
     // When no SUBLATTICE keyword appears in INPUT, `sublattices` is left
     // empty and the optimizer falls back to its legacy single-sublattice
     // path (all positions free, all species global). This is the
     // backward-compatible default. INPUT line format:
-    //   SUBLATTICE <id> BASIS <b1> <b2> ... SPECIES <s1> <s2> ...
+    //   SUBLATTICE <id> BASIS <b1> ... SPECIES <s1> ... [COUNTS <n1> ...]
+    // In figure mode explicit local COUNTS permit shared physical species.
     struct SublatticeSpec {
         int id;
         std::vector<int> basisPositions;  // basis indices into POSCAR
         std::vector<int> speciesAllowed;  // global species indices
+        std::vector<int> speciesCounts;   // optional local budgets aligned with speciesAllowed
+        bool countsSpecified = false;
     };
     std::vector<SublatticeSpec> sublattices;
 
