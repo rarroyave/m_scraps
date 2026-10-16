@@ -59,5 +59,7 @@ jobs:
 
       - name: Run full test suite (Python verifiers + end-to-end optimization)
         env:
+          # Correctness tests use up to four ranks on small hosted runners.
+          OMPI_MCA_rmaps_base_oversubscribe: "1"
           MPIRUN: ${{ runner.os == 'macOS' && '/opt/homebrew/bin/mpirun' || 'mpirun' }}
         run: pytest tools/tests/ -v
