@@ -126,11 +126,14 @@ def _composition(atoms, sublattices, composition):
     return labels, config['allowed'], fractions
 
 
-def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadline, progress=None):
+def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadline, progress=None, stop_at_bound=True):
     """Small Python SA using the explicit pair-SRO metric, not native fitness."""
     start = time.monotonic()
     analysis = analyze_structure(atoms, cutoff=cutoff, shells=shells, sublattices=config, sro_targets=targets)
     bound = sro_bounds(atoms, cutoff=cutoff, shells=shells, sublattices=config, targets=targets, metric=metric)
+    from sro_stopping import SROBoundStop
+    stopper = SROBoundStop(atoms, cutoff=cutoff, shells=shells, sublattices=config,
+                           targets=targets, metric=metric) if stop_at_bound else None
     labels = np.asarray(config['site_labels'])
     ii, jj, distances = neighbor_list('ijd', atoms, cutoff)
     rows = {tuple(row[k] for k in KEYS): row for row in analysis['sro']}
@@ -162,8 +165,9 @@ def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadlin
             progress(dict(elapsed_seconds=time.monotonic() - start, best_error=best_value, steps=completed))
     emit(0)
     completed = 0
+    attained = stopper(atoms) if stopper else False
     for step in range(steps if groups else 0):
-        if time.monotonic() >= deadline:
+        if attained or time.monotonic() >= deadline:
             break
         group = groups[int(rng.integers(len(groups)))]
         i, j = rng.choice(group, 2, replace=False)
@@ -175,6 +179,10 @@ def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadlin
             if value < best_value:
                 best, best_value = current.copy(), value
                 emit(step + 1)
+                if stopper:
+                    candidate = atoms.copy()
+                    candidate.set_chemical_symbols(best.tolist())
+                    attained = stopper(candidate)
         else:
             current[i], current[j] = current[j], current[i]
         completed += 1
@@ -184,7 +192,8 @@ def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadlin
     return dict(method='python_pair_sro_sa', status='certified_minimum' if final['result']['status'] == 'certified_minimum' else 'best_found',
                 best_error=final['result']['achieved_upper_bound'], lower_bound=final['result']['lower_bound'],
                 steps=completed, seed=seed, temperature_start=0.1, temperature_end=0.0001,
-                stop_reason='steps' if completed == steps or not groups else 'time_limit'), witness
+                certificate=stopper.certificate if stopper else None,
+                stop_reason='bound_attained' if attained else 'steps' if completed == steps or not groups else 'time_limit'), witness
 
 
 def search_cells(atoms, *, cutoff, targets, min_atoms, max_atoms, sublattices=None,

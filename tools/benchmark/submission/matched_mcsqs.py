@@ -121,9 +121,9 @@ def prepare(case):
     report=dict(case=case['id'],components=len(targets),orders=sorted(set(f['order'] for f in model['features'])),target_error=target_error,random_probe_errors=errors,native_pilot_atat_errors=native_errors,preparation_seconds=time.perf_counter()-start,input_hashes={n:digest(d/n) for n in ['rndstr.in','clusters.out','sqscell.out','target-correlations.in']},shared_species_labels=model['uses_auxiliary_labels'])
     save(done,report);return report
 
-def run_mcsqs(case,profile,seed,out,budget=60,workers=4):
+def run_mcsqs(case,profile,seed,out,budget=60,workers=4,stop_check=None):
     out.mkdir(parents=True);source=input_dir(case);model=model_for(case);parsed=parsed_for(case)
-    processes=[];logs=[];snapshots=[];errors=[]
+    processes=[];logs=[];snapshots=[];errors=[];attained=False
     for rank in range(workers):
         d=out/f'worker-{rank}';d.mkdir()
         for name in ['rndstr.in','clusters.out','sqscell.out','target-correlations.in']:(d/name).symlink_to(source/name)
@@ -141,6 +141,16 @@ def run_mcsqs(case,profile,seed,out,budget=60,workers=4):
                     dest=out/f'snapshot-{deadline}-{rank}.out';dest.write_bytes(sourcefile.read_bytes())
                     observed=time.perf_counter()-start
                     if observed<=budget:snapshots.append(dict(file=dest.name,available_seconds=observed,deadline=deadline,rank=rank))
+                    if observed<=budget and stop_check is not None:
+                        try:
+                            occ=occupations(dest,model,case)
+                        except (ValueError, OSError, IndexError):
+                            continue  # ATAT may be writing a non-atomic output.
+                        if stop_check(occ):
+                            attained=True
+                            break
+            if attained:
+                break
     finally:
         codes=[p.poll() for p in processes]
         for p in processes:
@@ -182,6 +192,8 @@ def run_mcsqs(case,profile,seed,out,budget=60,workers=4):
     else:errors.append(dict(error='No valid mcsqs output within budget'))
     passage={metric:[bench.first_passage(candidates,metric,t,budget) for t in thresholds] for metric,thresholds in [('max_error',[.05,.025,.01,.001]),('weighted_l1',[.01,.005,.002,.001])]}
     record=dict(case=case['id'],method='mcsqs',profile=profile['name'],seed=seed,ranks=workers,budget_seconds=budget,search_wall_seconds=search_wall,assessment_seconds=time.perf_counter()-assessed,errors=errors,invalid_snapshots=invalid,candidates=candidates,passage=passage,native_target_errors=target_errors,atat_discrepancies=discrepancy,snapshot_policy='One-second observations through 10 s, then every 5 s; first observed upper bounds, not exact internal attainment')
+    if stop_check is not None:
+        record['stop_reason']='bound_attained' if attained else 'time_limit'
     save(out/'result.json',record);return record
 
 def record_run(case,profile,seed,out,method,budget=60):

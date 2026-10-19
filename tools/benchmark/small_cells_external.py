@@ -113,6 +113,9 @@ def assess(record, case, root, m):
                elapsed_seconds=record['search_wall_seconds'],
                lower_bound=case['reference']['lower_bound'], certified_optimum=case['reference']['optimum'],
                errors=record['errors'], timing_basis='process launch through observed output; imports included, input preparation excluded')
+    if 'stop_reason' in record:
+        row['stop_reason'] = record['stop_reason']
+        row['stopping_certificate'] = record.get('stopping_certificate')
     no_output = {'No completed native output within budget', 'No valid mcsqs output within budget', 'No completed icet output within budget'}
     if any(error.get('error') not in no_output for error in record['errors']):
         raise RuntimeError(f"Invalid trial {row['case']} {row['method']}: {record['errors']}")
@@ -159,6 +162,7 @@ def main():
     parser.add_argument('--atat-bin', type=Path, required=True)
     parser.add_argument('--seconds', type=float, default=5)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--stop-at-bound', action='store_true', help='Verify exact pair-SRO optimum before stopping workers')
     parser.add_argument('--prepare-only', action='store_true')
     args = parser.parse_args()
     REFERENCES = args.reference.resolve()
@@ -182,7 +186,7 @@ def main():
         assert dst.read_bytes() == (args.atat_bin/name).read_bytes()
     fingerprints = {str(p.resolve()):hashlib.sha256(p.read_bytes()).hexdigest() for p in
                     [Path(__file__),args.binary,args.mpirun,*m.BIN.iterdir(),
-                     TOOLS/'higher_order.py',TOOLS/'structure_analysis.py',TOOLS/'benchmark_atat_reference.py',
+                     TOOLS/'sro_stopping.py',TOOLS/'sro_bounds.py',TOOLS/'sro_joint_bounds.py',TOOLS/'higher_order.py',TOOLS/'structure_analysis.py',TOOLS/'benchmark_atat_reference.py',
                      Path(m.__file__),Path(e.__file__),REFERENCES/'cases.json']}
     if (root/'manifest.json').exists(): assert json.loads((root/'manifest.json').read_text()) == fingerprints, 'Source changed; use a new output directory'
     else: save(root/'manifest.json',fingerprints)
@@ -194,6 +198,9 @@ def main():
         comparison='Earlier in-process Python SA timings exclude interpreter startup and include method preparation: no direct speedup claim against those times.',
         thresholds=[.01,.05], threshold_tolerance=1e-12, units='maximum absolute pair-SRO error; RMS and MAE identical for this single component',
         scope='Fixed cells, no shape search, no higher-order correlations; one-seed screen, not statistical ranking.')
+    protocol['stop_at_bound'] = args.stop_at_bound
+    if args.stop_at_bound:
+        protocol['timing'] += ' Live certificate verification is included in the search budget.'
     if (root/'protocol.json').exists(): assert json.loads((root/'protocol.json').read_text()) == protocol, 'Protocol changed; use a new output directory'
     else: save(root/'protocol.json',protocol)
     save(root/'environment.json',dict(python=sys.version,platform=platform.platform(),hostname=platform.node(),
@@ -205,11 +212,25 @@ def main():
     for index,(case,method) in enumerate(jobs):
         save(root/'status.json',dict(state='running',completed=index,total=len(jobs),case=case['id'],method=method,pid=os.getpid()))
         out=root/'results'/case['id']/method/str(args.seed)
+        stop_check = None
+        if args.stop_at_bound:
+            from sro_stopping import SROBoundStop
+            model = m.model_for(case)
+            occ = np.empty(case['sites'], int)
+            for gid, group in enumerate(model['sublattice_groups']):
+                occ[np.asarray(model['site_groups']) == gid] = np.repeat(group['species'], group['counts'])
+            initial = atoms_for(model, occ)
+            labels = ['all'] * len(initial) if case['kind'] == 'bcc' else ['M' if g == 0 else 'X' for g in model['site_groups']]
+            stopper = SROBoundStop(initial, cutoff=case['cutoffs'][0], shells=1,
+                targets=case['reference']['targets'],
+                sublattices=dict(site_labels=labels, allowed=case['reference']['sublattices']['allowed']))
+            def stop_check(occ):
+                return stopper(atoms_for(model, occ))
         if (out/'result.json').exists(): record=json.loads((out/'result.json').read_text())
         else:
             if out.exists(): out.rename(out.with_name(out.name+'-interrupted-'+str(time.time_ns())))
-            if method=='mcsqs': record=m.run_mcsqs(case,PROFILE,args.seed,out,budget=args.seconds,workers=1)
-            elif method=='icet_atat': record=e.trial(case,PROFILE,args.seed,out,budget=args.seconds,workers=1)
+            if method=='mcsqs': record=m.run_mcsqs(case,PROFILE,args.seed,out,budget=args.seconds,workers=1,stop_check=stop_check)
+            elif method=='icet_atat': record=e.trial(case,PROFILE,args.seed,out,budget=args.seconds,workers=1,stop_check=stop_check)
             else:
                 original=bench.input_text
                 def native_input(c,p,s):
@@ -219,8 +240,10 @@ def main():
                     return content
                 bench.input_text=native_input
                 try: record=bench.run_trial(case,PROFILE,args.seed,SimpleNamespace(seconds=args.seconds,ranks=1,
-                    binary=args.binary.resolve(),mpirun=str(args.mpirun.resolve()),checkpoint_seconds=.25),out)
+                    binary=args.binary.resolve(),mpirun=str(args.mpirun.resolve()),checkpoint_seconds=.25),out,stop_check=stop_check)
                 finally: bench.input_text=original
+            if args.stop_at_bound:
+                record['stopping_certificate'] = stopper.certificate
             record['method']=method; save(out/'result.json',record)
         row=assess(record,case,root,m); rows.append(row); save(root/'summary.json',rows)
         print(json.dumps({k:row.get(k) for k in ['case','method','max_error','gap_to_optimum','time_to_0.01']}),flush=True)

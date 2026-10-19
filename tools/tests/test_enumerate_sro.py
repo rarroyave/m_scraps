@@ -172,12 +172,13 @@ def test_initial_proof_needs_no_enumeration_even_above_cap(monkeypatch):
     assert result['total_configurations'] == 6 and not result['complete']
 
 
-def test_loose_zero_bound_does_not_stop_search():
+def test_joint_bound_certifies_conflicting_reciprocal_targets():
     targets = [target(0), target(-1, a='Zn', b='Cu')]
     result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=targets)
-    assert result['relaxed_lower_bound'] == 0
+    assert result['relaxed_lower_bound'] == 1
     assert result['best_error'] == 1
-    assert result['complete'] and result['certificate_basis'] == 'exhaustion'
+    assert result['certificate_basis'] == 'bound_attained'
+    assert result['evaluated_configurations'] == 0
 
 
 def test_progress_observes_initial_state_and_strict_improvements():

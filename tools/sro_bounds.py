@@ -1,6 +1,6 @@
 """Rigorous necessary pair-count bounds for fixed-composition SRO targets.
 
-This independent-component relaxation is not a lattice realizability solver.
+These independent and joint count relaxations are not lattice realizability solvers.
 It requires uniform coordination within each requested sublattice-pair shell.
 """
 from __future__ import annotations
@@ -101,7 +101,7 @@ def graph_count_bound(ii, jj, sites, composition, source, destination, a, b,
 
 def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
                reference=None, tolerance=0.2, shell_tolerance=1e-5,
-               metric='max_error'):
+               metric='max_error', joint=True, max_joint_states=10000):
     """Bound errors on only the explicitly supplied directed SRO components.
 
     Composition comes from the input occupations; optional sublattice counts
@@ -110,6 +110,8 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
     exact arithmetic for bounds/certificates; JSON numerical fields are rounded
     floating-point presentations of those values.
     """
+    if isinstance(max_joint_states, bool) or not isinstance(max_joint_states, int) or max_joint_states < 1:
+        raise ValueError('max_joint_states must be a positive integer')
     if metric not in METRICS:
         raise ValueError(f'Unknown metric: {metric}')
     if not isinstance(targets, list) or not targets:
@@ -122,6 +124,7 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
     centers, neighbors, distances = neighbor_list('ijd', geometry, cutoff)
     lookup = {tuple(row[k] for k in KEYS): row for row in report['sro']}
     entries, lower, achieved = [], [], []
+    blocks = {}
     for target in targets:
         key = tuple(target[k] for k in KEYS)
         row = lookup[key]
@@ -137,6 +140,14 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
                              'split the sites into uniform sublattices or use an ideal reference')
         z_src, z_dst = int(src_degrees[0]), int(dst_degrees[0])
         src, dst = report['composition'][source], report['composition'][destination]
+        # Match exact edge multisets, including reverse-oriented target shells.
+        reverse = source > destination
+        ci, cj = (jj, ii) if reverse else (ii, jj)
+        cs, cd = (destination, source) if reverse else (source, destination)
+        graph_key = (cs, cd, tuple(sorted(Counter(zip(ci.tolist(), cj.tolist())).items())))
+        block = blocks.setdefault(graph_key, dict(source=cs, destination=cd, ii=ci, jj=cj,
+            z_src=z_dst if reverse else z_src, z_dst=z_src if reverse else z_dst, indices=[]))
+        block['indices'].append(len(entries))
         n_a, n_b = src['counts'][a], dst['counts'][b]
         center_bonds, neighbor_bonds = n_a * z_src, n_b * z_dst
         denominator = Fraction(center_bonds * n_b, dst['sites'])
@@ -164,6 +175,12 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
     count = len(entries)
     exact_lower = {'max_error': max(lower), 'mean_absolute_error': sum(lower) / count,
                    'rms_error': sum(e * e for e in lower) / count}
+    independent_lower = exact_lower.copy()
+    joint_diagnostics = []
+    if joint:
+        from sro_joint_bounds import joint_count_bounds
+        exact_lower, joint_diagnostics = joint_count_bounds(blocks, entries, report['composition'],
+                                                           len(atoms), max_joint_states)
     exact_upper = {'max_error': max(achieved), 'mean_absolute_error': sum(achieved) / count,
                    'rms_error': sum(e * e for e in achieved) / count}
     metrics = {}
@@ -177,7 +194,10 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
             optimality_gap=high - low, status='certified_minimum' if lo == hi else 'lower_bound',
             exact_value_convention='squared error' if name == 'rms_error' else 'error',
             lower_bound_exact=str(lo), achieved_upper_bound_exact=str(hi))
-    return dict(schema_version=2, objective='directed_pair_sro', method='independent_integer_pair_counts',
+    return dict(schema_version=3, objective='directed_pair_sro',
+        method='joint_integer_pair_counts' if joint else 'independent_integer_pair_counts',
+        joint=dict(enabled=joint, max_states_per_block=max_joint_states, blocks=joint_diagnostics),
+        independent_lower_bounds_exact={k: str(v) for k, v in independent_lower.items()},
         selected_metric=metric, result=metrics[metric], metrics=metrics,
         sites=len(atoms), composition=report['composition'], entries=entries,
         convention=report['convention'], shell_coverage=report['shell_coverage'],
@@ -187,8 +207,9 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
             'Only explicit targets contribute; equal weights; shells are one-based per sublattice pair.',
             'Integer capacities, periodic-bond multiplicity congruences, self-image restrictions, and binary cut parity are enforced.',
             'count_step=0 denotes a fixed count; otherwise admissible counts equal count_offset modulo count_step.',
-            'Components are relaxed independently; joint neighbor totals, cross-component reciprocity, '
-            'SRO sum rules, and full lattice realizability are not jointly optimized.',
+            ('Completed joint blocks enforce neighbor totals and reciprocity on each identical bond graph; capped blocks fall back to independent bounds.'
+             if joint else 'Components are relaxed independently.'),
+            'Different bond graphs and full occupation realizability remain relaxed; joint count tables are not enumerated structures.',
             'A zero lower bound alone does not establish feasibility. Certification requires the supplied witness to attain it.',
             'These are SRO-error bounds, not bounds on decorated figure-correlation or native weighted bond-count objectives.'])
 
@@ -204,6 +225,8 @@ def main(argv=None):
     parser.add_argument('--tolerance', type=float, default=0.2)
     parser.add_argument('--shell-tolerance', type=float, default=1e-5)
     parser.add_argument('--metric', choices=METRICS, default='max_error')
+    parser.add_argument('--independent', action='store_true', help='Disable joint count-table bounds')
+    parser.add_argument('--max-joint-states', type=int, default=10000)
     parser.add_argument('--output', type=Path, help='JSON output; default stdout')
     args = parser.parse_args(argv)
     try:
@@ -211,7 +234,8 @@ def main(argv=None):
             targets=json.loads(args.targets.read_text()), shells=args.shells,
             sublattices=json.loads(args.sublattices.read_text()) if args.sublattices else None,
             reference=read(args.reference) if args.reference else None,
-            tolerance=args.tolerance, shell_tolerance=args.shell_tolerance, metric=args.metric)
+            tolerance=args.tolerance, shell_tolerance=args.shell_tolerance, metric=args.metric,
+            joint=not args.independent, max_joint_states=args.max_joint_states)
         inputs = {'structure': args.structure, 'targets': args.targets,
                   'sublattices': args.sublattices, 'reference': args.reference}
         result['inputs'] = {name: dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())

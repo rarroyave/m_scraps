@@ -187,3 +187,72 @@ def test_graph_congruences_against_every_small_graph_decoration():
                 for v in actual:
                     assert low <= v <= high
                     assert (v-offset) % step == 0 if step else v == offset
+
+
+def test_joint_reciprocity_conflict_and_safe_cap():
+    atoms = Atoms('Cu2Zn2', positions=[[i, 0, 0] for i in range(4)], cell=[4, 8, 8], pbc=True)
+    targets = [target(0), target(-1, a='Zn', b='Cu')]
+    result = sro_bounds(atoms, cutoff=1.1, targets=targets)
+    assert result['independent_lower_bounds_exact']['max_error'] == '0'
+    assert result['result']['lower_bound_exact'] == '1'
+    assert result['metrics']['mean_absolute_error']['lower_bound_exact'] == '1/2'
+    assert result['metrics']['rms_error']['lower_bound_exact'] == '1/2'
+    assert result['joint']['blocks'][0]['strengthened']
+    capped = sro_bounds(atoms, cutoff=1.1, targets=targets, max_joint_states=1)
+    assert capped['result']['lower_bound_exact'] == '0'
+    assert capped['joint']['blocks'][0]['status'] == 'state_cap'
+    independent = sro_bounds(atoms, cutoff=1.1, targets=targets, joint=False)
+    assert independent['result']['lower_bound_exact'] == '0'
+
+
+def test_joint_ternary_neighbor_totals_against_all_occupations():
+    from itertools import permutations
+    atoms = Atoms('Cu2Zn2Al2', positions=[[i, 0, 0] for i in range(6)], cell=[6, 8, 8], pbc=True)
+    targets = [target(1, a='Cu', b=b) for b in ('Cu', 'Zn', 'Al')]
+    report = sro_bounds(atoms, cutoff=1.1, targets=targets)
+    assert all(v == '0' for v in report['independent_lower_bounds_exact'].values())
+    assert report['result']['lower_bound'] > 0
+    minima = {k: float('inf') for k in report['metrics']}
+    for symbols in set(permutations('Cu Cu Zn Zn Al Al'.split())):
+        atoms.set_chemical_symbols(symbols)
+        actual = analyze_structure(atoms, cutoff=1.1, sro_targets=targets)['sro_comparison']['metrics']
+        for k in minima:
+            minima[k] = min(minima[k], actual[k])
+    for k in minima:
+        assert report['metrics'][k]['lower_bound'] <= minima[k] + 1e-14
+
+
+def test_joint_multisublattice_reversed_graph_conflict():
+    atoms = Atoms('CuZnCuZn', positions=[[i, 0, 0] for i in range(4)], cell=[4, 8, 8], pbc=True)
+    config = dict(site_labels=['A', 'A', 'B', 'B'], allowed={'A': ['Cu', 'Zn'], 'B': ['Cu', 'Zn']})
+    targets = [target(-1, source='A', destination='B'),
+               target(1, source='B', destination='A', a='Zn', b='Cu')]
+    report = sro_bounds(atoms, cutoff=1.1, targets=targets, sublattices=config)
+    assert report['independent_lower_bounds_exact']['max_error'] == '0'
+    assert report['result']['lower_bound_exact'] == '2'
+    assert report['joint']['blocks'][0]['target_indices'] == [0, 1]
+
+
+def test_joint_unequal_coordination_and_compositions():
+    atoms = Atoms('Cu6', positions=[[i, 0, 0] for i in range(6)], cell=[6, 8, 8], pbc=True)
+    config = dict(site_labels=['A', 'B', 'B', 'A', 'B', 'B'],
+                  allowed={'A': ['Cu', 'Zn'], 'B': ['Cu', 'Zn']},
+                  counts={'A': {'Cu': 1, 'Zn': 1}, 'B': {'Cu': 3, 'Zn': 1}})
+    targets = [target(.4, source='A', destination='B'),
+               target(-.2, source='B', destination='A', a='Zn', b='Cu'),
+               target(.1, source='A', destination='B', b='Cu')]
+    minima = {k: float('inf') for k in ('max_error', 'rms_error', 'mean_absolute_error')}
+    bounds = []
+    for a in (0, 3):
+        for b in (1, 2, 4, 5):
+            atoms.set_chemical_symbols(['Zn' if i in (a, b) else 'Cu' for i in range(6)])
+            result = sro_bounds(atoms, cutoff=1.1, sublattices=config, targets=targets)
+            assert len(result['joint']['blocks']) == 1
+            assert result['entries'][0]['coordination'] == 2
+            assert result['entries'][0]['reverse_coordination'] == 1
+            for k in minima:
+                minima[k] = min(minima[k], result['metrics'][k]['achieved_upper_bound'])
+            bounds.append(result)
+    for result in bounds:
+        for k in minima:
+            assert result['metrics'][k]['lower_bound'] <= minima[k] + 1e-14

@@ -53,6 +53,9 @@ attributed to its authors.
   as the default cuckoo MC kernel. Parallel tempering (`MC_KERNEL pt`), compound
   atom swaps, targeted proposals, and warm starts provide additional search
   options; their availability does not establish a performance advantage.
+- **Certified pair-SRO error floors:** joint integer count constraints detect
+  incompatible targets, and verified bound matches stop controlled stochastic
+  searches for single- and multi-sublattice cells.
 - **Independent structure analysis:** evaluate Warren–Cowley SRO and decorated
   cluster correlations for supplied structures, with supplied reference geometry
   and figure definitions where needed, independently of running the optimizer.
@@ -1274,8 +1277,9 @@ to a congruence class. Self-image bonds cannot connect unlike species; for binar
 within-sublattice components, cross counts equal outgoing species stubs minus
 same-species bonds, giving a stronger parity/multiplicity constraint. The nearest
 count satisfying these necessary conditions gives a
-componentwise error floor; maximum, RMS, and mean absolute floors are formed
-from those componentwise bounds. Exact rational quantities are retained in
+componentwise error floor. For multiple targets on the same bond graph, a
+joint count-table relaxation strengthens the maximum, RMS, and mean absolute
+floors using fixed neighbor totals and reciprocity. Exact rational quantities are retained in
 JSON (for RMS, the exact field stores the squared error).
 
 For example, a 32-site equiatomic BCC cell has D = 16 × 8 × 0.5 = 64 for its
@@ -1293,9 +1297,17 @@ Interpret the output as follows:
 - `status: lower_bound`: a nonzero gap remains. In particular, a zero lower
   bound does **not** prove that the target is attainable.
 
-This remains an **independent pair-count relaxation**. It does
-not jointly optimize neighbor totals, reciprocal target components, SRO sum
-rules, or full lattice realizability, so its bound can be loose. It supports
+Joint checks enumerate integer count tables, including untargeted species
+pairs needed to enforce row and column totals. Within a sublattice, the table
+is symmetric; reversed cross-sublattice targets share the same count variable.
+Reports identify the target indices in each block and explain when these
+constraints strengthen the independent floor. Different bond graphs and full
+occupation realizability remain relaxed, so the bound can still be loose.
+`--max-joint-states 10000` caps work per block; incomplete blocks discard their
+partial minima and safely retain the independent floor. `--independent` selects
+the earlier relaxation. The Python equivalents are `max_joint_states` and `joint`.
+A lower bound above an acceptable error proves that tolerance impossible;
+a zero lower bound does not prove a compatible decoration exists. It supports
 shared species across labeled sublattices, but requires uniform coordination
 within each requested sublattice-pair shell. Nonuniform cases are rejected;
 provide a suitable ideal `--reference` or refine the sublattice partition.
@@ -1304,6 +1316,39 @@ Inspect shell coverage and choose a cutoff containing the shells of interest.
 These bounds apply to the stated **SRO-error metrics**, not the native weighted
 bond-count fitness or decorated pair/triplet/quadruplet correlation errors.
 No claim of a bound on the figure benchmark's error is made.
+
+#### Stop a stochastic search at a verified bound
+
+The Python SA used by `search-cells` now stops as soon as its initial or best
+candidate exactly attains the selected bound. It returns `stop_reason:
+bound_attained` and an exact certificate. This also works at a nonzero minimum.
+
+A reusable checker supports other fixed-cell solver workflows:
+
+```python
+from m_scraps import SROBoundStop
+stop = SROBoundStop(initial, cutoff=6, targets=targets,
+                    sublattices=sublattices, metric="max_error")
+if stop(candidate):
+    certificate = stop.certificate
+    best_structure = stop.witness
+    # Stop your solver and retain this verified witness.
+```
+
+Only occupations may change: geometry, site order and each sublattice's counts
+must match. The checker independently counts bonds and compares exact rational
+errors; rounded solver scores never trigger certification. RMS equality uses
+squared errors. These certificates apply to the specified pair-SRO objective.
+
+For the source benchmark adapters, add `--stop-at-bound` to
+`tools/benchmark/small_cells_external.py`. Both native SCRAPS kernels, ATAT
+mcsqs and icet retain an immutable candidate, verify it, and terminate the
+controlled worker process groups when the bound is attained. The record includes
+`stopping_certificate`. Verification time is charged to the search budget;
+stopping occurs at an observation, not at the solver's internal attainment time.
+The flag defaults off to preserve fixed-budget benchmark comparisons. This does
+not change the behavior of standalone ATAT/icet commands or direct MPI runs.
+
 
 
 ## Enumerate small cells exactly
@@ -1355,7 +1400,7 @@ Ties retain the first best witness, starting with the supplied decoration.
 
 A proved minimum reports `status: certified_minimum`, with `lower_bound`
 equal to `best_error` and zero `optimality_gap`. `relaxed_lower_bound` preserves
-the independent pair-count bound so one can see whether lattice constraints
+the pair-count relaxation bound so one can see whether lattice constraints
 make the true minimum larger.
 
 By default, an exact bound match stops enumeration immediately, including before

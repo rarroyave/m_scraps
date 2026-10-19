@@ -23,6 +23,14 @@ archive; a new DOI will be added only after an approved release is archived.
   and cancellation of superseded runs. Reserve full platform/package matrices
   for release tags and manual audits; make the separate benchmark manual-only.
 
+- Add exact bound-aware stopping to Python pair-SRO SA and opt-in native,
+  ATAT and icet benchmark workflows. Preserve independently checked witnesses
+  and certificates; freeze 16 short Studio trials as offline regression inputs.
+- Strengthen multi-target SRO bounds with bounded integer count-table checks
+  enforcing neighbor totals and reciprocity. Report conflicting target blocks;
+  capped checks retain safe independent bounds. Full lattice realizability
+  remains outside this relaxation.
+
 ### Small-cell design with explicit accuracy and geometry limits
 
 - Add `m_scraps bounds` and `sro_bounds` for necessary lower bounds on explicit

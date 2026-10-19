@@ -153,7 +153,7 @@ def main(argv=None):
                 try:
                     if method == 'python_pair_sro_sa':
                         result, witness = _anneal(case['atoms'],case['config'],case['targets'],case['cutoff'],1,
-                            'max_error',args.sa_steps,seed,start+args.seconds,progress=events.append)
+                            'max_error',args.sa_steps,seed,start+args.seconds,progress=events.append,stop_at_bound=False)
                     else:
                         result, witness = enumerate_sro(case['atoms'],cutoff=case['cutoff'],targets=case['targets'],
                             sublattices=case['config'],shells=1,max_configurations=args.max_configurations,

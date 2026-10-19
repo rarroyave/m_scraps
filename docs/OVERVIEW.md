@@ -673,3 +673,25 @@ per-order errors. [The figure](submission_benchmark.png) shows individual
 observations and censored threshold passages. Cuckoo reached maximum error
 0.01 in 5/10 trials; each other method did so in 2/10. These are limited-seed
 screening observations, not a universal ranking.
+
+
+### Exact SRO stopping and joint bounds
+
+`tools/sro_stopping.py` exposes `m_scraps.SROBoundStop`: fixed geometry and
+sublattice compositions are checked before independent integer bond counting.
+Exact rational equality with the selected lower bound certifies an optimum;
+RMS uses squared errors. `search_cells._anneal` checks the initial state and
+strict improvements, returning the certificate and `bound_attained` stop reason.
+Native, ATAT and icet benchmark adapters accept a live occupation callback;
+`small_cells_external.py --stop-at-bound` supplies this checker and preserves
+the observed witness before terminating workers. Ordinary fixed-budget runs
+retain their previous protocol.
+
+`tools/sro_joint_bounds.py` enumerates necessary count tables for targets
+sharing a directed bond multiset (including reversed sublattice pairs). It
+adds row/column totals and reciprocity to the existing capacity, multiplicity
+and parity constraints. It computes separate exact minima for max, absolute-sum
+and squared-sum errors. Independent blocks combine into the requested metric.
+A per-block state cap falls back to independent component bounds; a partial
+minimum is never used as a lower bound. No occupation enumeration or external
+solver is required. Cross-shell occupation compatibility remains relaxed.

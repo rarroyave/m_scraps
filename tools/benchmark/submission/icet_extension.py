@@ -90,8 +90,8 @@ def worker(case,profile,seed,directory):
         emit(annealer,force=True);annealer.generate_structure(number_of_trial_steps=3000);emit(annealer,force=True)
         trials+=annealer.total_trials;restarts+=1
 
-def trial(case,profile,seed,out,budget=60,workers=4):
-    out.mkdir(parents=True);logs=[];processes=[];snapshots=[];errors=[]
+def trial(case,profile,seed,out,budget=60,workers=4,stop_check=None):
+    out.mkdir(parents=True);logs=[];processes=[];snapshots=[];errors=[];attained=False
     for rank in range(workers):(out/f'worker-{rank}').mkdir()
     start=time.perf_counter()
     try:
@@ -108,6 +108,11 @@ def trial(case,profile,seed,out,budget=60,workers=4):
                     dst=out/f'snapshot-{deadline}-{rank}.json';dst.write_bytes(src.read_bytes())
                     observed=time.perf_counter()-start
                     if observed<=budget:snapshots.append(dict(file=dst.name,available_seconds=observed))
+                    if observed<=budget and stop_check is not None and stop_check(np.asarray(json.loads(dst.read_text())["occupations"],dtype=int)):
+                        attained=True
+                        break
+            if attained:
+                break
     finally:
         codes=[p.poll() for p in processes]
         for p in processes:
@@ -139,6 +144,8 @@ def trial(case,profile,seed,out,budget=60,workers=4):
     if not candidates:errors.append(dict(error='No completed icet output within budget'))
     passage={metric:[bench.first_passage(candidates,metric,t,budget) for t in thresholds] for metric,thresholds in [('max_error',[.05,.025,.01,.001]),('weighted_l1',[.01,.005,.002,.001])]}
     record=dict(case=case['id'],method=METHOD,profile=profile['name'],seed=seed,ranks=workers,budget_seconds=budget,errors=errors,candidates=candidates,passage=passage,search_wall_seconds=search_wall,assessment_seconds=time.perf_counter()-assessed,atat_discrepancies=errors_atat,implementation='icet 4.0 TargetClusterVectorAnnealing with ATAT-compatible TargetVectorCalculator subclass; configurable independent processes; 3000-step schedules 5 to .001; no stock-icet-score claim')
+    if stop_check is not None:
+        record['stop_reason']='bound_attained' if attained else 'time_limit'
     save(out/'result.json',record);return record
 
 def run_record(case,profile,seed,out,budget=60):

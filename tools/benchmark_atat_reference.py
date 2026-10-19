@@ -52,7 +52,7 @@ def input_text(case, profile, seed):
             f'FIGURE_WD {profile["wd"]}\nFIGURE_WN {profile["wn"]}\nFIGURE_WR 1\nFIGURE_TOL 0.001\n')
 
 
-def run_trial(case, profile, seed, args, directory):
+def run_trial(case, profile, seed, args, directory, stop_check=None):
     directory.mkdir(parents=True)
     prepared=time.perf_counter()
     figures=directory/'FIGURES';figures.write_bytes(gzip.decompress((FIXTURES/(case['id']+'.figures.gz')).read_bytes()))
@@ -62,7 +62,8 @@ def run_trial(case, profile, seed, args, directory):
     snapshots=[]
     checkpoint_seconds=getattr(args, "checkpoint_seconds", 0.0)
     events=[];errors=[];restart=0;start=time.perf_counter();timed_out=False
-    while time.perf_counter()-start<args.seconds:
+    attained=False
+    while not attained and time.perf_counter()-start<args.seconds:
         d=directory/f'restart-{restart:05d}';d.mkdir()
         for name in ['FIGURES','POSCAR']:(d/name).symlink_to(Path('..')/name)
         (d/'INPUT').write_text(input_text(case,profile,seed+restart) +
@@ -91,6 +92,11 @@ def run_trial(case, profile, seed, args, directory):
                             observed=time.perf_counter()-start
                             if observed<=args.seconds:
                                 snapshots.append((observed,raw))
+                                if stop_check is not None and stop_check(np.asarray(json.loads(raw)["occupations"], dtype=int)):
+                                    attained=True
+                                    break
+                        if attained:
+                            break
             except subprocess.TimeoutExpired:
                 timed_out=True
                 break
@@ -104,10 +110,15 @@ def run_trial(case, profile, seed, args, directory):
                         except ProcessLookupError:pass
                         proc.wait()
         available=time.perf_counter()-start
+        if attained:
+            break
         if proc.returncode:
             errors.append(dict(restart=restart,returncode=proc.returncode,log=str(d/'stdout.log')))
             break
-        if available<=args.seconds:events.append((available,d))
+        if available<=args.seconds:
+            events.append((available,d))
+            if stop_check is not None:
+                attained=bool(stop_check(np.loadtxt(d/"FIGURE_OCCUPATIONS.txt",dtype=int,ndmin=1)))
         restart+=1
     search_wall=time.perf_counter()-start
     # Independent assessment occurs after all search processes have stopped.
@@ -168,6 +179,8 @@ def run_trial(case, profile, seed, args, directory):
                 allocated_core_seconds=args.ranks*args.seconds,unfinished_restart_at_deadline=timed_out,
                 checkpoint_seconds=checkpoint_seconds,
                 errors=errors,candidates=candidates,passage=passage,quality_curve=curves)
+    if stop_check is not None:
+        record['stop_reason']='bound_attained' if attained else 'time_limit'
     (directory/'result.json').write_text(json.dumps(record,indent=2)+'\n')
     return record
 
