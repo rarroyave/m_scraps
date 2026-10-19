@@ -901,6 +901,8 @@ Development of m_scraps is supported by the U.S. National Science Foundation und
 
 Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
 
+We acknowledge support from the Air Force Research Laboratory (AFRL) through subcontract 165852-19F5830-19-02-C1.
+
 ## License
 
 Licensed under the [MIT License](LICENSE), preserving the upstream Iowa State

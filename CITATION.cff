@@ -20,6 +20,8 @@ abstract: >-
   Original SCRAPS authorship and licensing are preserved.
   Development of m_scraps is supported by the U.S. National Science Foundation
   under Award OAC-2608825 (PhaseForge).
+  We acknowledge support from the Air Force Research Laboratory (AFRL)
+  through subcontract 165852-19F5830-19-02-C1.
 keywords:
   - short-range order
   - special quasirandom structures
