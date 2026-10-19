@@ -159,3 +159,27 @@ The fork is maintained by Raymundo Arroyave
 (<raymundo.arroyave@gmail.com>). The upstream code is by Singh, Singh,
 Sharma, Balasubramanian, and Johnson; see citation in
 `docs/OVERVIEW.md`.
+
+## Release metadata checks
+
+Before creating a release, require the **Release metadata** CI job to pass on
+its exact commit, alongside the existing scientific and package checks. Locally:
+
+```bash
+python -m pip install cffconvert==2.0.0 PyYAML==6.0.3
+cffconvert --validate
+python scripts/check_release_metadata.py --tag v0.5.1
+python -m unittest discover -s scripts -p 'test_release_metadata.py' -v
+```
+
+Replace the example tag with the intended release tag. The checker compares
+versions in packaging, Python, CMake, CFF, and Zenodo metadata; validates ORCID
+syntax and checksums; and checks the Zenodo fields used by this project against
+the citation metadata. CFF receives full schema validation through cffconvert.
+A checksum cannot establish identity: verify new ORCIDs against author records.
+These checks do not guarantee acceptance by every future Zenodo API version.
+
+Update `CHANGELOG.md` when preparing a release. After Zenodo publishes it, add
+the version-specific DOI to the README, `CITATION.cff`, and GitHub release notes.
+Do not rewrite the published tag to include that subsequent DOI update. CI
+checks tag consistency but does not publish releases or change approval rules.

@@ -773,6 +773,36 @@ on a dedicated host with the same allocated cores and retain its provenance.
 
 ## Reproducing the submission benchmark
 
+### Scope and interpretation
+
+This is a **40-trial screening benchmark**, not a universal ranking. It compares
+native cuckoo search, native SA, ATAT mcsqs, and icet with a matched ATAT objective
+on BCC Nb–Mo–Ta (one disordered sublattice) and rocksalt (Ti,Zr,Hf)(C,N)
+(two disordered sublattices), at 128 and 432 sites. Each method receives 30 seconds
+and four allocated cores. Seed 20261019 covers all eight structure/size/target
+combinations; seed 21261019 repeats only the two 128-site nonzero-target cases.
+Targets are random correlations or correlations of an attainable ordering-biased
+reference; they are not an exhaustive sweep of SRO strengths.
+
+For every method, let Δᵢ be the achieved minus target correlation for decorated
+component i, with K assessed components. The common metrics are:
+
+| Metric | Definition and interpretation |
+| --- | --- |
+| Lowest error | Minimum observed maxᵢ abs(Δᵢ) within the time budget |
+| RMS and mean absolute error | √(Σᵢ Δᵢ²/K) and Σᵢ abs(Δᵢ)/K, evaluated at the selected best-maximum-error structure |
+| Time to threshold | First observation at or below 0.05, 0.025, or 0.01 for each error metric, including startup; headline comparisons use maximum absolute error |
+| Unreached threshold | Right-censored at 30 seconds; not counted as a successful 30-second attainment |
+
+All methods assess the same decorated pairs, triplets, and quadruplets.
+The optimization score is distinct from these correlation errors. Observation
+intervals make threshold times upper bounds on internal attainment times.
+Limited seeds, discrete finite-cell targets, and host-dependent timings prevent
+broad statistical or speedup claims. The icet comparison uses a matched custom
+objective, not the stock icet objective. Examples for other materials are not
+additional benchmark evidence. Full protocol and rerun instructions follow.
+
+
 The default workflow requires **neither ATAT nor icet**. The package includes
 frozen reference results, figure definitions and checksum-verified regression
 fixtures for all 40 trials:
@@ -860,6 +890,8 @@ The output preserves source/input/executable hashes, Python and MPI versions,
 all search inputs and logs, independently validated structures, and portable
 regression fixtures. Routine CI checks numerical correctness using saved
 fixtures; it does not rerun the 40-trial campaign or assert wall-clock speed.
+
+Release history is recorded in the [changelog](CHANGELOG.md).
 
 ## Credits and citation
 
