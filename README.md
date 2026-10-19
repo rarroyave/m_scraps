@@ -1199,8 +1199,9 @@ No claim of a bound on the figure benchmark's error is made.
 
 ## Enumerate small cells exactly
 
-`m_scraps enumerate` exhaustively evaluates all labeled-site decorations with
-the specified cell and per-sublattice compositions. It certifies the minimum
+`m_scraps enumerate` covers all labeled-site decorations with the specified
+cell and per-sublattice compositions, evaluating one representative per verified
+symmetry orbit by default. It certifies the minimum
 of the **selected pair-SRO metric** only after enumeration finishes. No native
 optimizer, ATAT, or icet is needed.
 
@@ -1220,8 +1221,9 @@ targets contribute, with equal weights; there are no implicit zero targets.
 Before enumeration, the command computes the number of configurations as the
 product of Nₛ! / ∏ₐ nₛ,ₐ! over sublattices. It refuses to start if that exceeds
 `--max-configurations` (default 100000). A 16-site equiatomic binary cell has
-12870 configurations; a 32-site cell has 601080390. There is no symmetry
-reduction. The cap limits configurations, not elapsed time: cost also depends
+12870 labeled-site configurations; a 32-site cell has 601080390. The cap applies
+to this full count **before symmetry reduction**, bounding the combinatorial
+problem conservatively. The cap does not limit elapsed time: cost also depends
 on the number of sites, periodic bonds, and target components.
 
 The output directory must be new. It contains:
@@ -1249,7 +1251,10 @@ or Ctrl-C during enumeration saves the current witness and reports
 `status: best_found`, `complete: false`, the number evaluated, and the gap to
 the relaxed bound. The supplied structure is evaluated first so an early stop
 still has a witness. The configuration count covers the enumerated sequence;
-that initial witness evaluation is recorded separately. No resumable state is
+that initial witness evaluation is recorded separately. With symmetry reduction,
+`evaluated_configurations` counts representatives and `covered_configurations`
+sums their orbit multiplicities. A completed search requires coverage equal to
+`total_configurations`, not that many objective evaluations. No resumable state is
 saved. Incomplete searches never claim exhaustive certification.
 
 Python callers can use
@@ -1257,3 +1262,39 @@ Python callers can use
 Certification applies only to the specified finite cell, geometry, compositions,
 constraints, targets, and selected metric—not other cell sizes or shapes, or
 decorated pair/triplet/quadruplet objectives.
+
+
+### Symmetry reduction and exhaustive reference mode
+
+The default `--symmetry auto` uses
+[spglib](https://spglib.readthedocs.io/en/v2.7.0/api/autodoc/spglib.html) to propose
+symmetries of the supplied cell, with sites colored by sublattice label rather than initial chemical
+occupation. Every accepted operation must preserve each sublattice label and
+**exactly preserve the integer directed-bond multiplicities of every requested
+shell component**. Thus different target values, directed sublattice-pair
+components, shared species, and per-sublattice composition constraints remain
+unchanged. Labels and chemical identities are never exchanged, even where a
+larger symmetry reduction might be possible.
+
+The search assigns one species subset at a time. It selects one subset per
+orbit under the current symmetry group, then continues with the subgroup that
+fixes that subset. This avoids constructing every complete decoration. At a
+leaf, the orbit multiplicity is the full group order divided by the final
+stabilizer order. Summing these multiplicities verifies coverage of the full
+combinatorial configuration count.
+
+Use `--symmetry none` for the direct exhaustive reference implementation, or
+`symmetry="none"` in Python. `--symprec` controls geometric symmetry detection
+(default 0.00001 angstrom); exact bond-graph checks still apply. The result
+records the number of verified site permutations and the tolerance. Symmetry
+detection failure produces an error rather than an unsupported certificate;
+reference mode remains available. The permutation group is capped at 4096
+operations to bound symmetry-processing resources.
+
+For a four-site periodic binary ring with two atoms of each species, symmetry
+reduces six decorations to two representatives. Tests compare reduced and
+exhaustive minima for all three metrics, shared-species multi-sublattice cases,
+and distinct target components. Fewer objective evaluations do not guarantee
+lower wall time for every small problem: symmetry discovery and orbit handling
+also have a cost. This reduction covers only the supplied cell; it does not
+enumerate different supercell shapes.

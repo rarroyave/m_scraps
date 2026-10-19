@@ -37,7 +37,8 @@ subprocess.run([command, 'enumerate', str(root/'enumeration-cell.extxyz'), '--cu
     '--targets', str(root/'targets.json'), '--output', str(root/'enumeration')], check=True)
 exact = json.loads((root/'enumeration/result.json').read_text())
 assert exact['status'] == 'certified_minimum' and exact['best_error_exact'] == '1'
-assert exact['evaluated_configurations'] == 2
+assert exact['covered_configurations'] == 2
+assert exact['evaluated_configurations'] == 1
 
 
 subprocess.run([command, 'benchmark', '--cases', 'bcc_128', '--seconds', '3', '--ranks', '2',

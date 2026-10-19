@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Enable symmetry-reduced enumeration by default, verifying sublattice labels
+  and exact target bond graphs, generating representatives through subset
+  stabilizers, and recording orbit coverage. Retain `--symmetry none` as an
+  exhaustive reference; the configuration cap still applies before reduction.
 - Add capped exact pair-SRO enumeration for small single- and multi-sublattice
   cells, with rational comparisons, completion certificates, witness structures,
   and explicitly uncertified time-limited or interrupted results.

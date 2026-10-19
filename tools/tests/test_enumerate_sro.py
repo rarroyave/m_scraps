@@ -42,7 +42,7 @@ def test_unattainable_zero_bound_and_periodic_image_multiplicity():
     atoms = bulk('Cu', 'bcc', a=2, cubic=True)
     atoms[1].symbol = 'Zn'
     result, witness = module.enumerate_sro(atoms, cutoff=1.8, targets=[target(0)])
-    assert result['total_configurations'] == result['evaluated_configurations'] == 2
+    assert result['total_configurations'] == result['covered_configurations'] == 2
     assert result['relaxed_lower_bound'] == 0
     assert result['best_error_exact'] == result['lower_bound_exact'] == '1'
     assert result['status'] == 'certified_minimum'
@@ -71,7 +71,7 @@ def test_matches_independent_bruteforce(metric, multi):
     result, witness = module.enumerate_sro(atoms, cutoff=1.1, targets=targets,
                                           sublattices=config, metric=metric)
     assert result['complete'] and result['optimality_gap'] == 0
-    assert result['evaluated_configurations'] == len(valid)
+    assert result['covered_configurations'] == len(valid)
     assert result['best_error'] == pytest.approx(min(measured), abs=1e-14)
     actual = analyze_structure(witness, cutoff=1.1, sublattices=config,
                                sro_targets=targets)['sro_comparison']['metrics']
@@ -86,7 +86,7 @@ def test_reference_order_fixed_spectator_and_unequal_coordination():
     config = {'site_labels': ['A', 'B', 'B'], 'allowed': {'A': ['Ti'], 'B': ['Cu', 'Zn']}}
     result, witness = module.enumerate_sro(atoms, reference=ref, cutoff=1.1,
         sublattices=config, targets=[target(.1, 'A', 'B', a='Ti')])
-    assert result['evaluated_configurations'] == 2
+    assert result['covered_configurations'] == 2
     assert result['best_error_exact'] == '1/10'
     assert witness[0].symbol == 'Ti'
     np.testing.assert_allclose(witness.positions, ref.positions)
@@ -103,7 +103,7 @@ def test_cap_refuses_before_enumeration(monkeypatch):
 def test_time_limit_and_interrupt_never_claim_completion(monkeypatch):
     ticks = iter([0., 10., 11.])
     monkeypatch.setattr(module.time, 'monotonic', lambda: next(ticks))
-    result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=[target(0)], max_seconds=1)
+    result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=[target(0)], max_seconds=1, symmetry='none')
     assert result['stop_reason'] == 'time_limit'
     assert result['status'] == 'best_found' and not result['complete']
     assert result['evaluated_configurations'] == 0
@@ -114,7 +114,7 @@ def test_time_limit_and_interrupt_never_claim_completion(monkeypatch):
         yield next(original(*args))
         raise KeyboardInterrupt
     monkeypatch.setattr(module, 'occupations', interrupted)
-    result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=[target(0)])
+    result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=[target(0)], symmetry='none')
     assert result['evaluated_configurations'] == 1
     assert result['status'] == 'best_found' and result['stop_reason'] == 'interrupted'
 

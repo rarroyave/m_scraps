@@ -63,10 +63,13 @@ def occupations(labels, composition):
 
 def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
                   reference=None, tolerance=0.2, shell_tolerance=1e-5,
-                  metric='max_error', max_configurations=100000, max_seconds=None):
+                  metric='max_error', max_configurations=100000, max_seconds=None,
+                  symmetry='auto', symprec=1e-5):
     """Return (report, witness Atoms); certify only after complete enumeration.
 
-    Uses the uniform-coordination pair-SRO conventions of sro_bounds. All
+    Uses the uniform-coordination pair-SRO conventions of sro_bounds. By default,
+    verified sublattice/target-preserving site symmetries reduce the search to
+    orbit representatives. symmetry="none" retains exhaustive reference mode. All
     comparisons use rational arithmetic (mean squared error for RMS). The
     structure returned uses reference geometry/order when reference is supplied.
     A time limit or Ctrl-C during enumeration returns best_found, never an
@@ -74,6 +77,10 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
     the time limit expires during preparation. No resume state is produced.
     """
     start = time.monotonic()
+    if symmetry not in ('auto', 'none'):
+        raise ValueError('symmetry must be auto or none')
+    if not math.isfinite(symprec) or symprec <= 0:
+        raise ValueError('symprec must be positive and finite')
     if isinstance(max_configurations, bool) or not isinstance(max_configurations, int) or max_configurations < 1:
         raise ValueError('max_configurations must be a positive integer')
     if max_seconds is not None and (not math.isfinite(max_seconds) or max_seconds <= 0):
@@ -118,9 +125,18 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
     best_symbols = tuple(np.array(atoms.get_chemical_symbols())[analysis['mapping']['input_indices']])
     best_metrics, best_counts, best_residuals = evaluate(best_symbols)
     best = (best_metrics, best_symbols, best_counts, best_residuals)
-    evaluated, reason = 0, 'exhausted'
+    permutations = np.arange(len(atoms))[None, :]
+    if symmetry == 'auto' and total > 1:
+        from enumeration_symmetry import site_permutations
+        permutations = site_permutations(geometry, labels, prepared, symprec)
+    if symmetry == 'auto' and len(permutations) > 1:
+        from enumeration_symmetry import symmetry_occupations
+        candidates = symmetry_occupations(labels, bound['composition'], permutations)
+    else:
+        candidates = ((candidate, 1) for candidate in occupations(labels, bound['composition']))
+    evaluated, covered, reason = 0, 0, 'exhausted'
     try:
-        for candidate in occupations(labels, bound['composition']):
+        for candidate, multiplicity in candidates:
             if max_seconds is not None and time.monotonic() - start >= max_seconds:
                 reason = 'time_limit'
                 break
@@ -128,10 +144,11 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
             if values[metric] < best[0][metric]:
                 best = (values, candidate, counts, residuals)
             evaluated += 1
+            covered += multiplicity
     except KeyboardInterrupt:
         reason = 'interrupted'
     best_metrics, best_symbols, best_counts, best_residuals = best
-    complete = reason == 'exhausted' and evaluated == total
+    complete = reason == 'exhausted' and covered == total
     if complete:
         reason = 'exhausted'
     elif reason == 'exhausted':
@@ -147,10 +164,13 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
         entries.append(dict(**{k: target[k] for k in KEYS}, target=float(target['target']),
             pair_count=count, alpha=float(residual + Fraction(str(target['target']))),
             residual=float(residual), residual_exact=str(residual)))
-    result = dict(schema_version=1, objective='directed_pair_sro', method='exhaustive_labeled_occupations',
+    result = dict(schema_version=2, objective='directed_pair_sro', method='symmetry_reduced_occupations' if symmetry == 'auto' else 'exhaustive_labeled_occupations',
         status='certified_minimum' if complete else 'best_found', complete=complete,
         stop_reason=reason, selected_metric=metric, total_configurations=total,
-        evaluated_configurations=evaluated, initial_witness_evaluated=True,
+        evaluated_configurations=evaluated, covered_configurations=covered,
+        symmetry=dict(mode=symmetry, site_permutations=len(permutations), symprec=symprec,
+                      policy='Preserve each sublattice label and each target directed-bond multigraph individually.'),
+        initial_witness_evaluated=True,
         max_configurations=max_configurations, max_seconds=max_seconds,
         elapsed_seconds=time.monotonic() - start,
         best_error=convert(exact_best), best_error_exact=str(exact_best),
@@ -166,7 +186,8 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
         entries=entries, composition=bound['composition'], convention=bound['convention'],
         shell_coverage=bound['shell_coverage'],
         scope='Specified finite cell, geometry, compositions, sublattice constraints, explicit targets and selected metric only.',
-        limitations=['No symmetry reduction; each labeled-site occupation is counted.',
+        limitations=['Configuration cap applies to the full labeled-site count before symmetry reduction.',
+                     'Symmetry never exchanges sublattice labels or chemical identities.',
                      'Uniform coordination within requested sublattice-pair shells is required.',
                      'Other reported metrics describe the selected witness, not independently optimized minima.',
                      'Pair-SRO error only; no decorated higher-order correlation certificate.',
@@ -185,6 +206,9 @@ def main(argv=None):
     parser.add_argument('--tolerance', type=float, default=0.2)
     parser.add_argument('--shell-tolerance', type=float, default=1e-5)
     parser.add_argument('--metric', choices=METRICS, default='max_error')
+    parser.add_argument('--symmetry', choices=('auto', 'none'), default='auto',
+                        help='Use objective-preserving symmetry reduction (default auto), or exhaustive reference mode')
+    parser.add_argument('--symprec', type=float, default=1e-5, help='Symmetry detection tolerance in angstrom')
     parser.add_argument('--max-configurations', type=int, default=100000)
     parser.add_argument('--max-seconds', type=float, help='Optional time limit including preparation')
     parser.add_argument('--output', required=True, type=Path, help='New directory for report and witness files')
@@ -197,7 +221,8 @@ def main(argv=None):
             sublattices=json.loads(args.sublattices.read_text()) if args.sublattices else None,
             reference=read(args.reference) if args.reference else None,
             tolerance=args.tolerance, shell_tolerance=args.shell_tolerance,
-            metric=args.metric, max_configurations=args.max_configurations, max_seconds=args.max_seconds)
+            metric=args.metric, max_configurations=args.max_configurations, max_seconds=args.max_seconds,
+            symmetry=args.symmetry, symprec=args.symprec)
         inputs = {'structure': args.structure, 'targets': args.targets,
                   'sublattices': args.sublattices, 'reference': args.reference}
         report['inputs'] = {name: dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
@@ -210,7 +235,8 @@ def main(argv=None):
                            for name in ('best.extxyz', 'best.cif', 'best.POSCAR')}
         (args.output / 'result.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
         print(f"{report['status']}: {report['selected_metric']}={report['best_error']:.10g}; "
-              f"{report['evaluated_configurations']}/{report['total_configurations']} configurations; "
+              f"{report['evaluated_configurations']} representatives, "
+              f"{report['covered_configurations']}/{report['total_configurations']} decorations covered; "
               f"{args.output / 'result.json'}")
     except (ValueError, KeyError, TypeError, OSError) as exc:
         parser.error(str(exc))

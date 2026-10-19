@@ -2,3 +2,5 @@ pymatgen>=2024.0.0
 ase>=3.22
 matplotlib>=3.7
 pytest>=8.0
+
+spglib>=2.0
