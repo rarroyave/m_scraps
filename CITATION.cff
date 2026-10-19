@@ -4,9 +4,7 @@ message: >-
   Zenodo DOI for the m_scraps release you used.
 type: software
 title: "m_scraps: multi-sublattice short-range-order and cluster-correlation targeting"
-version: 0.5.1
-doi: 10.5281/zenodo.23475896
-date-released: 2026-10-19
+version: 0.6.0
 authors:
   - family-names: Arróyave
     given-names: Raymundo

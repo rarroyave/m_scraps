@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — planned 0.6.0
+## 0.6.0 — unreleased
 
 Release preparation only: no v0.6.0 tag, GitHub release, or Zenodo deposition
 has been published. The existing 0.5.1 DOI continues to identify that frozen

@@ -2,7 +2,7 @@
 from pathlib import Path
 import sys
 
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 _PACKAGE = Path(__file__).resolve().parent
 # Source checkout and built wheel share the existing tools without copying
 # their implementation into a second maintained Python API.

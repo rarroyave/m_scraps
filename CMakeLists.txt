@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(m_scraps VERSION 0.5.1 LANGUAGES CXX)
+project(m_scraps VERSION 0.6.0 LANGUAGES CXX)
 if(DEFINED ENV{MPICXX})
   set(MPI_CXX_COMPILER "$ENV{MPICXX}")
 elseif(APPLE AND EXISTS "/opt/homebrew/bin/mpic++")
