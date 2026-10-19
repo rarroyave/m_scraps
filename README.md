@@ -864,9 +864,15 @@ fixtures; it does not rerun the 40-trial campaign or assert wall-clock speed.
 ## Credits and citation
 
 If you use m_scraps in research, please cite **both** the original SCRAPS paper
-below and the **Zenodo DOI for the m_scraps release you used**. The Zenodo archive
-has not yet been published; its DOI and full software citation will be added
-here and to `CITATION.cff` when available.
+below and the **Zenodo DOI for the m_scraps release you used**. The frozen
+v0.5.1 archive is available at
+[doi:10.5281/zenodo.23475896](https://doi.org/10.5281/zenodo.23475896).
+
+> R. Arróyave (2026). *m_scraps: multi-sublattice short-range-order and
+> cluster-correlation targeting* (Version 0.5.1) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.23475896
+
+Machine-readable software citation metadata is provided in `CITATION.cff`.
 
 Original SCRAPS / Hybrid-Cuckoo-Search code by Rahul Singh, Aayush Sharma,
 Prashant Singh, Ganesh Balasubramanian, and Duane D. Johnson (Iowa State
