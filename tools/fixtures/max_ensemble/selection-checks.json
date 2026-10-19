@@ -1,0 +1,92 @@
+{
+  "rows": [
+    {
+      "name": "diversity",
+      "selection": "diversity",
+      "selection_seed": 17,
+      "atoms": 32,
+      "pool_size": 32,
+      "max_target_error": 0.0,
+      "mean_pairwise_correlation_rms": 0.21914928705396697,
+      "min_pairwise_correlation_rms": 0.1329540058695776,
+      "selected_pool_indices": [
+        0,
+        25,
+        6,
+        1
+      ],
+      "elapsed_seconds": 0.8566857911646366
+    },
+    {
+      "name": "random17",
+      "selection": "random",
+      "selection_seed": 17,
+      "atoms": 32,
+      "pool_size": 32,
+      "max_target_error": 0.0,
+      "mean_pairwise_correlation_rms": 0.16115073768566174,
+      "min_pairwise_correlation_rms": 0.0,
+      "selected_pool_indices": [
+        21,
+        3,
+        5,
+        25
+      ],
+      "elapsed_seconds": 0.846625791862607
+    },
+    {
+      "name": "random23",
+      "selection": "random",
+      "selection_seed": 23,
+      "atoms": 32,
+      "pool_size": 32,
+      "max_target_error": 0.0,
+      "mean_pairwise_correlation_rms": 0.10331654116179878,
+      "min_pairwise_correlation_rms": 0.050251890762960605,
+      "selected_pool_indices": [
+        13,
+        31,
+        1,
+        20
+      ],
+      "elapsed_seconds": 0.8502416247501969
+    },
+    {
+      "name": "random41",
+      "selection": "random",
+      "selection_seed": 41,
+      "atoms": 32,
+      "pool_size": 32,
+      "max_target_error": 0.0,
+      "mean_pairwise_correlation_rms": 0.16279559566973975,
+      "min_pairwise_correlation_rms": 0.050251890762960605,
+      "selected_pool_indices": [
+        28,
+        24,
+        19,
+        25
+      ],
+      "elapsed_seconds": 0.9356803325936198
+    },
+    {
+      "name": "repeat17",
+      "selection": "random",
+      "selection_seed": 17,
+      "atoms": 32,
+      "pool_size": 32,
+      "max_target_error": 0.0,
+      "mean_pairwise_correlation_rms": 0.16115073768566174,
+      "min_pairwise_correlation_rms": 0.0,
+      "selected_pool_indices": [
+        21,
+        3,
+        5,
+        25
+      ],
+      "elapsed_seconds": 0.9364974591881037
+    }
+  ],
+  "same_pool": true,
+  "seed17_reproduced": true,
+  "all_constraints_passed": true
+}

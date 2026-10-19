@@ -1,0 +1,37 @@
+{
+  "id": "structure-012",
+  "atoms": 32,
+  "formula": "C8Al4Si4Ti8Zr8",
+  "unrelaxed_eV_per_atom": -7.911665033052503,
+  "relaxed_eV_per_atom": -8.185409655941026,
+  "relaxation_meV_per_atom": -273.74462288852277,
+  "initial_max_force_eV_A": 7.2430428397754385,
+  "final_max_force_eV_A": 0.02507182825522313,
+  "force_converged": true,
+  "framework_converged": true,
+  "site_mapping_valid": true,
+  "mapping_error": null,
+  "max_displacement_A": 0.5332101592888214,
+  "rms_displacement_A": 0.22812536136681147,
+  "initial_sro_metrics": {
+    "max_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "rms_error": 0.0
+  },
+  "initial_correlations": [
+    1.3877787807814457e-17,
+    -6.938893903907228e-18,
+    0.0,
+    0.16666666666666666,
+    -0.16666666666666666,
+    0.33333333333333326,
+    -0.16666666666666663,
+    0.0,
+    0.0,
+    -0.5,
+    -0.5
+  ],
+  "input_sha256": "e0352c7dfcf24492cf122c8e55293f9f74c1461d180ee99f6195d628a8493a52",
+  "relaxed_sha256": "5452ca8c89f3bc8cc585d86758e60b2713623adde07b32a8315be1d013a17ab6",
+  "seconds": 5.651290750131011
+}

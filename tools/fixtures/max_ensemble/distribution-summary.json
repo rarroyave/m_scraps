@@ -1,0 +1,32 @@
+{
+  "selection": "random without replacement from 128 collected symmetry orbits",
+  "n_selected": 32,
+  "n_accepted": 32,
+  "excluded": [],
+  "targeted_sro_error": 0,
+  "stats": {
+    "Unrelaxed": {
+      "n": 32,
+      "mean_eV_per_atom": -7.915580053809238,
+      "population_std_meV_per_atom": 3.072916821034193,
+      "range_meV_per_atom": 13.363249045548642,
+      "min_eV_per_atom": -7.920476262988812,
+      "median_eV_per_atom": -7.916319098641285,
+      "max_eV_per_atom": -7.907113013943263,
+      "q10_eV_per_atom": -7.918479510422722,
+      "q90_eV_per_atom": -7.911718915300405
+    },
+    "Fixed-cell relaxed": {
+      "n": 32,
+      "mean_eV_per_atom": -8.17500500505761,
+      "population_std_meV_per_atom": 11.705005304403551,
+      "range_meV_per_atom": 53.529092581941384,
+      "min_eV_per_atom": -8.203617145251952,
+      "median_eV_per_atom": -8.175043806781915,
+      "max_eV_per_atom": -8.15008805267001,
+      "q10_eV_per_atom": -8.188331406522927,
+      "q90_eV_per_atom": -8.163233288114421
+    }
+  },
+  "model_sha256": "2ddb079cee0e131eaaf6912ba581b394551ead283e95c99cfe78c605d10b5736"
+}

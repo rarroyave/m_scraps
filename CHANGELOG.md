@@ -41,6 +41,11 @@ archive; a new DOI will be added only after an approved release is archived.
   Random subsets sample collected symmetry orbits without replacement; document
   candidate-discovery bias and the distinction from thermodynamic sampling.
 
+- Archive a 32-structure random MAX-phase ensemble, fixed-cell MACE energy
+  variability, model provenance and HTML report. Add portable ensemble replay
+  and offline archive checks requiring neither MACE nor MaterialsFramework;
+  document the distinction from equilibrium thermodynamic sampling.
+
 ### Small-cell design with explicit accuracy and geometry limits
 
 - Add `m_scraps bounds` and `sro_bounds` for necessary lower bounds on explicit

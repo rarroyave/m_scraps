@@ -1,0 +1,21 @@
+{
+  "ensemble_sha256": "19c702a8389f10ab74410d5e1af30871f305527d06f78075b276045aaa481f58",
+  "model_sha256": "2ddb079cee0e131eaaf6912ba581b394551ead283e95c99cfe78c605d10b5736",
+  "model_file": "/Users/raymundo.arroyave/.cache/mace/20231210mace128L0_energy_epoch249model",
+  "script_sha256": "2223f6f26e33aafc55dbe268497f285498b5f45a0b103c8a1493f61fd02d37e8",
+  "fmax": 0.03,
+  "steps": 300,
+  "device": "cpu",
+  "dtype": "float64",
+  "relax_cell": false,
+  "optimizer": "FIRE",
+  "threads": 4,
+  "site_mapping_tolerance_A": 0.75,
+  "versions": {
+    "materialsframework": "1.0.0",
+    "mace-torch": "0.3.16",
+    "torch": "2.9.1",
+    "ase": "3.29.0",
+    "numpy": "1.26.4"
+  }
+}

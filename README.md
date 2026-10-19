@@ -1442,6 +1442,59 @@ weighting them by degeneracy. Neither mode establishes an equilibrium
 fluctuation or a thermodynamic uncertainty interval. Energies and other physical
 properties must be calculated separately for the exported configurations.
 
+### Reproducible MAX-phase energy-variability example
+
+The [frozen report](tools/fixtures/max_ensemble/report.html) and
+[energy table](tools/fixtures/max_ensemble/random32-energies/energies.csv) contain
+32 randomly selected, symmetry-distinct configurations of
+(Ti₀.₅Zr₀.₅)₂(Al₀.₅Si₀.₅)C, each with 32 atoms. Selection seed 17 draws from
+128 candidates collected by SA with search seed 42. All three targeted first-shell
+SRO components (Ti–Zr, Al–Si and Ti–Si) are exactly zero; other correlations vary.
+
+| MACE energy spread | Unrelaxed | Fixed-cell relaxed |
+| --- | ---: | ---: |
+| Population standard deviation (meV/atom) | 3.073 | 11.705 |
+| Range (meV/atom) | 13.363 | 53.529 |
+
+All 32 relaxations met the 0.03 eV/Å force tolerance and retained parent-site
+correspondence. Calculations used MaterialsFramework with the recorded local
+MACE checkpoint, CPU float64, FIRE, at most 300 steps, and a prescribed common
+cell. These are model predictions, not DFT reference energies or validated
+alloy equilibrium geometries. The equality of initial occupation-based SRO
+does not establish equal distance-based SRO after relaxation.
+
+This example measures **configuration-dependent energy variability at fixed
+targeted SRO**. It does not estimate an equilibrium energy distribution, free
+energy, or thermodynamic uncertainty. Equilibrium sampling and phase transitions
+remain outside m_scraps' scope; external tools can consume its exported structures.
+
+Run the lightweight archive checks without ATAT, icet, MACE or MaterialsFramework:
+
+```bash
+python -m pytest tools/tests/test_max_ensemble_archive.py -q
+```
+
+Regenerate the ensemble using the bundled FIGURES, without external solvers or
+ML models (use a new output directory):
+
+```bash
+python tools/replay_max_ensemble.py --output /path/to/new-max-run
+```
+
+The replay reports whether its ordered candidate pool and selected occupations
+match the frozen run. Seeds, dependency versions, time limits and source hashes
+are recorded; numerical or timing differences between environments may change
+discovery. A replay can remain valid while differing from the frozen selection.
+
+Optionally add `--model /path/to/local/mace-checkpoint` to evaluate energies using
+a Python environment with MaterialsFramework and MACE already installed. There
+is no automatic checkpoint download or model redistribution. Compare its SHA-256
+with `random32-energies/manifest.json` to identify the reference checkpoint.
+Routine tests only audit the stored values and structures; they do not independently
+validate the potential or recompute its forces and energies. Original capture
+scripts in the archive's `sources/` retain host-specific paths as provenance;
+use `tools/replay_max_ensemble.py` for portable replay.
+
 ## Enumerate small cells exactly
 
 `m_scraps enumerate` searches labeled-site decorations with the specified

@@ -735,3 +735,19 @@ Random selection does not correct biased candidate discovery or weight symmetry
 orbits by their labeled-occupation multiplicity. Neither strategy is a Boltzmann
 sampler. Time-capped discovery can vary between runs; compare pool hashes before
 attributing differences to selection strategy.
+
+The portable MAX-phase archive lives in `tools/fixtures/max_ensemble/`: 32 random
+structures from a bounded 128-orbit SA pool, their fixed-cell relaxed structures,
+FIGURES, raw energies, model/environment provenance, original capture scripts,
+checksums, and an HTML report. `tools/replay_max_ensemble.py` regenerates the
+ensemble with no ATAT/icet requirement and optionally invokes the archived
+MaterialsFramework evaluator with an explicit local model. Offline regressions
+check selection indices, symmetry distinction, local compositions, exact SRO,
+figure correlations, relaxed-site mapping, hashes and summary arithmetic. They
+validate archive consistency, not the physical accuracy of the saved ML energies.
+
+The tool's scope is configuration generation and characterization at prescribed
+SRO, including random/diversity ensemble export. External property evaluation
+is an example workflow; equilibrium sampling, free energies and phase transitions
+are outside the current release scope. Describe the archive as configuration-
+dependent energy variability at fixed targeted SRO, not a thermodynamic sample.
