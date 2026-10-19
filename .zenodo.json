@@ -1,12 +1,12 @@
 {
   "title": "m_scraps: multi-sublattice short-range-order and cluster-correlation targeting",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "upload_type": "software",
   "description": "m_scraps extends SCRAPS / Hybrid-Cuckoo-Search with per-pair Warren-Cowley targets, independently constrained sublattices, pair/triplet/quadruplet correlation targeting, structure analysis, and reproducible benchmarks and tests. Original SCRAPS code and authorship by Rahul Singh, Aayush Sharma, Prashant Singh, Ganesh Balasubramanian, and Duane D. Johnson are preserved; see the upstream paper and repository. Extension work is by Raymundo Arroyave. Development of m_scraps is supported by the U.S. National Science Foundation under Award OAC-2608825 (PhaseForge). Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation. We acknowledge support from the Air Force Research Laboratory (AFRL) through ARCTOS Technology Solutions, LLC, under TOPS VI, Task Order 03, subcontract 165852-19F5830-19-02-C1. If you use m_scraps in research, please cite both the original SCRAPS paper (doi:10.1038/s43588-020-00006-7) and the Zenodo DOI for the m_scraps release you used.",
   "creators": [
     {
       "name": "Arróyave, Raymundo",
-      "orcid": "0000-0002-0773-9939",
+      "orcid": "0000-0001-7548-8686",
       "affiliation": "Texas A&M University"
     }
   ],

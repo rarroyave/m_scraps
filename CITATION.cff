@@ -5,11 +5,11 @@ message: >-
   to this file when the archive is available.
 type: software
 title: "m_scraps: multi-sublattice short-range-order and cluster-correlation targeting"
-version: 0.5.0
+version: 0.5.1
 authors:
   - family-names: Arróyave
     given-names: Raymundo
-    orcid: "https://orcid.org/0000-0002-0773-9939"
+    orcid: "https://orcid.org/0000-0001-7548-8686"
     affiliation: Texas A&M University
 repository-code: "https://github.com/rarroyave/m_scraps"
 license: MIT

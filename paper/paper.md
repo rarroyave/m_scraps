@@ -13,7 +13,7 @@ tags:
   - density functional theory
 authors:
   - name: Raymundo Arroyave
-    orcid: 0000-0002-0773-9939
+    orcid: 0000-0001-7548-8686
     affiliation: 1
 affiliations:
   - name: Department of Materials Science and Engineering, Texas A&M University, USA
