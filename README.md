@@ -16,6 +16,7 @@ is `m_scraps`; upstream attribution is retained in [Credits](#credits).
 - [Generate diboride, MAX and Heusler cells](notebooks/07_generate_multisublattice.ipynb).
 - [Analyze structures and SRO](notebooks/06_structure_analysis.ipynb).
 - [Bound attainable pair-SRO error](#bound-attainable-pair-sro-error) before a search.
+- [Certify a small-cell minimum](#enumerate-small-cells-exactly) by exhaustive enumeration.
 - [Reproduce the benchmark](#reproducing-the-submission-benchmark) without external engines.
 - [Check independently against ATAT](#independent-atat-checks), offline or live.
 - [Technical overview](docs/OVERVIEW.md) and [contributing](CONTRIBUTING.md).
@@ -1194,3 +1195,65 @@ Inspect shell coverage and choose a cutoff containing the shells of interest.
 These bounds apply to the stated **SRO-error metrics**, not the native weighted
 bond-count fitness or decorated pair/triplet/quadruplet correlation errors.
 No claim of a bound on the figure benchmark's error is made.
+
+
+## Enumerate small cells exactly
+
+`m_scraps enumerate` exhaustively evaluates all labeled-site decorations with
+the specified cell and per-sublattice compositions. It certifies the minimum
+of the **selected pair-SRO metric** only after enumeration finishes. No native
+optimizer, ATAT, or icet is needed.
+
+```bash
+m_scraps enumerate small_cell.cif --cutoff 6 --shells 3 \
+  --targets targets.json --sublattices sublattices.json \
+  --metric max_error --max-configurations 100000 --output exact-result
+```
+
+The targets, sublattices, reference mapping, shell numbering, and metric options
+are the same as [`bounds`](#bound-attainable-pair-sro-error). Omit sublattices
+for a single-sublattice cell. Shared species, fixed spectators, and separately
+constrained disordered sublattices are supported. As in `bounds`, coordination
+must be uniform within each requested sublattice-pair shell. Only explicit SRO
+targets contribute, with equal weights; there are no implicit zero targets.
+
+Before enumeration, the command computes the number of configurations as the
+product of Nₛ! / ∏ₐ nₛ,ₐ! over sublattices. It refuses to start if that exceeds
+`--max-configurations` (default 100000). A 16-site equiatomic binary cell has
+12870 configurations; a 32-site cell has 601080390. There is no symmetry
+reduction. The cap limits configurations, not elapsed time: cost also depends
+on the number of sites, periodic bonds, and target components.
+
+The output directory must be new. It contains:
+
+- `result.json`: completion status, configuration counts, exact selected error,
+  the earlier relaxed bound, certification scope, target residuals, provenance,
+  and the best occupations and sublattice labels in evaluation order.
+- `best.extxyz`, `best.cif`, and `best.POSCAR`: a witness structure attaining the
+  reported error. Extended XYZ and the JSON occupations retain the evaluation
+  order; POSCAR is written without species sorting. When `--reference` is
+  supplied, the witness uses that reference's geometry and site order.
+
+Comparisons use exact rational arithmetic; RMS is compared through its exact
+mean squared error. Decimal JSON fields are numerical presentations. The other
+two metrics describe the selected witness, not separate optimized minima.
+Ties retain the first best witness, starting with the supplied decoration.
+
+A completed search reports `status: certified_minimum`, with `lower_bound`
+equal to `best_error` and zero `optimality_gap`. `relaxed_lower_bound` preserves
+the independent pair-count bound so one can see whether lattice constraints
+make the true minimum larger.
+
+Optionally set `--max-seconds 30`, which includes preparation time. A time limit
+or Ctrl-C during enumeration saves the current witness and reports
+`status: best_found`, `complete: false`, the number evaluated, and the gap to
+the relaxed bound. The supplied structure is evaluated first so an early stop
+still has a witness. The configuration count covers the enumerated sequence;
+that initial witness evaluation is recorded separately. No resumable state is
+saved. Incomplete searches never claim exhaustive certification.
+
+Python callers can use
+`report, witness = m_scraps.enumerate_sro(atoms, cutoff=6, targets=targets, ...)`.
+Certification applies only to the specified finite cell, geometry, compositions,
+constraints, targets, and selected metric—not other cell sizes or shapes, or
+decorated pair/triplet/quadruplet objectives.

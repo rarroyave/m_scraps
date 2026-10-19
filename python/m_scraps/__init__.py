@@ -12,9 +12,12 @@ if not _TOOLS.is_dir():
 if str(_TOOLS) not in sys.path:
     sys.path.insert(0, str(_TOOLS))
 
-__all__ = ["sro_bounds", "analyze_structure", "run_sqs_from_atoms", "read_scraps_output", "make_scraps_inputs", "write_scraps_poscar"]
+__all__ = ["enumerate_sro", "sro_bounds", "analyze_structure", "run_sqs_from_atoms", "read_scraps_output", "make_scraps_inputs", "write_scraps_poscar"]
 
 def __getattr__(name):
+    if name == "enumerate_sro":
+        from enumerate_sro import enumerate_sro
+        return enumerate_sro
     if name == "sro_bounds":
         from sro_bounds import sro_bounds
         return sro_bounds

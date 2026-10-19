@@ -1,0 +1,221 @@
+"""Exhaustive, capped pair-SRO optimization for fixed finite periodic cells."""
+from __future__ import annotations
+
+import argparse
+from fractions import Fraction
+import hashlib
+from itertools import combinations
+import json
+import math
+from pathlib import Path
+import time
+
+import numpy as np
+from ase.io import read, write
+from ase.neighborlist import neighbor_list
+
+from sro_bounds import KEYS, METRICS, sro_bounds
+from structure_analysis import analyze_structure
+
+
+def configuration_count(composition):
+    """Count labeled-site decorations, without symmetry reduction."""
+    total = 1
+    for group in composition.values():
+        remaining = group['sites']
+        for count in group['counts'].values():
+            total *= math.comb(remaining, count)
+            remaining -= count
+    return total
+
+
+def occupations(labels, composition):
+    """Yield each allowed fixed-composition decoration exactly once, lazily."""
+    names = sorted(composition)
+    groups = [(np.flatnonzero(labels == name).tolist(),
+               [(symbol, count) for symbol, count in sorted(composition[name]['counts'].items()) if count])
+              for name in names]
+    current = [''] * len(labels)
+
+    def assign_group(group):
+        if group == len(groups):
+            yield tuple(current)
+            return
+        positions, species = groups[group]
+
+        def assign_species(remaining, index):
+            symbol, count = species[index]
+            if index == len(species) - 1:
+                for site in remaining:
+                    current[site] = symbol
+                yield from assign_group(group + 1)
+                return
+            for selected in combinations(remaining, count):
+                selected_set = set(selected)
+                for site in selected:
+                    current[site] = symbol
+                yield from assign_species([site for site in remaining if site not in selected_set], index + 1)
+
+        yield from assign_species(positions, 0)
+
+    yield from assign_group(0)
+
+
+def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
+                  reference=None, tolerance=0.2, shell_tolerance=1e-5,
+                  metric='max_error', max_configurations=100000, max_seconds=None):
+    """Return (report, witness Atoms); certify only after complete enumeration.
+
+    Uses the uniform-coordination pair-SRO conventions of sro_bounds. All
+    comparisons use rational arithmetic (mean squared error for RMS). The
+    structure returned uses reference geometry/order when reference is supplied.
+    A time limit or Ctrl-C during enumeration returns best_found, never an
+    exhaustive certificate. The initial decoration supplies a witness even if
+    the time limit expires during preparation. No resume state is produced.
+    """
+    start = time.monotonic()
+    if isinstance(max_configurations, bool) or not isinstance(max_configurations, int) or max_configurations < 1:
+        raise ValueError('max_configurations must be a positive integer')
+    if max_seconds is not None and (not math.isfinite(max_seconds) or max_seconds <= 0):
+        raise ValueError('max_seconds must be positive and finite')
+    bound = sro_bounds(atoms, cutoff=cutoff, targets=targets, shells=shells,
+        sublattices=sublattices, reference=reference, tolerance=tolerance,
+        shell_tolerance=shell_tolerance, metric=metric)
+    total = configuration_count(bound['composition'])
+    if total > max_configurations:
+        raise ValueError(f'{total} configurations exceed --max-configurations {max_configurations}; '
+                         'choose a smaller cell or explicitly raise the cap')
+    analysis = analyze_structure(atoms, cutoff=cutoff, shells=shells, sublattices=sublattices,
+        reference=reference, tolerance=tolerance, shell_tolerance=shell_tolerance,
+        sro_targets=targets)
+    geometry = reference if reference is not None else atoms
+    labels = np.array(sublattices['site_labels'] if sublattices else ['all'] * len(atoms), dtype=str)
+    ii, jj, distances = neighbor_list('ijd', geometry, cutoff)
+    rows = {tuple(row[k] for k in KEYS): row for row in analysis['sro']}
+    prepared = []
+    for entry, target in zip(bound['entries'], targets):
+        key = tuple(target[k] for k in KEYS)
+        row = rows[key]
+        source, destination, _, a, b = key
+        selected = ((labels[ii] == source) & (labels[jj] == destination)
+                    & (distances >= row['distance_min']) & (distances <= row['distance_max']))
+        prepared.append((ii[selected], jj[selected], a, b,
+                         Fraction(entry['denominator_exact']), Fraction(str(target['target']))))
+
+    def evaluate(symbols):
+        symbols = np.asarray(symbols)
+        counts, residuals = [], []
+        for centers, neighbors, a, b, denominator, target in prepared:
+            count = int(np.count_nonzero((symbols[centers] == a) & (symbols[neighbors] == b)))
+            counts.append(count)
+            residuals.append(1 - Fraction(count) / denominator - target)
+        absolute = [abs(r) for r in residuals]
+        metrics = dict(max_error=max(absolute),
+                       rms_error=sum(r * r for r in residuals) / len(residuals),
+                       mean_absolute_error=sum(absolute) / len(absolute))
+        return metrics, counts, residuals
+
+    best_symbols = tuple(np.array(atoms.get_chemical_symbols())[analysis['mapping']['input_indices']])
+    best_metrics, best_counts, best_residuals = evaluate(best_symbols)
+    best = (best_metrics, best_symbols, best_counts, best_residuals)
+    evaluated, reason = 0, 'exhausted'
+    try:
+        for candidate in occupations(labels, bound['composition']):
+            if max_seconds is not None and time.monotonic() - start >= max_seconds:
+                reason = 'time_limit'
+                break
+            values, counts, residuals = evaluate(candidate)
+            if values[metric] < best[0][metric]:
+                best = (values, candidate, counts, residuals)
+            evaluated += 1
+    except KeyboardInterrupt:
+        reason = 'interrupted'
+    best_metrics, best_symbols, best_counts, best_residuals = best
+    complete = reason == 'exhausted' and evaluated == total
+    if complete:
+        reason = 'exhausted'
+    elif reason == 'exhausted':
+        raise RuntimeError('Enumeration count does not match the combinatorial count')
+    exact_best = best_metrics[metric]
+    exact_relaxed = Fraction(bound['metrics'][metric]['lower_bound_exact'])
+    convert = math.sqrt if metric == 'rms_error' else float
+    certified_lower = exact_best if complete else exact_relaxed
+    witness = geometry.copy()
+    witness.set_chemical_symbols(best_symbols)
+    entries = []
+    for target, count, residual in zip(targets, best_counts, best_residuals):
+        entries.append(dict(**{k: target[k] for k in KEYS}, target=float(target['target']),
+            pair_count=count, alpha=float(residual + Fraction(str(target['target']))),
+            residual=float(residual), residual_exact=str(residual)))
+    result = dict(schema_version=1, objective='directed_pair_sro', method='exhaustive_labeled_occupations',
+        status='certified_minimum' if complete else 'best_found', complete=complete,
+        stop_reason=reason, selected_metric=metric, total_configurations=total,
+        evaluated_configurations=evaluated, initial_witness_evaluated=True,
+        max_configurations=max_configurations, max_seconds=max_seconds,
+        elapsed_seconds=time.monotonic() - start,
+        best_error=convert(exact_best), best_error_exact=str(exact_best),
+        exact_value_convention='squared error' if metric == 'rms_error' else 'error',
+        lower_bound=convert(certified_lower), lower_bound_exact=str(certified_lower),
+        relaxed_lower_bound=convert(exact_relaxed), relaxed_lower_bound_exact=str(exact_relaxed),
+        optimality_gap=convert(exact_best) - convert(certified_lower),
+        metrics_at_best={k: dict(value=math.sqrt(v) if k == 'rms_error' else float(v),
+                                exact=str(v), exact_value_convention='squared error' if k == 'rms_error' else 'error')
+                         for k, v in best_metrics.items()},
+        witness=dict(symbols=list(best_symbols), site_labels=labels.tolist(), site_order='reference' if reference is not None else 'input',
+                     geometry='reference' if reference is not None else 'input'),
+        entries=entries, composition=bound['composition'], convention=bound['convention'],
+        shell_coverage=bound['shell_coverage'],
+        scope='Specified finite cell, geometry, compositions, sublattice constraints, explicit targets and selected metric only.',
+        limitations=['No symmetry reduction; each labeled-site occupation is counted.',
+                     'Uniform coordination within requested sublattice-pair shells is required.',
+                     'Other reported metrics describe the selected witness, not independently optimized minima.',
+                     'Pair-SRO error only; no decorated higher-order correlation certificate.',
+                     'Incomplete searches report best_found even if the witness matches the relaxed bound.'])
+    return result, witness
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('structure', type=Path)
+    parser.add_argument('--targets', required=True, type=Path)
+    parser.add_argument('--cutoff', required=True, type=float)
+    parser.add_argument('--shells', type=int, default=2)
+    parser.add_argument('--sublattices', type=Path)
+    parser.add_argument('--reference', type=Path)
+    parser.add_argument('--tolerance', type=float, default=0.2)
+    parser.add_argument('--shell-tolerance', type=float, default=1e-5)
+    parser.add_argument('--metric', choices=METRICS, default='max_error')
+    parser.add_argument('--max-configurations', type=int, default=100000)
+    parser.add_argument('--max-seconds', type=float, help='Optional time limit including preparation')
+    parser.add_argument('--output', required=True, type=Path, help='New directory for report and witness files')
+    args = parser.parse_args(argv)
+    try:
+        if args.output.exists():
+            raise ValueError('Output directory already exists; choose a new path')
+        report, witness = enumerate_sro(read(args.structure), cutoff=args.cutoff,
+            targets=json.loads(args.targets.read_text()), shells=args.shells,
+            sublattices=json.loads(args.sublattices.read_text()) if args.sublattices else None,
+            reference=read(args.reference) if args.reference else None,
+            tolerance=args.tolerance, shell_tolerance=args.shell_tolerance,
+            metric=args.metric, max_configurations=args.max_configurations, max_seconds=args.max_seconds)
+        inputs = {'structure': args.structure, 'targets': args.targets,
+                  'sublattices': args.sublattices, 'reference': args.reference}
+        report['inputs'] = {name: dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+                            for name, path in inputs.items() if path is not None}
+        args.output.mkdir(parents=True)
+        write(args.output / 'best.extxyz', witness)
+        write(args.output / 'best.cif', witness)
+        write(args.output / 'best.POSCAR', witness, format='vasp', direct=True, sort=False)
+        report['files'] = {name: dict(sha256=hashlib.sha256((args.output / name).read_bytes()).hexdigest())
+                           for name in ('best.extxyz', 'best.cif', 'best.POSCAR')}
+        (args.output / 'result.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
+        print(f"{report['status']}: {report['selected_metric']}={report['best_error']:.10g}; "
+              f"{report['evaluated_configurations']}/{report['total_configurations']} configurations; "
+              f"{args.output / 'result.json'}")
+    except (ValueError, KeyError, TypeError, OSError) as exc:
+        parser.error(str(exc))
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

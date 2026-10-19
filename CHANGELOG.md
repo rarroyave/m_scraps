@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add capped exact pair-SRO enumeration for small single- and multi-sublattice
+  cells, with rational comparisons, completion certificates, witness structures,
+  and explicitly uncertified time-limited or interrupted results.
 - Add `m_scraps bounds` and the Python `sro_bounds` API for independent integer
   pair-count SRO lower bounds, achieved upper bounds, and witness-based
   optimality certificates. Reject nonuniform coordination; report limitations.

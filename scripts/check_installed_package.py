@@ -30,6 +30,16 @@ subprocess.run([command, 'bounds', str(root/'bounds-cell.extxyz'), '--cutoff', '
 bound = json.loads((root/'bounds.json').read_text())['result']
 assert 0 <= bound['lower_bound'] <= bound['achieved_upper_bound']
 
+small = bulk('Cu', 'bcc', a=2, cubic=True)
+small[1].symbol = 'Zn'
+small.write(root/'enumeration-cell.extxyz')
+subprocess.run([command, 'enumerate', str(root/'enumeration-cell.extxyz'), '--cutoff', '1.8',
+    '--targets', str(root/'targets.json'), '--output', str(root/'enumeration')], check=True)
+exact = json.loads((root/'enumeration/result.json').read_text())
+assert exact['status'] == 'certified_minimum' and exact['best_error_exact'] == '1'
+assert exact['evaluated_configurations'] == 2
+
+
 subprocess.run([command, 'benchmark', '--cases', 'bcc_128', '--seconds', '3', '--ranks', '2',
                 '--output', str(root/'fresh')], check=True)
 fresh = json.loads((root/'fresh/comparison.json').read_text())['fresh_native']
