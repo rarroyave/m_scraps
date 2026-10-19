@@ -4,6 +4,9 @@ from . import _TOOLS
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "search-cells":
+        from search_cells import main as search
+        return search(sys.argv[2:])
     if len(sys.argv) > 1 and sys.argv[1] == "enumerate":
         from enumerate_sro import main as enumerate_main
         return enumerate_main(sys.argv[2:])

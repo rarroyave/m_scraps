@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add bounded cell-size/shape search with reduced-basis aspect and shortest-repeat
+  constraints, symmetry-equivalent lattice removal, exact composition checks,
+  pair-SRO bound screening, exact enumeration or seeded SA, and Pareto candidates
+  with exported witnesses. Certificates remain specific to individual cells.
+
 - Enable symmetry-reduced enumeration by default, verifying sublattice labels
   and exact target bond graphs, generating representatives through subset
   stabilizers, and recording orbit coverage. Retain `--symmetry none` as an

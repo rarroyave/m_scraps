@@ -20,6 +20,10 @@ if [ "${1:-}" = "compare-atat" ]; then
     shift
     exec "$python_bin" "$root/tools/compare_atat.py" "$@"
 fi
+if [ "${1:-}" = "search-cells" ]; then
+    shift
+    exec "$python_bin" "$root/tools/search_cells.py" "$@"
+fi
 if [ "${1:-}" = "enumerate" ]; then
     shift
     exec "$python_bin" "$root/tools/enumerate_sro.py" "$@"

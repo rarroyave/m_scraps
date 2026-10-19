@@ -16,6 +16,7 @@ is `m_scraps`; upstream attribution is retained in [Credits](#credits).
 - [Generate diboride, MAX and Heusler cells](notebooks/07_generate_multisublattice.ipynb).
 - [Analyze structures and SRO](notebooks/06_structure_analysis.ipynb).
 - [Bound attainable pair-SRO error](#bound-attainable-pair-sro-error) before a search.
+- [Search cell sizes and shapes](#search-cell-sizes-and-shapes) with geometry constraints.
 - [Certify a small-cell minimum](#enumerate-small-cells-exactly) by exhaustive enumeration.
 - [Reproduce the benchmark](#reproducing-the-submission-benchmark) without external engines.
 - [Check independently against ATAT](#independent-atat-checks), offline or live.
@@ -1298,3 +1299,95 @@ and distinct target components. Fewer objective evaluations do not guarantee
 lower wall time for every small problem: symmetry discovery and orbit handling
 also have a cost. This reduction covers only the supplied cell; it does not
 enumerate different supercell shapes.
+
+
+## Search cell sizes and shapes
+
+`m_scraps search-cells` explores integer supercells of a supplied parent lattice
+and optimizes their occupations against the same explicit pair-SRO targets as
+`bounds` and `enumerate`. It returns several candidates, with atom count,
+achieved error, lower bound, shape, and a witness structure for each optimized
+cell. It requires neither ATAT nor icet.
+
+```bash
+m_scraps search-cells parent.cif --min-atoms 8 --max-atoms 32 \
+  --cutoff 6 --shells 3 --targets targets.json \
+  --sublattices parent-sublattices.json --composition composition.json \
+  --min-repeat 5 --max-aspect 1.5 \
+  --max-candidates 12 --max-seconds 60 --seed 42 --output cell-search
+```
+
+**Control awkwardness before optimizing occupations:**
+
+- `--max-aspect` limits the longest/shortest **Minkowski-reduced** basis-vector
+  length ratio (default 2). A value of 1.5 allows at most a 50% length difference.
+- `--min-repeat` sets the shortest nonzero periodic lattice translation in
+  angstrom (default 0, no absolute size restriction). This is the distance to a
+  periodic copy of the cell, not the nearest-neighbor interatomic distance.
+- Both filters apply after basis reduction; a needlessly skewed representation
+  of a compact lattice is not mistaken for an intrinsically elongated cell.
+  Exported structures use the reduced basis without straining or moving sites
+  relative to the periodic lattice. This does not enforce an orthogonal cell.
+
+The reduction uses [ASE's Minkowski reduction](https://docs.ase-lib.org/_modules/ase/geometry/minkowski_reduction.html).
+Geometry thresholds are user choices for the intended downstream calculation;
+no universal DFT convergence criterion is implied.
+
+The parent need not already contain the desired species if fractions are
+supplied. For a single sublattice, omit `--sublattices` and use, for example:
+
+```json
+{"all": {"Cu": "1/2", "Zn": "1/2"}}
+```
+
+For multiple sublattices, `parent-sublattices.json` gives `site_labels` in
+**parent-site order** and the `allowed` species for each label, just as in
+`analyze`. The composition file gives fractions for every label, including
+fixed spectators. For example, two independently disordered sublattices can use
+`{"M":{"Ti":"1/2","Zr":"1/2"},"A":{"Al":"1/2","Si":"1/2"},"C":{"C":1}}`.
+Shared species are supported. Fractions must sum exactly to one: use rational
+strings such as `"1/3"` for recurring fractions. Incompatible sizes are skipped,
+not rounded. Do not combine explicit fractions with `counts` in the sublattice
+file. Without a composition file, the occupied parent's fractions are retained.
+
+The search generates Hermite normal form matrices, removes equivalent lattices
+under verified parent symmetries that preserve sublattice labels, and measures
+the reduced geometry. It considers only sizes that are multiples of the supplied
+parent's site count; it does not infer a smaller primitive cell. Candidate
+selection cycles through sizes, taking compact shapes first within each size.
+
+Budgets are explicit: `--max-hnfs` (default 2000) limits generated matrices,
+`--max-candidates` (12) limits cells whose SRO is evaluated, `--max-seconds` (60)
+limits the whole search, and `--seconds-per-cell` (3) limits each occupation
+search. Time limits are cooperative: individual library calls can overrun.
+The generation cap can truncate the size range; the report records this.
+With `--error-tolerance`, candidates whose lower bound exceeds that tolerance
+are recorded as screened and are not optimized.
+
+Cells with at most `--max-configurations` (10000) labeled occupations use the
+verified symmetry-reduced exact enumerator. Larger spaces use a seeded Python
+simulated-annealing search (`--sa-steps`, default 2000) on the **same requested
+SRO-error metric**, with swaps confined to each sublattice. This lightweight
+solver is separate from the native SCRAPS optimizer and its weighted bond-count
+fitness. Its temperature decreases geometrically from 0.1 to 0.0001 in error
+units. Fixed step budgets and seeds reproduce the search; wall-time truncation
+can change the result. All returned errors are recomputed from the final witness.
+
+The output directory contains `result.json` plus each candidate's `best.extxyz`,
+`best.cif`, `best.POSCAR`, and expanded `sublattices.json`. Use extxyz with its
+matching labels for independent `analyze`/`bounds` checks; it preserves site order.
+Input and output hashes record provenance. The console and JSON identify the
+Pareto candidates: no other evaluated cell improves an objective without
+worsening another among atom count, achieved error, aspect ratio, and shortest
+repeat distance. These flags compare **achieved** errors, not unknown minima.
+
+A per-cell certificate is issued only after exhaustive enumeration or when a
+witness exactly attains its rational lower bound. **There is no global minimum
+certificate across cell sizes and shapes.** Filters, generation and candidate
+caps restrict coverage, and incomplete occupation searches remain uncertified.
+The objective is pair-SRO error with uniform coordination in each requested
+sublattice-pair shell; decorated higher-order correlations are not supported.
+
+Python: `report, witnesses = m_scraps.search_cells(parent, cutoff=6,
+ targets=targets, min_atoms=8, max_atoms=32, ...)`; witnesses are keyed by the
+candidate IDs in the report.

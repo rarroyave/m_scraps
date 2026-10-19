@@ -49,3 +49,13 @@ assert all(row['candidates'] and not row['errors'] for row in fresh)
 for row in fresh:
     assert all('rms_error' in c['metrics'] for c in row['candidates'])
 print('Installed API, native MPI, frozen oracle, and portable benchmark passed:', root)
+
+subprocess.run([command, 'search-cells', str(root/'enumeration-cell.extxyz'),
+    '--cutoff', '1.8', '--targets', str(root/'targets.json'), '--min-atoms', '2',
+    '--max-atoms', '4', '--max-candidates', '2', '--max-aspect', '1.5',
+    '--output', str(root/'cell-search')], check=True)
+search = json.loads((root/'cell-search/result.json').read_text())
+assert search['candidates'] and not search['global_optimum_certified']
+assert all(c['geometry']['aspect_ratio'] <= 1.5 + 1e-10 for c in search['candidates'])
+from m_scraps import search_cells
+assert callable(search_cells)
