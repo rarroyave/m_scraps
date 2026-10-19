@@ -22,29 +22,54 @@ is `m_scraps`; upstream attribution is retained in [Credits](#credits).
 
 ## What's new vs upstream
 
-Major additions in m_scraps include:
+The following capabilities extend the original
+[SCRAPS implementation at commit `6593cae`](https://github.com/DuaneDJohnson/Hybrid-Cuckoo-Search/tree/6593caed501ae8b6bd3a4b7c13c7f549d650d4a7).
+They are additions to this software, not claims that the underlying established
+methods are new algorithms. The original hybrid cuckoo-search engine remains
+attributed to its authors.
 
-- **Multi-sublattice capabilities:** independently constrain the allowed species
-  and composition on each sublattice, including fixed and disordered sublattices,
-  for SRO and correlation targeting in alloys and ceramics. Worked examples
+### Scientific capabilities
+
+- **Explicit per-pair, per-shell SRO targets:** specify distinct Warren–Cowley
+  parameters for individual species pairs through the `SRO` INPUT keyword,
+  without editing the optimizer source.
+- **Multi-sublattice capabilities:** independently constrain allowed species
+  and compositions, including fixed and disordered sublattices. The figure
+  backend also supports shared species across sublattices with explicit local
+  `COUNTS`; the legacy SRO backend requires disjoint species sets. Examples
   include diborides, MAX phases with disorder on both M and A sites, and Heusler
   intermetallics.
-- **Simulated annealing solver:** select `MC_KERNEL sa` for Metropolis acceptance
-  with an exponential cooling schedule controlled by `SA_T_INITIAL` and
-  `SA_T_FINAL`. This alternative to the default cuckoo MC kernel operates within
-  the same outer search loop and supports the same SRO and figure-correlation
-  objectives.
+- **Higher-order correlation targeting:** optimize symmetry-resolved decorated
+  pairs, triplets, and quadruplets with the optional figure backend. This
+  complements the Warren–Cowley pair objective. Exporting new figure definitions
+  requires optional icet; bundled figure fixtures can be used without it.
+- **Alternative solvers and search controls:** select simulated annealing with
+  `MC_KERNEL sa`, Metropolis acceptance, and exponential cooling controlled by
+  `SA_T_INITIAL` and `SA_T_FINAL`. It operates within the same outer search loop
+  as the default cuckoo MC kernel. Parallel tempering (`MC_KERNEL pt`), compound
+  atom swaps, targeted proposals, and warm starts provide additional search
+  options; their availability does not establish a performance advantage.
+- **Independent structure analysis:** evaluate Warren–Cowley SRO and decorated
+  cluster correlations for supplied structures, with supplied reference geometry
+  and figure definitions where needed, independently of running the optimizer.
 
-| Feature | Upstream | This fork |
-| --- | --- | --- |
-| Random / SQS-style supercells | ✓ | ✓ (backward-compatible) |
-| Scalar α target per shell | requires source edit | requires source edit |
-| **Per-pair α_μν target per shell** | not supported | **supported via `SRO` INPUT keyword** |
-| `printtoscreen()` α output | uses incorrect formula (off by ~N_i, asymmetric) | correct Warren-Cowley, exactly symmetric |
-| Uninitialized `totalatoms` in `readPOSCAR` (upstream issue #3) | open | fixed |
-| `WEIGHTS` mismatch claims to stop but doesn't | open | aborts cleanly via `MPI_Abort` |
+### Performance, workflows, and validation
 
-See the commit messages on `main` for the bug-by-bug breakdown.
+- Incremental objective updates recompute contributions affected by a swap
+  instead of the full objective; full recomputation remains a correctness reference.
+- Wyckoff-orbit detection, composition/cell-size feasibility checks, ASE
+  integration, Python APIs, and CLI workflows support structure preparation.
+- Deterministic seeds, convergence logs, and timed figure checkpoints support
+  reproducible comparisons.
+- Frozen ATAT references and optional live comparisons provide independent
+  validation. The bounded four-method benchmark uses common correlation-error
+  and time-to-threshold metrics, with explicit sampling and timing limitations.
+- Parser and objective fixes, packaging, regression tests, notebooks, and CI
+  improve reliability and usability. These are engineering improvements rather
+  than separate scientific-method claims.
+
+See the [changelog](CHANGELOG.md) for release history and the
+[benchmark protocol](#reproducing-the-submission-benchmark) for measured results.
 
 ## Install and build
 

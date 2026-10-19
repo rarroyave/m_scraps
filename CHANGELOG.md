@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Expand the upstream comparison to distinguish scientific capabilities from
+  performance, workflow, and validation improvements, with backend limitations
+  stated explicitly.
 - Add CI checks for citation schema, ORCID checksums, author metadata, and
   consistent package, Python, CMake, Zenodo, citation, and release-tag versions.
 - Make benchmark scope, error definitions, and timing limitations easier to find.
