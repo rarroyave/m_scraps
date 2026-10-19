@@ -1,37 +1,74 @@
 # Changelog
 
-## Unreleased
+## Unreleased — planned 0.6.0
 
-- Strengthen small-cell SRO bounds using periodic bond multiplicities, self-image
-  restrictions and binary cut parity. Stop enumeration on exact bound attainment,
-  record the proof separately from exhaustive coverage, and retain `--exhaustive`
-  for audits. Cell searches skip optimization when the initial witness proves
-  the minimum and screen tolerances using the stronger bounds.
+Release preparation only: no v0.6.0 tag, GitHub release, or Zenodo deposition
+has been published. The existing 0.5.1 DOI continues to identify that frozen
+archive; a new DOI will be added only after an approved release is archived.
 
-- Add bounded cell-size/shape search with reduced-basis aspect and shortest-repeat
-  constraints, symmetry-equivalent lattice removal, exact composition checks,
-  pair-SRO bound screening, exact enumeration or seeded SA, and Pareto candidates
-  with exported witnesses. Certificates remain specific to individual cells.
+### Small-cell design with explicit accuracy and geometry limits
 
-- Enable symmetry-reduced enumeration by default, verifying sublattice labels
-  and exact target bond graphs, generating representatives through subset
-  stabilizers, and recording orbit coverage. Retain `--symmetry none` as an
-  exhaustive reference; the configuration cap still applies before reduction.
-- Add capped exact pair-SRO enumeration for small single- and multi-sublattice
-  cells, with rational comparisons, completion certificates, witness structures,
-  and explicitly uncertified time-limited or interrupted results.
-- Add `m_scraps bounds` and the Python `sro_bounds` API for independent integer
-  pair-count SRO lower bounds, achieved upper bounds, and witness-based
-  optimality certificates. Reject nonuniform coordination; report limitations.
-- Add a standalone HTML benchmark report with filterable trial metrics,
-  censored threshold times, an embedded comparison figure, and source checksums.
-- Expand the upstream comparison to distinguish scientific capabilities from
-  performance, workflow, and validation improvements, with backend limitations
-  stated explicitly.
-- Add CI checks for citation schema, ORCID checksums, author metadata, and
-  consistent package, Python, CMake, Zenodo, citation, and release-tag versions.
-- Make benchmark scope, error definitions, and timing limitations easier to find.
-- Add this release history. No scientific algorithms or archived results change.
+- Add `m_scraps bounds` and `sro_bounds` for necessary lower bounds on explicit
+  pair-SRO errors, including integer capacities, periodic bond multiplicities,
+  self-image restrictions, and binary cut parity. Support single and multiple
+  labeled sublattices, shared species, and fixed spectators.
+- Add `m_scraps enumerate` and `enumerate_sro` to certify selected pair-SRO
+  minima in a fixed cell. Symmetry reduction verifies label preservation and
+  exact directed target-bond multiplicities, then generates occupation orbits
+  through subset stabilizers. Export witness structures and rational errors.
+- Stop enumeration when a witness exactly attains the rigorous lower bound;
+  distinguish this proof from exhaustive coverage. Retain `--exhaustive` for
+  full-coverage audits and `--symmetry none` for labeled-site reference traversal.
+  Time-limited searches without a proof remain explicitly uncertified.
+- Add `m_scraps search-cells` and `search_cells` to explore bounded ranges of
+  integer supercells, remove equivalent lattices, enforce exact compositions,
+  and filter geometry using reduced-basis aspect ratios and shortest repeats.
+  Screen impossible tolerances by their bounds, use capped exact enumeration or
+  seeded Python pair-SRO SA, and return several candidates with geometry/error
+  tradeoffs and independently checkable witnesses.
+- Add [notebook 08](notebooks/08_small_cell_search.ipynb), covering BCC and
+  multi-sublattice rocksalt, loose versus attained bounds, early-stop proofs,
+  constrained geometry, and tolerance screening. It needs no ATAT or icet and
+  invokes no native optimizer; package CI executes it outside the checkout.
+
+### Reporting, attribution, and maintenance
+
+- Add a self-contained HTML benchmark report with filterable trial metrics,
+  censored threshold times, an embedded figure, and source checksums. Archived
+  benchmark measurements are unchanged; no larger campaign is introduced.
+- Expand the upstream comparison and document benchmark scope, metric
+  definitions, backend differences, and timing limitations.
+- Validate citation schema, ORCID checksums, author metadata, and consistency
+  across package, CMake, Python, citation, Zenodo, and release-tag versions.
+- Support Open MPI 5/PRRTE oversubscription in hosted CI correctness tests while
+  retaining Open MPI 4 compatibility. Production optimizer settings are unchanged.
+
+### Scope and compatibility
+
+The new bounds and exact certificates concern **explicit pair-SRO error** with
+uniform coordination in each requested sublattice-pair shell. They do **not**
+bound decorated pair/triplet/quadruplet correlation errors or the native weighted
+bond-count objective. Componentwise bounds can remain loose; a zero bound alone
+does not prove feasibility.
+
+Certificates apply to a **specified cell, composition, sublattice partition,
+target list, and selected metric**. Bounded cell-shape searches do **not** certify
+a global optimum across all cell sizes or shapes. Geometry constraints express
+user preferences, not DFT convergence guarantees. The cell-search SA uses the
+explicit pair-SRO metric and is distinct from the native SCRAPS SA kernel.
+
+Bounds reports use schema version 2; enumeration reports use schema version 3.
+A bound-attainment certificate may have `complete: false`: `complete` denotes
+full enumeration coverage. Consumers should inspect `status` and
+`certificate_basis` separately. The configuration cap applies before symmetry
+reduction; an already-certified initial witness bypasses enumeration entirely.
+
+Multi-sublattice generation and the native simulated-annealing solver were
+introduced in **0.5.0** and remain supported. This release extends them with
+small-cell feasibility/design workflows; it does not claim those earlier
+capabilities as new inventions. Original SCRAPS attribution, MIT licensing,
+PhaseForge and AFRL/ARCTOS acknowledgments, and the request to cite both the
+original paper and the appropriate software archive remain in place.
 
 ## 0.5.1 — 2026-10-19
 

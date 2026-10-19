@@ -14,6 +14,7 @@ is `m_scraps`; upstream attribution is retained in [Credits](#credits).
 
 - [Install](#install-and-build) and use the Python API or guided CLI.
 - [Generate diboride, MAX and Heusler cells](notebooks/07_generate_multisublattice.ipynb).
+- [Explore small-cell bounds and geometry constraints](notebooks/08_small_cell_search.ipynb).
 - [Analyze structures and SRO](notebooks/06_structure_analysis.ipynb).
 - [Bound attainable pair-SRO error](#bound-attainable-pair-sro-error) before a search.
 - [Search cell sizes and shapes](#search-cell-sizes-and-shapes) with geometry constraints.
