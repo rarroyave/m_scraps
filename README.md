@@ -58,7 +58,7 @@ attributed to its authors.
   incompatible targets, and verified bound matches stop controlled stochastic
   searches for single- and multi-sublattice cells.
 - **Configuration ensembles:** retain symmetry-distinct structures within an
-  SRO-error tolerance, select for correlation diversity, and report the spread
+  SRO-error tolerance, select randomly or for correlation diversity, and report the spread
   for downstream configuration-sensitivity studies.
 - **Independent structure analysis:** evaluate Warren–Cowley SRO and decorated
   cluster correlations for supplied structures, with supplied reference geometry
@@ -1387,9 +1387,28 @@ impossible request before searching. Tolerance checks use exact rational errors;
 
 Candidates are reduced under verified sublattice- and target-preserving
 parent-cell symmetries, without interchanging chemical species. From the bounded
-pool, selection starts with the lowest-error candidate, then greedily adds the
+pool, default `--selection diversity` starts with the lowest-error candidate, then greedily adds the
 candidate farthest from those already selected. Distances are RMS differences
 in equally weighted correlation components, without variance rescaling.
+
+Use `--selection random --selection-seed 17` to select uniformly without
+replacement from the collected symmetry-distinct pool. In Python, pass
+`selection="random", selection_seed=17`; `selection="diversity"` is the default.
+The selection seed defaults to `--seed` but is independent of candidate generation.
+Random selection does not force inclusion of the lowest-error candidate or rank
+by energy. Both modes use the same tolerance, deduplication and search budgets.
+
+| Mode | Intended use | Meaning of property spread |
+| --- | --- | --- |
+| `diversity` | Cover different correlation environments with few calculations | Sensitivity among deliberately diverse configurations |
+| `random` | Draw a reproducible subset of the available candidate pool | Variability within that pool, subject to how the pool was generated |
+
+For a fair comparison, hold all search inputs and `--seed` fixed, change only
+`--selection` / `--selection-seed`, and verify identical ordered
+`selection.pool_occupations_sha256` lists in the reports. Repeat random selections
+to assess subset sensitivity. A wall-time cutoff can change the collected pool
+between runs even with the same seed; prefer a completed enumeration or completed
+fixed SA budget for this comparison. No energy evaluations enter either selector.
 
 By default, descriptors include all defined pair-SRO components within the
 supplied cutoff and shell count, including untargeted components. To include
@@ -1414,8 +1433,13 @@ under the stated symmetry convention. A single structure has zero reported
 spread but provides no estimate of configuration sensitivity.
 
 This is a configuration-sensitivity ensemble, **not a thermodynamic sample**.
-It deliberately favors descriptor diversity; its spread is neither an
-uncertainty interval nor an equilibrium fluctuation. Energies and other physical
+Diversity selection deliberately favors descriptor coverage. Random selection
+is uniform only over the collected symmetry orbits, **not over all labeled
+occupations**: orbit multiplicities are not used as weights. SA discovery and
+truncated enumeration can bias the candidate pool. Even complete enumeration
+followed by random selection samples symmetry orbits equally, rather than
+weighting them by degeneracy. Neither mode establishes an equilibrium
+fluctuation or a thermodynamic uncertainty interval. Energies and other physical
 properties must be calculated separately for the exported configurations.
 
 ## Enumerate small cells exactly

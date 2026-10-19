@@ -45,13 +45,15 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
                       shells=2, sublattices=None, metric='max_error', method='auto',
                       max_configurations=10000, max_pool=256, max_seconds=30.0,
                       starts=8, steps=2000, seed=42, symprec=1e-5,
-                      figures=None, species=None):
+                      figures=None, species=None, selection='diversity', selection_seed=None):
     """Return (JSON-ready report, selected ASE Atoms), preserving compositions.
 
     The tolerance is absolute error in the selected pair-SRO metric. Small
     spaces use symmetry-aware enumeration; larger spaces use seeded Python SA
-    starts, continuing past individual optimum witnesses. Selection is greedy
-    diversity within the bounded pool, not a uniform or thermodynamic sample.
+    starts, continuing past individual optimum witnesses. Selection is either
+    greedy diversity (default) or uniform without replacement from that pool.
+    Neither mode samples uniformly over all labeled occupations. selection_seed
+    defaults to seed and never changes candidate generation.
     """
     start = time.monotonic()
     for name, value in dict(count=count, max_configurations=max_configurations, max_pool=max_pool,
@@ -62,6 +64,12 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
         raise ValueError('max_pool must be at least count')
     if method not in ('auto', 'enumerate', 'sa'):
         raise ValueError('method must be auto, enumerate, or sa')
+    if selection not in ('diversity', 'random'):
+        raise ValueError('selection must be diversity or random')
+    if selection_seed is None:
+        selection_seed = seed
+    if isinstance(selection_seed, bool) or not isinstance(selection_seed, int) or selection_seed < 0:
+        raise ValueError('selection_seed must be a nonnegative integer')
     if metric not in METRICS:
         raise ValueError('Unknown metric')
     if not math.isfinite(error_tolerance) or error_tolerance < 0:
@@ -183,7 +191,10 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
     selected = []
     if pool:
         vectors = np.array([p['diversity_vector'] for p in pool])
-        indices = _select(vectors, [Fraction(p['metrics_exact'][metric]) for p in pool], count)
+        indices = (np.random.default_rng(selection_seed).choice(
+            len(pool), size=min(count, len(pool)), replace=False).tolist()
+            if selection == 'random' else
+            _select(vectors, [Fraction(p['metrics_exact'][metric]) for p in pool], count))
         selected = [dict(pool[i], id=f'structure-{j:03d}', pool_index=i) for j, i in enumerate(indices)]
     witnesses = []
     for entry in selected:
@@ -197,19 +208,27 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
         spread = dict(min=vectors.min(axis=0).tolist(), max=vectors.max(axis=0).tolist(),
             mean=vectors.mean(axis=0).tolist(), population_std=vectors.std(axis=0).tolist(),
             pairwise_rms_distances=distances.tolist())
-    report = dict(schema_version=1, objective='directed_pair_sro', metric=metric,
+    selection_description = (
+        'Uniform without replacement over collected symmetry-distinct candidates; no error or energy ranking.'
+        if selection == 'random' else
+        'Lowest-error anchor, then greedy farthest-point RMS distance; equal component weights; no variance rescaling.')
+    report = dict(schema_version=2, objective='directed_pair_sro', metric=metric,
         exact_metric_conventions=dict(max_error='error', mean_absolute_error='error', rms_error='mean_squared_error'),
         status='requested_count_reached' if len(selected) == count else 'insufficient_candidates',
         stop_reason=reason, selected_count=len(selected), requested_count=count,
         error_tolerance=error_tolerance, selected=selected, bound=bound,
         sublattices=config, targets=deepcopy(targets),
+        selection=dict(method=selection, seed=selection_seed, description=selection_description,
+            population='collected_symmetry_orbits',
+            pool_occupations_sha256=[p['occupations_sha256'] for p in pool]),
         search=dict(method=chosen_method, evaluated=evaluated, eligible=eligible, symmetry_duplicates=duplicates,
             pool_size=len(pool), site_symmetries=len(permutations), total_configurations=total,
             covered_configurations=covered, complete=reason == 'exhausted', starts_run=starts_run),
         settings=dict(cutoff=cutoff, shells=shells, seed=seed, starts=starts, steps=steps,
-            max_configurations=max_configurations, max_pool=max_pool, max_seconds=max_seconds, symprec=symprec),
+            max_configurations=max_configurations, max_pool=max_pool, max_seconds=max_seconds, symprec=symprec,
+            selection=selection, selection_seed=selection_seed),
         diversity=dict(kind='decorated_figure_correlations' if figures is not None else 'pair_sro',
-            columns=columns, selection='Lowest-error anchor, then greedy farthest-point RMS distance; equal component weights; no variance rescaling.',
+            columns=columns, selection=selection_description,
             figures_sha256=initial_analysis['figures']['sha256'] if figures is not None else None,
             species=list(species) if figures is not None else None, spread=spread),
         initial_structure_sha256=hashlib.sha256(json.dumps(dict(symbols=atoms.get_chemical_symbols(),
@@ -220,7 +239,8 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
             dependencies={name: importlib.metadata.version(name) for name in ('numpy', 'ase', 'spglib')}),
         elapsed_seconds=time.monotonic() - start,
         limitations=['Fixed geometry and compositions; distinct under verified label- and target-preserving parent-cell symmetries. No species relabeling.',
-            'A bounded candidate pool and greedy selection do not guarantee globally maximal diversity or discovery of every eligible structure.',
+            'A bounded candidate pool does not guarantee discovery of every eligible structure; greedy diversity is not globally optimal.',
+            'Random selection is uniform only within the collected symmetry-orbit pool, without orbit-multiplicity weights; SA and truncated enumeration can bias that pool.',
             'Distinct structures can share the same descriptor vector; zero descriptor distance does not imply structural equivalence.',
             'No thermodynamic sampling distribution or statistical uncertainty estimate; spread describes only the selected configurations.',
             'Time limit is cooperative, includes preparation and collection, excludes final selection/export; library calls can overrun.'])
@@ -246,6 +266,10 @@ def main(argv=None):
     parser.add_argument('--starts', type=int, default=8)
     parser.add_argument('--steps', type=int, default=2000)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--selection', choices=['diversity', 'random'], default='diversity',
+                        help='Select diverse descriptors or sample uniformly from collected symmetry orbits')
+    parser.add_argument('--selection-seed', type=int,
+                        help='Random subset seed (defaults to --seed); does not alter candidate generation')
     parser.add_argument('--symprec', type=float, default=1e-5)
     parser.add_argument('--figures', type=Path, help='Optional diversity FIGURES, including pairs/triplets; same cell/site order')
     parser.add_argument('--species', help='Comma-separated FIGURES alphabet')

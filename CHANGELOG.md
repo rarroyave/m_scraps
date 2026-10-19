@@ -36,6 +36,11 @@ archive; a new DOI will be added only after an approved release is archived.
   higher-order correlation diversity, export structures and provenance, and
   report configuration spread without implying thermodynamic sampling.
 
+- Add explicit `diversity` and `random` ensemble selection modes, an independent
+  selection seed, and ordered candidate-pool hashes for reproducible comparisons.
+  Random subsets sample collected symmetry orbits without replacement; document
+  candidate-discovery bias and the distinction from thermodynamic sampling.
+
 ### Small-cell design with explicit accuracy and geometry limits
 
 - Add `m_scraps bounds` and `sro_bounds` for necessary lower bounds on explicit

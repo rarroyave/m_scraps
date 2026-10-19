@@ -89,7 +89,8 @@ def test_seeded_sa_reproducible_and_continues_after_first_optimum():
     assert all(analyze_structure(s, cutoff=2.1, shells=2, sro_targets=targets())['sro_comparison']['metrics']['max_error'] == 0 for s in structures)
 
 
-def test_multisublattice_rocksalt_counts_and_symmetry():
+@pytest.mark.parametrize('selection', ['diversity', 'random'])
+def test_multisublattice_rocksalt_counts_and_symmetry(selection):
     atoms = bulk('TiC', 'rocksalt', a=4.4, cubic=True)
     labels = ['M' if a.symbol == 'Ti' else 'X' for a in atoms]
     metal, nonmetal = [i for i, g in enumerate(labels) if g == 'M'], [i for i, g in enumerate(labels) if g == 'X']
@@ -98,7 +99,7 @@ def test_multisublattice_rocksalt_counts_and_symmetry():
     config = dict(site_labels=labels, allowed={'M': ['Ti', 'Zr'], 'X': ['C', 'N']})
     target = [dict(source='M', destination='X', shell=1, center_species='Ti', neighbor_species='N', target=0)]
     report, structures = generate_ensemble(atoms, cutoff=2.3, shells=1, targets=target,
-        sublattices=config, error_tolerance=.34, count=8)
+        sublattices=config, error_tolerance=.34, count=8, selection=selection)
     assert len(structures) > 1 and report['search']['complete']
     for candidate in structures:
         analysis = analyze_structure(candidate, cutoff=2.3, shells=1, sublattices=config, sro_targets=target)
@@ -130,10 +131,11 @@ def write_ring_figures(path):
     path.write_text('\n'.join(lines) + '\n')
 
 
-def test_pair_triplet_diversity_against_direct_spin_products(tmp_path):
+@pytest.mark.parametrize('selection', ['diversity', 'random'])
+def test_pair_triplet_diversity_against_direct_spin_products(selection, tmp_path):
     path = tmp_path / 'FIGURES'
     write_ring_figures(path)
-    report, structures = run(figures=path, species=['Cu', 'Zn'])
+    report, structures = run(figures=path, species=['Cu', 'Zn'], selection=selection)
     assert report['diversity']['kind'] == 'decorated_figure_correlations'
     assert [r['order'] for r in report['diversity']['columns']] == [2, 3]
     vectors = np.array([entry['diversity_vector'] for entry in report['selected']])
@@ -149,16 +151,19 @@ def test_pair_triplet_diversity_against_direct_spin_products(tmp_path):
     with pytest.raises(ValueError, match='site order'): run(shifted, figures=path, species=['Cu', 'Zn'])
 
 
-def test_cli_exports_and_public_api(tmp_path):
+@pytest.mark.parametrize('selection', ['diversity', 'random'])
+def test_cli_exports_and_public_api(selection, tmp_path):
     structure, target_path = tmp_path/'input.extxyz', tmp_path/'targets.json'
     write(structure, ring()); target_path.write_text(json.dumps(targets()))
     output = tmp_path/'ensemble'
     subprocess.run([sys.executable, '-c',
         'import sys; sys.path.insert(0, sys.argv.pop(1)); from m_scraps.cli import main; sys.argv[0]="m_scraps"; main()',
         str(ROOT.parent/'python'), 'ensemble', str(structure), '--targets', str(target_path),
-        '--cutoff', '2.1', '--shells', '2', '--error-tolerance', '0', '--count', '3', '--output', str(output)], check=True)
+        '--cutoff', '2.1', '--shells', '2', '--error-tolerance', '0', '--count', '3', '--selection', selection, '--selection-seed', '17', '--output', str(output)], check=True)
     report = json.loads((output/'result.json').read_text())
     assert report['selected_count'] == 3
+    assert report['selection']['method'] == selection
+    assert report['selection']['seed'] == 17
     for entry in report['selected']:
         for name in ['structure.extxyz', 'structure.cif', 'POSCAR']:
             atoms = read(output/entry['id']/name)
@@ -195,3 +200,40 @@ def test_frozen_48_site_ensembles_independently(tmp_path):
             vectors.append(vector)
         np.testing.assert_allclose(np.std(vectors, axis=0), report['diversity']['spread']['population_std'], atol=1e-14)
         assert np.max(np.std(vectors, axis=0)) > 0
+
+
+@pytest.mark.parametrize('method', ['enumerate', 'sa'])
+def test_random_selection_reproducible_without_changing_candidate_pool(method):
+    options = dict(method=method, starts=3, steps=100, count=2, seed=42)
+    diverse, _ = run(**options)
+    random, structures = run(**options, selection='random', selection_seed=17)
+    repeated, _ = run(**options, selection='random', selection_seed=17)
+    pool = random['selection']['pool_occupations_sha256']
+    assert len(pool) > 2
+    assert pool == diverse['selection']['pool_occupations_sha256']
+    assert random['selected'] == repeated['selected']
+    assert len({r['occupations_sha256'] for r in random['selected']}) == 2
+    assert all(SROBoundStop(ring(), cutoff=2.1, shells=2, targets=targets())(a) for a in structures)
+    # Fixed selection seeds exercise every member, without an obligatory anchor.
+    subsets = []
+    for seed in range(12):
+        report, _ = run(**options, selection='random', selection_seed=seed)
+        assert report['selection']['pool_occupations_sha256'] == pool
+        subsets.append({r['pool_index'] for r in report['selected']})
+    assert set.union(*subsets) == set(range(len(pool)))
+    assert not set.intersection(*subsets)
+
+
+def test_random_empty_and_short_pools_and_validation():
+    report, structures = run(selection='random', count=8)
+    assert len(structures) == 4
+    assert report['status'] == 'insufficient_candidates'
+    report, structures = run(selection='random', targets=targets(.1), error_tolerance=0)
+    assert not structures and report['selection']['pool_occupations_sha256'] == []
+    report, _ = run(selection='random', seed=7)
+    assert report['selection']['seed'] == 7
+    with pytest.raises(ValueError, match='selection must'):
+        run(selection='uniform')
+    for bad in (-1, True, 1.5):
+        with pytest.raises(ValueError, match='selection_seed'):
+            run(selection_seed=bad)

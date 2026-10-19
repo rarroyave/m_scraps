@@ -708,7 +708,7 @@ Exact rational tolerance checks precede canonical occupation deduplication.
 Small occupation spaces are enumerated; large spaces use seeded starts. Both
 paths obey pool and cooperative time limits.
 
-Greedy farthest-point selection uses all analyzed pair SROs or an optional native
+Default `selection="diversity"` greedy farthest-point selection uses all analyzed pair SROs or an optional native
 FIGURES vector. It retains the lowest-error anchor and uses equal-component RMS
 distance; no thermodynamic weighting is implied. Reported spreads describe only
 the selected configurations. Tests compare the complete eight-site ring pool
@@ -720,3 +720,18 @@ multi-sublattice compositions, seeded SA, limits and export round trips.
 Two bounded 48-atom BCC/rocksalt runs are retained in
 `tools/fixtures/ensemble_48.json`; offline tests independently check their
 compositions, symmetry distinction, SRO tolerance and correlation spread.
+
+`selection="random"` (`--selection random`) draws uniformly without replacement
+from the same collected symmetry-orbit pool. `selection_seed` / `--selection-seed`
+defaults to the search seed but uses a separate RNG after collection, so it cannot
+change discovery. There is no forced anchor or energy ranking in this mode.
+Schema version 2 records the selection method, resolved seed, population definition,
+and ordered pool occupation hashes to audit comparisons. Existing descriptor
+spread fields remain available in both modes. Tests cover reproducible random
+subsets, pool invariance for enumeration and SA, lack of a forced anchor, empty
+and short pools, multi-sublattice constraints, FIGURES and CLI exports.
+
+Random selection does not correct biased candidate discovery or weight symmetry
+orbits by their labeled-occupation multiplicity. Neither strategy is a Boltzmann
+sampler. Time-capped discovery can vary between runs; compare pool hashes before
+attributing differences to selection strategy.
