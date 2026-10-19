@@ -1060,9 +1060,9 @@ v0.5.1 archive is available at
 > cluster-correlation targeting* (Version 0.5.1) [Computer software]. Zenodo.
 > https://doi.org/10.5281/zenodo.23475896
 
-The current development version is **0.6.0**, pending release and its own Zenodo
-archive. The DOI above identifies v0.5.1 only. Version 0.6.0 citation metadata
-will receive its release date and version-specific DOI when publication occurs.
+Version **0.6.0** adds bounded small-cell search, achievable-error bounds,
+and random/diversity configuration ensembles. Its version-specific DOI will be
+added after Zenodo completes archival; the DOI above identifies v0.5.1 only.
 
 Machine-readable software citation metadata is provided in `CITATION.cff`.
 

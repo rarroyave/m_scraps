@@ -1,10 +1,9 @@
 # Changelog
 
-## 0.6.0 — unreleased
+## 0.6.0 — 2026-10-19
 
-Release preparation only: no v0.6.0 tag, GitHub release, or Zenodo deposition
-has been published. The existing 0.5.1 DOI continues to identify that frozen
-archive; a new DOI will be added only after an approved release is archived.
+The v0.6.0 archive DOI will be added after Zenodo completes archival.
+The v0.5.1 DOI continues to identify the earlier frozen archive.
 
 - Add a bounded 8/16/32-atom BCC and two-sublattice rocksalt benchmark,
   measured threshold times, a standalone HTML report, and frozen witness
