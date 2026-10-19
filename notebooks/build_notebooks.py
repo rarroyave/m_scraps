@@ -1,4 +1,4 @@
-"""Generate the three tutorial notebooks in this directory.
+"""Generate the first five tutorial notebooks in this directory.
 
 Run: python3 build_notebooks.py
 
@@ -92,7 +92,8 @@ proper species labels.
 
 `element_counts=[36, 36, 36]` ⇒ 108 atoms total (= 4 basis × 3³ cells).
 `max_shellnum=2` weights the first two coordination shells equally. `rng_seed`
-makes the run reproducible across machines. `auto_budget=2` (the v0.4.5
+pins the random stream; bitwise reproducibility also depends on the build,
+MPI rank count, and numerical environment. `auto_budget=2` (the v0.4.5
 "thorough" profile) sets MCSTEP, TOTALIter, NESTS, and EARLY_STOP_PATIENCE
 to sensible defaults scaled by cell size — no manual tuning required.
 
@@ -697,16 +698,12 @@ block.
 
 ## Validation
 
-The full mcsqs comparison for (Ni,Co)(Ti,Zr) B2 across all four
-patterns (SQS / ordered / clustered / mixed) at N=4 and N=6 is
-documented in `docs/mcsqs_comparison.md` under the **Multi-sublattice**
-section. Summary: SCRAPS hits exact per-pair α targets in <1.3 s;
-mcsqs's `-tcf` mode gets the sign right but plateaus at 5-25% of
-target because it weights all clusters with built-in heuristics
-(no per-cluster weight flag) and trades target match for low non-
-target α. The two tools answer different chemistry questions; for
-literature-CSRO reproduction SCRAPS's per-shell `WEIGHT` is the more
-direct match.
+The current matched benchmark is described in the repository README under
+"Reproducing the submission benchmark". It uses the same decorated correlation
+targets and assessment metrics for all methods, with ATAT-audited outputs.
+The older B2 comparisons in `docs/mcsqs_comparison.md` are historical runs with
+different objectives; they do not establish a general accuracy floor for mcsqs.
+
 """),
 ]
 
@@ -879,23 +876,14 @@ disordered sublattices.
 
 ## "mcsqs and SCRAPS disagree on my CSRO target"
 
-Not a bug — different loss formulations target different chemistry
-questions. The full discussion is in `docs/mcsqs_comparison.md`
-under "Two ways of trading off". Quick version:
+First check that both calculations use the same lattice, composition,
+cluster definitions, occupational basis, targets, weights and computational
+budget. Warren–Cowley SRO and decorated correlations are distinct observables.
+Use `m_scraps compare-atat` for the supplied independent references, and
+`m_scraps analyze` for explicit figure/target comparisons. A discrepancy can
+indicate a convention mismatch, incomplete convergence, or a bug; it should
+be investigated rather than explained by an assumed method-specific floor.
 
-- **SCRAPs** lets you zero non-targeted shells via per-shell `WEIGHT`,
-  so the targeted α hits its exact target while non-targeted shells
-  take whatever value physics dictates (often ±1 for ordered patterns).
-
-- **mcsqs** weights all clusters via built-in heuristics (`-wr`, `-wn`,
-  `-wd`); no per-cluster weight flag. It trades target match for low
-  non-target α — gets sign and direction right for every CSRO target
-  but plateaus at 5–25% of the request magnitude.
-
-Both tools are doing what their loss functions ask. For
-literature-CSRO reproduction SCRAPS's per-shell `WEIGHT` is the more
-direct match; for "as random as possible while respecting one
-explicit constraint" mcsqs's formulation fits better.
 """),
 ]
 

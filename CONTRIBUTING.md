@@ -1,4 +1,4 @@
-# Contributing to scraps-perpair
+# Contributing to m_scraps
 
 Welcome. This guide covers the practical bits — building, testing,
 branching, and PR conventions. For the *what is this project* answer
@@ -147,7 +147,7 @@ If you're new to the project:
 1. Read `README.md` (5-min overview).
 2. Skim `docs/OVERVIEW.md` (10-min technical map).
 3. Walk through `notebooks/01_first_scraps_run.ipynb` end to end.
-4. Check the [issues list](https://github.com/rarroyave/scraps-perpair/issues)
+4. Check the [issues list](https://github.com/rarroyave/m_scraps/issues)
    for `good-first-issue` tags.
 
 Questions are welcome — open an issue with the `question` label and

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build SCRAPS with the per-pair SRO extension.
+# Build m_scraps, retaining the legacy scraps executable name.
 #
 # Tested with Homebrew Open MPI on macOS and system Open MPI on Linux.
 
@@ -43,4 +43,5 @@ echo "Building with $MPICXX (Eigen at $EIGEN_INC)..."
     -I "$EIGEN_INC" \
     -o scraps
 
-echo "Built: SCRAPs/scraps"
+ln -sfn scraps m_scraps
+echo "Built: SCRAPs/m_scraps (compatibility executable: SCRAPs/scraps)"

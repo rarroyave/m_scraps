@@ -1,0 +1,2 @@
+# Frozen oracle files must retain exact bytes, including ATAT whitespace.
+tools/fixtures/** -text -whitespace

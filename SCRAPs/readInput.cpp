@@ -254,7 +254,7 @@ const std::set<std::string> KNOWN_KEYS = {
     "TYP", "GITER", "ELEMENT", "CELL_DIM", "NESTS", "MCSTEP",
     "TOTALITER", "MAXSHELLNUM", "WEIGHT", "SRO",
     "AUTO_MCSTEP", "AUTO_BUDGET", "RNG_SEED", "RANDOM_ONLY", "CONVERGENCE_LOG",
-    "FIGURES_FILE", "FIGURE_OBJECTIVE", "FIGURE_WD", "FIGURE_WN", "FIGURE_WR", "FIGURE_TOL",
+    "FIGURE_CHECKPOINT_SECONDS", "FIGURES_FILE", "FIGURE_OBJECTIVE", "FIGURE_WD", "FIGURE_WN", "FIGURE_WR", "FIGURE_TOL",
     "FAST_SWAPS", "TARGETED_SWAPS", "TARGETED_SWAP_PROB",
     "EARLY_STOP_PATIENCE", "EARLY_STOP_TOL",
     "SPECTATOR_BASIS_SPECIES",
@@ -307,6 +307,7 @@ void readInput::input() {
             if (key == "FIGURE_WD" && !(ss >> figureWd)) input_abort("FIGURE_WD requires a number");
             if (key == "FIGURE_WN" && !(ss >> figureWn)) input_abort("FIGURE_WN requires a number");
             if (key == "FIGURE_WR" && !(ss >> figureWr)) input_abort("FIGURE_WR requires a number");
+            if (key == "FIGURE_CHECKPOINT_SECONDS" && !(ss >> figureCheckpointSeconds)) input_abort("FIGURE_CHECKPOINT_SECONDS requires a number");
             if (key == "FIGURE_TOL" && !(ss >> figureTol)) input_abort("FIGURE_TOL requires a number");
             if(key.compare("TYP") == 0)
             {
@@ -644,6 +645,8 @@ void readInput::input() {
         }
     }
 
+    if (!std::isfinite(figureCheckpointSeconds) || figureCheckpointSeconds < 0)
+        input_abort("FIGURE_CHECKPOINT_SECONDS must be finite and nonnegative");
     if (figureObjective != "weighted_l1" && figureObjective != "atat")
         input_abort("FIGURE_OBJECTIVE must be weighted_l1 or atat");
     if (!std::isfinite(figureWd) || figureWd < 0.0 || !std::isfinite(figureWn)

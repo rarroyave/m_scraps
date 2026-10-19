@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""High-throughput composition-space SQS sweeps for scraps-perpair.
+"""High-throughput composition-space SQS sweeps for m_scraps.
 
 Generates many SQS at once across a composition grid. Reuses the
 scraps_wizard pipeline (template + composition + AUTO_BUDGET → SQS)

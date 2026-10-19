@@ -1,0 +1,45 @@
+[build-system]
+requires = ["scikit-build-core>=0.10,<2"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "m_scraps"
+version = "0.5.0"
+description = "Multi-sublattice short-range-order and cluster-correlation targeting for alloy and ceramic supercells"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+authors = [{name = "Raymundo Arróyave"}]
+keywords = ["short-range order", "SQS", "multi-sublattice", "alloys", "ceramics"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: C++",
+  "Operating System :: POSIX",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = ["numpy>=1.24", "ase>=3.22", "pymatgen>=2024.0.0", "matplotlib>=3.7"]
+
+[project.optional-dependencies]
+figures = ["icet==4.0"]
+notebooks = ["jupyterlab>=4", "nbclient>=0.10", "ipykernel>=6"]
+test = ["pytest>=8", "nbformat>=5", "nbclient>=0.10", "ipykernel>=6"]
+
+[project.scripts]
+m_scraps = "m_scraps.cli:main"
+scraps-wizard = "m_scraps.cli:main"
+scraps-run = "m_scraps.cli:run"
+scraps-verify = "m_scraps.cli:verify"
+scraps-htp = "m_scraps.cli:sweep"
+
+[project.urls]
+Repository = "https://github.com/rarroyave/m_scraps"
+Documentation = "https://github.com/rarroyave/m_scraps#readme"
+Issues = "https://github.com/rarroyave/m_scraps/issues"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+wheel.packages = ["python/m_scraps"]
+wheel.py-api = "py3"
+wheel.platlib = true
+sdist.include = ["SCRAPs/*.cpp", "SCRAPs/*.hpp", "tools/fixtures/**", "tools/*.py", "docs/compare_b2_multisub.py"]
+sdist.exclude = ["SCRAPs/scraps", "SCRAPs/m_scraps", ".venv", "**/__pycache__/**", "**/.pytest_cache/**"]

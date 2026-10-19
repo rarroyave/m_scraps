@@ -15,6 +15,8 @@ Run with:
 from __future__ import annotations
 
 import sys
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -33,6 +35,34 @@ from verify_sro import (
 )
 
 from pymatgen.core import Structure, Lattice
+
+
+@pytest.fixture(scope="module")
+def generated_case(tmp_path_factory):
+    """Generate each legacy integration example in isolated scratch storage."""
+    from scraps_ase import _find_mpirun
+    binary = TOOLS.parent / "SCRAPs/scraps"
+    launcher = _find_mpirun()
+    if not binary.exists() or launcher is None:
+        pytest.skip("Build the native optimizer and install MPI to run generation checks")
+    root = tmp_path_factory.mktemp("sro-generated")
+
+    def generate(name):
+        directory = root / name
+        directory.mkdir()
+        source = TOOLS.parent / "tests" / name
+        shutil.copy2(source / "POSCAR", directory / "POSCAR")
+        text = (source / "INPUT").read_text()
+        # Pin the stochastic input; do not depend on in-tree generated artifacts.
+        (directory / "INPUT").write_text(text + "\nRNG_SEED 20261019\n")
+        with (directory / "scraps.log").open("w") as log:
+            process = subprocess.run([launcher, "-np", "2", str(binary)], cwd=directory,
+                                     stdout=log, stderr=subprocess.STDOUT, timeout=120)
+        assert process.returncode == 0, (directory / "scraps.log").read_text()
+        assert (directory / "SCRAPS.vasp").exists()
+        return directory
+
+    return generate
 
 
 # ---- Reference structures ---------------------------------------------------
@@ -174,12 +204,10 @@ def test_target_file_handles_malformed_lines():
     assert entries[0].alpha == -0.05
 
 
-def test_scraps_random_supercell_approximately_zero():
-    """If the SCRAPS-generated nicocr_random case has been run,
-    it should produce alpha ~ 0 within statistical bounds."""
-    supercell = TOOLS.parent / "tests" / "nicocr_random" / "SCRAPS.vasp"
-    if not supercell.exists():
-        pytest.skip(f"{supercell} not yet generated — run SCRAPS first")
+def test_scraps_random_supercell_approximately_zero(generated_case):
+    """Generate a NiCoCr SQS and verify its first-shell SRO independently."""
+    directory = generated_case("nicocr_random")
+    supercell = directory / "SCRAPS.vasp"
     structure, _ = load_structure(supercell, species_override=["Ni", "Co", "Cr"])
     shells = detect_shells(structure, n_shells=1)
     alpha, _, _ = compute_alpha(structure, shells)
@@ -188,12 +216,11 @@ def test_scraps_random_supercell_approximately_zero():
         f"SQS quality check failed: max |alpha| = {np.max(np.abs(alpha[0]))}"
 
 
-def test_heb_random_zero_alpha_on_M_sublattice():
+def test_heb_random_zero_alpha_on_M_sublattice(generated_case):
     """HEB 5-metal random run should give alpha ~ 0 on the M sublattice
     when B is treated as spectator."""
-    supercell = TOOLS.parent / "tests" / "heb_5metal_random" / "SCRAPS.vasp"
-    if not supercell.exists():
-        pytest.skip(f"{supercell} not yet generated — run SCRAPS first")
+    directory = generated_case("heb_5metal_random")
+    supercell = directory / "SCRAPS.vasp"
     structure, _ = load_structure(
         supercell, species_override=["Hf", "Zr", "Ti", "Ta", "Nb", "B"]
     )
@@ -214,30 +241,26 @@ def test_heb_random_zero_alpha_on_M_sublattice():
         f"HEB SQS quality check failed: max |alpha_MM| = {np.nanmax(np.abs(sub))}"
 
 
-def test_heb_csro_supercell_matches_target():
+def test_heb_csro_supercell_matches_target(generated_case):
     """HEB 5-metal CSRO run should match its INPUT-file target within 0.05
     at the M-M shell. Discrete-count rounding at this supercell size gives
     achieved alpha ~ +/-1/3 for +/-0.30 targets, so tolerance is loose."""
-    supercell = TOOLS.parent / "tests" / "heb_5metal_csro" / "SCRAPS.vasp"
-    target_file = TOOLS.parent / "tests" / "heb_5metal_csro" / "INPUT"
-    if not supercell.exists():
-        pytest.skip(f"{supercell} not yet generated — run SCRAPS first")
+    directory = generated_case("heb_5metal_csro")
+    supercell = directory / "SCRAPS.vasp"
+    target_file = directory / "INPUT"
     structure, _ = load_structure(
         supercell, species_override=["Hf", "Zr", "Ti", "Ta", "Nb", "B"]
     )
     shells = detect_shells(structure, n_shells=10)
     alpha, _, names = compute_alpha(structure, shells, spectator_species=["B"])
     targets = parse_target_file(target_file)
-    # Targets reference shell index 8 in the SCRAPS-internal numbering;
-    # our pymatgen-side shell index is 7 because pymatgen and SCRAPS
-    # disagree by one on how the lowest distance group is binned. Find
-    # the shell with z > 5 (the M-M shell with 6 in-plane + maybe more).
-    mm_shell_k = None
-    for k in range(len(shells)):
-        if shells[k].z > 5:
-            mm_shell_k = k
-            break
-    assert mm_shell_k is not None, "No high-coordination M-M shell found"
+    # Use the geometric M-M distance a=1, not the total coordination of
+    # all species (which can instead select a boron-containing shell).
+    candidates = [k for k, sh in enumerate(shells)
+                  if abs((sh.r_min + sh.r_max) / 2 - 1.0) < 1e-5]
+    assert len(candidates) == 1
+    mm_shell_k = candidates[0]
+    assert all(t.shell == 2 for t in targets)
     # Verify each target landed within tolerance
     for t in targets:
         achieved = float(alpha[mm_shell_k, t.i, t.j])
@@ -247,12 +270,11 @@ def test_heb_csro_supercell_matches_target():
             f"achieved {achieved:+.4f}, err {err:.4f}"
 
 
-def test_scraps_csro_supercell_matches_target():
+def test_scraps_csro_supercell_matches_target(generated_case):
     """The nicocr_csro case should match its INPUT-file target within 0.02."""
-    supercell = TOOLS.parent / "tests" / "nicocr_csro" / "SCRAPS.vasp"
-    target_file = TOOLS.parent / "tests" / "nicocr_csro" / "INPUT"
-    if not supercell.exists():
-        pytest.skip(f"{supercell} not yet generated — run SCRAPS first")
+    directory = generated_case("nicocr_csro")
+    supercell = directory / "SCRAPS.vasp"
+    target_file = directory / "INPUT"
     structure, _ = load_structure(supercell, species_override=["Ni", "Co", "Cr"])
     shells = detect_shells(structure, n_shells=1)
     alpha, _, names = compute_alpha(structure, shells)

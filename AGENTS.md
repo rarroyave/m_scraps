@@ -1,7 +1,7 @@
 # AGENTS.md — orientation for AI coding agents
 
 This file is the working contract for any AI agent (Claude Code,
-Codex, Copilot, etc.) operating on the `scraps-perpair` repository.
+Codex, Copilot, etc.) operating on the `m_scraps` repository (formerly `scraps-perpair`).
 It is not a duplicate of `README.md` or `CONTRIBUTING.md` — read
 those for the human-facing project description and contributor
 workflow. This file covers the *non-obvious* conventions an agent
@@ -18,7 +18,7 @@ For deeper background:
 
 ## TL;DR
 
-`scraps-perpair` is a C++/Python tool that generates multicomponent
+`m_scraps` is a C++/Python tool that generates multicomponent
 alloy and ceramic supercells with **user-specified per-pair, per-shell
 Warren-Cowley short-range-order (SRO) parameters**, with multi-
 sublattice support. The C++ core (`SCRAPs/`) is an MPI-parallel
@@ -574,3 +574,14 @@ them locally to verify but don't `git add -f` them.
 6. Commit message follows the in-repo style; co-author trailer
    present if AI-assisted.
 7. **Did NOT push or tag without explicit permission.**
+
+The public-facing project name is **m_scraps (Multi-sublattice SCRAPS)**. Keep
+legacy `scraps-*` CLI names and Python imports compatible. The existing local
+checkout and archived run directories retain their `scraps-perpair` paths.
+Use the default Cloudflare network for Studio access; do not activate or use
+Tailscale unless Raymundo explicitly changes this preference.
+
+Release approval boundary (2026-10-19): Raymundo requires review and explicit
+approval of the final steps before making the repository public, publishing a
+release, or depositing on Zenodo. An authenticated Zenodo session is not
+publication approval. Continue local preparation and verification meanwhile.

@@ -1,0 +1,53 @@
+{
+  "cases": [
+    "bcc_128",
+    "bcc_128_sro_ordering",
+    "rocksalt_128",
+    "rocksalt_128_sro_ordering",
+    "bcc_432",
+    "bcc_432_sro_ordering",
+    "rocksalt_432",
+    "rocksalt_432_sro_ordering"
+  ],
+  "methods": [
+    "scraps_cuckoo",
+    "scraps_sa",
+    "mcsqs",
+    "icet_atat"
+  ],
+  "trials": 40,
+  "sha256": {
+    "baseline.json": "0b2fcf1a2285856435fd50e69bd2b2e51d50dec0b12e05ecad2a6562d03fbefa",
+    "bcc_128.figures.gz": "1149fa72665b87af579988a29de94d89b5bca7a669de584b290eb281500935ba",
+    "bcc_128.json.gz": "6df03a3285333b9bf157ae110a72497592427e0f8b5630ac3c5bdb770c1b4e62",
+    "bcc_128.poscar": "1a41124a9900a07d65d7cce91991dbf350ba98eec79f58c81d4032150b8c651a",
+    "bcc_128_sro_ordering.figures.gz": "d51239592aec2237653c411bd2b7f046c1ac4af2c69166521ee275ffae354fe7",
+    "bcc_128_sro_ordering.json.gz": "426b9e51896bfb288190acc62f7d6a82e99e49b2217d64c10aecf1ce46bc626d",
+    "bcc_128_sro_ordering.poscar": "1a41124a9900a07d65d7cce91991dbf350ba98eec79f58c81d4032150b8c651a",
+    "bcc_432.figures.gz": "2fa60de80e579de392aea61e231196e89e3de1ebb63f8ef35c07e7922e157dca",
+    "bcc_432.json.gz": "8a266066c4d7e6e7892b6336b8c0c69556e16a2ad201068e31675e63cc3928be",
+    "bcc_432.poscar": "1a41124a9900a07d65d7cce91991dbf350ba98eec79f58c81d4032150b8c651a",
+    "bcc_432_sro_ordering.figures.gz": "6c34158cf661db57b1c18064d377065a23403977a7fb23d64651bdcb5914a2db",
+    "bcc_432_sro_ordering.json.gz": "67c8fa86aed681d41f2dea98aec7141b66e75261a6e64e8161a8979dd4990284",
+    "bcc_432_sro_ordering.poscar": "1a41124a9900a07d65d7cce91991dbf350ba98eec79f58c81d4032150b8c651a",
+    "protocol.json": "bde526b874acd921e53531d95d227e105a56af0f894233e1f21bb757fd58706b",
+    "rocksalt_128.figures.gz": "886debd672ba410517cbef7f791de32e006580a88229ab3622e892e62133450e",
+    "rocksalt_128.json.gz": "53d54d694d0b37ba57edb052637549fc53a60781f4d8fd835894f857581de152",
+    "rocksalt_128.poscar": "89ca2aca79f2c49baa398392f822c7ad542d350f8dde363a7e525e577a61f16f",
+    "rocksalt_128_sro_ordering.figures.gz": "147209224fc3a96e7e1316597436ef47b5b8a1190092f74fd4ee7e71143e3cec",
+    "rocksalt_128_sro_ordering.json.gz": "280e0baeb77c7bfc6031dd76a3a506169d46f9265c7fffea78159c077fadbcd8",
+    "rocksalt_128_sro_ordering.poscar": "89ca2aca79f2c49baa398392f822c7ad542d350f8dde363a7e525e577a61f16f",
+    "rocksalt_432.figures.gz": "073d42b75a65ac31d1856aa248e7aae2e3f9de707dffa6a4ce8a5cc9f4a4e060",
+    "rocksalt_432.json.gz": "3649ce092311fc8985166910d41de8d5a2e05ca0aa177271dd09ef0f990c7023",
+    "rocksalt_432.poscar": "89ca2aca79f2c49baa398392f822c7ad542d350f8dde363a7e525e577a61f16f",
+    "rocksalt_432_sro_ordering.figures.gz": "8662cc7b80c505fdc56a231e0fc34a78b333067aae82b3159afd81678c60756a",
+    "rocksalt_432_sro_ordering.json.gz": "3eb4902309877317477c933492a4233936685ec3082c2ba5b41a408556a02695",
+    "rocksalt_432_sro_ordering.poscar": "89ca2aca79f2c49baa398392f822c7ad542d350f8dde363a7e525e577a61f16f",
+    "environment.json": "22d02c236baaf6a06770246f87bc3750b0ca9faec0725baadf758e398f7b1012"
+  },
+  "schema_version": 1,
+  "atat_version": "3.52",
+  "icet_version": "4.0",
+  "note": "Measured 40-trial screening campaign; no cross-host timing equivalence implied.",
+  "source_manifest_sha256": "c237b5a0631e98c55c68bf9139198e13d63541dd8c3c8e3a535072cee54fe7e6"
+}

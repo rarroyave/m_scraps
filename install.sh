@@ -31,11 +31,11 @@ else
 fi
 
 mkdir -p "$HOME/.local/bin"
-for command in scraps-wizard scraps-run scraps-verify scraps-htp; do
+for command in m_scraps scraps-wizard scraps-run scraps-verify scraps-htp; do
     ln -sfn "$root/bin/$command" "$HOME/.local/bin/$command"
 done
 
-echo "Installed scraps-perpair at $root"
+echo "Installed m_scraps at $root"
 echo "MPI compiler: $MPICXX"
 echo "MPI launcher: $MPIRUN"
-echo "Commands: scraps-wizard, scraps-run, scraps-verify, scraps-htp"
+echo "Commands: m_scraps, scraps-wizard, scraps-run, scraps-verify, scraps-htp"

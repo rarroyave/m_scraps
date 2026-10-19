@@ -1,7 +1,7 @@
 # JOSS paper
 
 This directory contains the [JOSS](https://joss.theoj.org/)
-submission for `scraps-perpair`:
+submission for `m_scraps`:
 
 - `paper.md` — the manuscript (Markdown with YAML front matter, JOSS
   convention). Target length is 250-1000 words for the summary +
@@ -29,12 +29,11 @@ When ready to submit:
 1. Verify the `orcid` field in `paper.md` matches the author's record.
 2. Update the `date` field to the submission date.
 3. Confirm the repository is publicly accessible (JOSS requires
-   public repos at review time -- the `rarroyave/scraps-perpair`
+   public repos at review time -- the `rarroyave/m_scraps`
    fork would need to be made public before submission).
-4. Tag a release version that the submission cites. Current paper
-   targets `v0.4.2` (multi-sublattice + non-uniform-coordination
-   path); JOSS submission should pin to this tag and the commit
-   hash on `main` at submission time.
+4. Tag an approved release containing the final benchmark and rename. Pin
+   the submission to that release and its exact commit hash; do not reuse the
+   earlier `v0.4.2` tag for the current feature set.
 5. Submit via [https://joss.theoj.org/papers/new](https://joss.theoj.org/papers/new)
    with the repository URL and the commit hash being reviewed.
 

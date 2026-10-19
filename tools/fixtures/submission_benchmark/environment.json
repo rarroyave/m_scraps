@@ -1,0 +1,11 @@
+{
+  "cpu": "Apple M1 Max",
+  "model": "Mac13,1",
+  "physical_cores": 10,
+  "memory_bytes": 68719476736,
+  "allocated_cores_per_trial": 4,
+  "platform": "macOS-14.3-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "python": "3.13.15 (main, Aug  5 2026, 12:25:43) [Clang 16.0.0 (clang-1600.0.26.6)]",
+  "mpi": "mpirun (Open MPI) 5.0.10\n\nReport bugs to https://www.open-mpi.org/community/help/\n\n"
+}

@@ -1,0 +1,845 @@
+{
+  "case": {
+    "id": "max211",
+    "species": [
+      "Ti",
+      "Zr",
+      "Al",
+      "Si",
+      "C"
+    ],
+    "counts": [
+      16,
+      16,
+      8,
+      8,
+      16
+    ],
+    "sites": 64,
+    "cell_dim": [
+      2,
+      2,
+      2
+    ],
+    "cutoffs": [
+      3.5,
+      3.5,
+      3.5
+    ],
+    "constraints": []
+  },
+  "configurations": [
+    {
+      "seed": 42,
+      "occupations": [
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        3,
+        2,
+        2,
+        3,
+        2,
+        2,
+        3,
+        3,
+        2,
+        3,
+        2,
+        3,
+        3,
+        2,
+        3,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "correlations": [
+        -0.25,
+        0.0,
+        -0.3333333333333333,
+        -0.08333333333333333,
+        0.0,
+        -0.08333333333333333,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "metrics": {
+        "max_error": 0.3333333333333333,
+        "rms_error": 0.11572751247156893,
+        "mean_absolute_error": 0.05357142857142857,
+        "weighted_l1": 0.05357142857142857
+      },
+      "sro": [
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 2.7992516,
+          "alpha": 0.25,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 2.7992516,
+          "alpha": -0.25,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 2.7992516,
+          "alpha": -0.25,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 2.7992516,
+          "alpha": 0.25,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 3.05,
+          "alpha": 0.08333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 3.05,
+          "alpha": -0.08333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 3.05,
+          "alpha": -0.08333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 3.05,
+          "alpha": 0.08333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Ti",
+          "neighbor_species": "Al",
+          "distance": 2.9062308,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Ti",
+          "neighbor_species": "Si",
+          "distance": 2.9062308,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Zr",
+          "neighbor_species": "Al",
+          "distance": 2.9062308,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Zr",
+          "neighbor_species": "Si",
+          "distance": 2.9062308,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Al",
+          "neighbor_species": "Ti",
+          "distance": 2.9062308,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Al",
+          "neighbor_species": "Zr",
+          "distance": 2.9062308,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Si",
+          "neighbor_species": "Ti",
+          "distance": 2.9062308,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Si",
+          "neighbor_species": "Zr",
+          "distance": 2.9062308,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Al",
+          "neighbor_species": "Al",
+          "distance": 3.05,
+          "alpha": 0.3333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Al",
+          "neighbor_species": "Si",
+          "distance": 3.05,
+          "alpha": -0.3333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Si",
+          "neighbor_species": "Al",
+          "distance": 3.05,
+          "alpha": -0.3333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Si",
+          "neighbor_species": "Si",
+          "distance": 3.05,
+          "alpha": 0.3333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        }
+      ]
+    },
+    {
+      "seed": 137,
+      "occupations": [
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        1,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        2,
+        3,
+        3,
+        2,
+        3,
+        3,
+        2,
+        3,
+        2,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "correlations": [
+        0.0,
+        0.04166666666666666,
+        0.16666666666666666,
+        -0.16666666666666666,
+        0.0,
+        -0.08333333333333333,
+        -0.08333333333333333,
+        -0.5,
+        -0.5,
+        0.0,
+        0.0,
+        0.5,
+        0.125,
+        0.125
+      ],
+      "metrics": {
+        "max_error": 0.5,
+        "rms_error": 0.24675473009731105,
+        "mean_absolute_error": 0.16369047619047622,
+        "weighted_l1": 0.16369047619047622
+      },
+      "sro": [
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 2.7992516,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 2.7992516,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 2.7992516,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 2.7992516,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 3.05,
+          "alpha": 0.16666666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 3.05,
+          "alpha": -0.16666666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 3.05,
+          "alpha": -0.16666666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 3.05,
+          "alpha": 0.16666666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Ti",
+          "neighbor_species": "Al",
+          "distance": 2.9062308,
+          "alpha": -0.04166666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Ti",
+          "neighbor_species": "Si",
+          "distance": 2.9062308,
+          "alpha": 0.04166666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Zr",
+          "neighbor_species": "Al",
+          "distance": 2.9062308,
+          "alpha": 0.04166666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Zr",
+          "neighbor_species": "Si",
+          "distance": 2.9062308,
+          "alpha": -0.04166666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Al",
+          "neighbor_species": "Ti",
+          "distance": 2.9062308,
+          "alpha": -0.04166666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Al",
+          "neighbor_species": "Zr",
+          "distance": 2.9062308,
+          "alpha": 0.04166666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Si",
+          "neighbor_species": "Ti",
+          "distance": 2.9062308,
+          "alpha": 0.04166666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Si",
+          "neighbor_species": "Zr",
+          "distance": 2.9062308,
+          "alpha": -0.04166666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Al",
+          "neighbor_species": "Al",
+          "distance": 3.05,
+          "alpha": -0.16666666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Al",
+          "neighbor_species": "Si",
+          "distance": 3.05,
+          "alpha": 0.16666666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Si",
+          "neighbor_species": "Al",
+          "distance": 3.05,
+          "alpha": 0.16666666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Si",
+          "neighbor_species": "Si",
+          "distance": 3.05,
+          "alpha": -0.16666666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "case": "max211",
+    "components": 14,
+    "orders": [
+      2,
+      3,
+      4
+    ],
+    "target_error": 0.0,
+    "random_probe_errors": [
+      2.7755575615628914e-17,
+      6.938893903907228e-18,
+      2.7755575615628914e-17
+    ],
+    "native_pilot_atat_errors": [],
+    "preparation_seconds": 0.05299524962902069,
+    "input_hashes": {
+      "rndstr.in": "25420dad50b5e96d68887d5cebab5d918c99a97218079b8be2de027c2269c9b2",
+      "clusters.out": "db8818922e886770d961e19b91f1d6ac608ebec9e7c9a3311b5565ab9eef0103",
+      "sqscell.out": "365013e89f30c28777e516781645e4ab2718dd0b9429865fb16ea6eeb9ee100a",
+      "target-correlations.in": "89d4f1ca20172f9bcda81c75849de5ede0da3ab22ecadc03db32e2507684cdbb"
+    },
+    "shared_species_labels": false
+  },
+  "sro_conversion": "binary equiatomic: alpha_ab = -gamma(a)*gamma(b)*<gamma_i gamma_j>; ATAT pair orbits combined by multiplicity",
+  "sro_scope": "disordered-disordered pairs within figure cutoff; fixed-site pairs tested analytically"
+}

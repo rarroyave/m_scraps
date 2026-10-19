@@ -1,0 +1,52 @@
+name: Package installation
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      OMPI_MCA_rmaps_base_oversubscribe: '1'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: System build dependencies
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update
+            sudo apt-get install -y libopenmpi-dev openmpi-bin libeigen3-dev cmake ninja-build
+          else
+            brew install open-mpi eigen cmake ninja
+          fi
+      - name: Build source distribution and wheel from it
+        run: |
+          python -m pip install build
+          python -m build
+      - name: Install in a clean environment and test outside checkout
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/package-env"
+          "$RUNNER_TEMP/package-env/bin/python" -m pip install dist/*.whl nbformat nbclient ipykernel
+          cp scripts/check_installed_package.py "$RUNNER_TEMP/check_installed_package.py"
+          cp notebooks/06_structure_analysis.ipynb "$RUNNER_TEMP/analysis.ipynb"
+          cp notebooks/07_generate_multisublattice.ipynb "$RUNNER_TEMP/generation.ipynb"
+          cd "$RUNNER_TEMP"
+          package-env/bin/python check_installed_package.py
+          package-env/bin/python -c "import nbformat; from nbclient import NotebookClient; n=nbformat.read('analysis.ipynb', as_version=4); NotebookClient(n, timeout=120).execute(); nbformat.write(n, 'analysis-executed.ipynb')"
+          package-env/bin/python -c "import nbformat; from nbclient import NotebookClient; n=nbformat.read('generation.ipynb', as_version=4); NotebookClient(n, timeout=120).execute(); nbformat.write(n, 'generation-executed.ipynb')"

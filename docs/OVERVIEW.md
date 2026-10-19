@@ -1,4 +1,4 @@
-# scraps-perpair: project overview
+# m_scraps: project overview
 
 This document describes (a) what SCRAPS is, (b) what was extended in
 this fork, and (c) how to use the resulting tool. It is meant as a
@@ -79,7 +79,7 @@ $\varepsilon$-band stochastic acceptance to allow neutral moves).
 
 ---
 
-## 2. What scraps-perpair adds and fixes
+## 2. What m_scraps adds and fixes
 
 Six bug fixes from the upstream code, a feature extension (per-pair
 SRO targets), spectator-sublattice support for HEB-class structures,
@@ -213,7 +213,7 @@ matter how long it runs.
 This caught us by surprise during the cell-size benchmark: 25:50:25
 on FCC `k×k×k` is feasible for `k` even and infeasible for `k` odd
 (at shell 1, $T_{AC} = 3k^2/2$), explaining the deterministic
-`fitness = √2.5 ≈ 1.58` plateau at n=108 and n=500.
+`fitness = √2.5  approximately  1.58` plateau at n=108 and n=500.
 
 `tools/suggest_cell.py` walks candidate cell sizes (including
 non-cubic supercells) and returns the closest feasible
@@ -347,6 +347,15 @@ penalties. No extra multiplicity weighting or per-order normalization is
 applied. Geometric decay is a prior for interaction importance, not a
 property-error guarantee.
 
+
+`FIGURE_CHECKPOINT_SECONDS seconds` enables atomic per-rank best-figure snapshots
+(`FIGURE_CHECKPOINT.rankN.json`), containing occupations, correlations and objective
+score. Default 0 disables output; positive finite values specify the minimum
+interval between snapshots at proposal boundaries. Requires `FIGURES_FILE`.
+Snapshots preserve the search RNG and annealing schedule; they are assessable
+structures, not restart state. Benchmark readers must timestamp observation,
+including startup, and retain snapshots observed before their deadline.
+
 ATAT mode reproduces the 3.52 `calc_objective_func` prescription: initialize
 one range per order to its largest included diameter plus $d_0$, truncate at
 the first mismatched diameter, cap each higher-order range by the preceding
@@ -447,8 +456,11 @@ actually achieve what it claims?" cross-check.
 
 ## 5. Test suite
 
-`tools/tests/`, run with `pytest`. **173 tests, ~150 s locally**, all
-with `RNG_SEED` pinned so the optimizer behavior is reproducible:
+`tools/tests/`, run with `pytest`, contains native, Python and frozen-oracle
+regressions. Native integration tests generate their structures in scratch
+directories. Optional icet-export tests run in a separate CI step; frozen-oracle
+tests require no external engines. Search tests pin `RNG_SEED`; reproducibility
+also depends on build and MPI settings. The original test groups include:
 
 - `test_verify_sro.py` (10 tests): verifier against analytically-known
   structures (B2 NiAl, L1₂ Ni₃Al, random binary, HEB random and CSRO).
@@ -502,30 +514,24 @@ optimizer changes, not just verifier-math changes.
 
 ---
 
-## 6. Validation against ATAT mcsqs
+## 6. Independent validation and matched benchmarking
 
-`docs/mcsqs_comparison.md` documents head-to-head comparisons against
-ATAT 3.50's mcsqs across three system classes:
+The completed submission benchmark compares native cuckoo search, native SA,
+ATAT 3.52 mcsqs and icet 4.0 with a matched ATAT objective on the same pair,
+triplet and quadruplet targets. It includes BCC and rocksalt, 128/432 sites,
+random and attainable nonzero targets, and 40 fixed trials with 30-second,
+four-core budgets. See the completed-benchmark section below and the README
+for the full protocol and limitations.
 
-- 108-atom NiCoCr FCC SQS (multi-shell), single-sublattice
-  stoichiometry sweep (50:50 / 75:25 / ternary on FCC and BCC),
-- FCC cell-size sweep (32 / 108 / 256 / 500 atoms) at 25:50:25
-  ternary,
-- HEB (Hf,Zr,Ti,Ta,Nb)B₂ at 150 and 600 atoms.
+Frozen ATAT outputs also validate the native C++ evaluator, incremental swaps,
+the independent Python evaluator and the new structure-analysis workflow.
+The diboride, MAX-211 and Heusler cases include binary-equiatomic SRO checks
+obtained from external pair correlations. Users can rerun these with their
+own corrdump installation; ordinary tests need neither ATAT nor icet.
 
-Summary verdict: SCRAPS matches or beats mcsqs in α-matrix quality
-on every case at comparable wall budgets, and is consistently faster
-(5–60× wall time, 1.5–15× CPU time) because of the explicit
-α-residual loss versus mcsqs's correlation-engineering approach.
-
-The per-pair SRO targeting (§2.2) is the unique value-add — mcsqs
-has no direct API for per-species-pair $\alpha$ targets.
-
-**Multi-sublattice cases.** With v0.4.0 (§2.7), SCRAPS handles
-disjoint-species multi-sublattice SQS directly via the `SUBLATTICE`
-keyword. A head-to-head comparison against mcsqs on rocksalt
-HEA-carbide and full-Heusler benchmarks is the next planned
-addition to `docs/mcsqs_comparison.md`.
+`docs/mcsqs_comparison.md` retains historical experiments with different
+objectives and settings. Their timing ratios are not evidence for a general
+speedup or an inherent accuracy limit of another method.
 
 ---
 
@@ -553,7 +559,7 @@ addition to `docs/mcsqs_comparison.md`.
   exactly. Validated on (Ni,Co)(Ti,Zr) B2 50/50 in
   `docs/compare_b2_multisub.py`: SCRAPs converges to exact α=0 on
   intra-sub shells in <1 s for the SQS case (mcsqs leaves max
-  |α|≈0.1–0.2 in 80–130 s on the same problem); SCRAPs hits the
+  |α| approximately 0.1–0.2 in 80–130 s on the same problem); SCRAPs hits the
   per-pair α targets exactly for ordered (α=−1), clustered
   (α=+0.5), and mixed CSRO patterns at both N=4 and N=6 in under
   1.3 s. Tutorial: `notebooks/04_multi_sublattice.ipynb`. 122 tests.
@@ -570,7 +576,7 @@ addition to `docs/mcsqs_comparison.md`.
   output (global-c_j target drives toward clustering); the
   capability is correct from v0.4.1 onward.
 - **v0.3.2** — K-atom cluster swap moves (`CLUSTER_SWAP_K`).
-  Negative finding documented: K ∈ {2, 4} also plateaus at ~148 on
+  Negative finding documented: K in {2, 4} also plateaus at ~148 on
   the L2₁ cold-start case (same as cuckoo, SA, PT). The barrier is
   move topology, not move size — `INIT_NEST` warm-start remains
   the recommended workaround. 94 tests.
@@ -601,31 +607,69 @@ addition to `docs/mcsqs_comparison.md`.
   (`tools/scraps_ase.py`), MPI singleton-mode diagnosis and fix.
   48 tests.
 
-## 8. What's next
+## 8. Release scope and remaining scientific limitations
 
-Open items as of v0.4.1:
-- **Apply to a real research case.** Refractory HEB with literature
-  CSRO targets, DFT validation. Now also possible: a rocksalt
-  HEA-carbide with independent metal-sublattice CSRO and a fixed C
-  sublattice (v0.4.1 multi-sublattice path).
-- **mcsqs CSRO comparison.** The v0.4.1 mcsqs benchmark in
-  `docs/mcsqs_comparison.md` covers SQS apples-to-apples but the
-  CSRO patterns are SCRAPs-only. Adding mcsqs via `-corrfile` per-
-  cluster correlation targeting would close the comparison loop.
-- **Per-sublattice atom-index sampling.** The v0.4.0 swap-path
-  integration uses rejection sampling (gates after picking a
-  uniform-random pair). For heavily-skewed sublattices the
-  acceptance rate drops to (sum_S (n_S/N)²); the obvious next
-  optimization is sampling within a single sublattice's atom-index
-  list directly. Code complexity tradeoff, not a correctness issue.
-- **Make the repo public + submit JOSS paper.** The manuscript draft
-  under `paper/` is submission-ready; gating items are flipping the
-  repo to public visibility and ORCID verification. The JOSS paper
-  needs a v0.4.0 refresh paragraph for the multi-sublattice
-  capability.
-- **Upstream a subset of fixes.** The six C++ bug fixes (§2.1),
-  POSCAR/INPUT parser hardening, and the multi-sublattice path are
-  upstreamable as PRs to `DuaneDJohnson/Hybrid-Cuckoo-Search`.
+The proposed release combines generation, structure analysis, worked examples,
+checksummed external references and a bounded benchmark. Publication of the
+repository, release and Zenodo archive requires the author's final approval.
 
-See the `## 13. scraps-perpair` entry in the project memory catalog
-for the live status of these items.
+The benchmark has limited repetitions and does not establish broad statistical
+superiority. Multi-component SRO inversion from ATAT correlations remains a
+future extension; current independent SRO fixtures cover binary equiatomic
+mixed sublattices. Structure mapping accepts small displacements and atom
+reordering, with cell agreement within 0.0001 angstrom for serialization
+rounding; it does not fit arbitrary strain, rotations, origin shifts or vacancies.
+Prototype examples do not establish phase stability or property accuracy.
+
+## Submission benchmark
+
+`tools/benchmark/submission/run.py` is the fixed four-method comparison driver.
+It generates eight problems (two crystal families × two sizes × two target
+modes), runs every method on every problem, and repeats the two smaller
+nonzero-target problems with a second seed: 40 trials at 30 s/four cores.
+`matched_mcsqs.py` provides the ATAT cluster mapping and independent audit;
+`icet_extension.py` retains icet 4.0's annealer with a shared ATAT score;
+`sro_targets.py` constructs realizable pair/triplet/quadruplet targets.
+The saved realization is withheld from optimizer initialization. Native
+checkpoint observation includes unfinished annealing schedules. The driver
+freezes sources and inputs, resumes only matching runs, and exports numerical
+regression fixtures. See README for reproduction commands and timing limits.
+
+## Evaluation of supplied structures
+
+`tools/structure_analysis.py` implements `m_scraps analyze` and the public
+`analyze_structure` Python API. It maps structures to an explicit full-supercell
+reference, counts ASE periodic neighbors by directed sublattice pair, and
+normalizes Warren–Cowley SRO by the destination-sublattice concentration.
+Coordination is conditioned on the center species, so nonuniform coordination
+is reported rather than silently replaced by a global average. Optional SRO
+targets produce residuals and aggregate errors. Missing pairs remain undefined.
+
+For supplied native figure files it reuses the independent Python decorated
+correlation evaluator and benchmark metric definitions. Species ordering,
+figure hash, basis, targets and weights accompany the result. Mapping requires
+a unique bijection within the displacement tolerance and equal cells; arbitrary
+strain, origin registration and vacancy fitting are outside this interface.
+Tests include exact B2 ordering, sublattice normalization, fixed-site violations,
+permuted/relaxed sites, and archived ATAT pair/triplet/quadruplet correlations.
+
+`m_scraps compare-atat` supports offline golden-result verification and optional
+live `corrdump` replay. The `analysis_oracle` fixtures retain raw external stdout,
+ATAT inputs and checksums for three materials, with two configurations each.
+Live replay also accepts a new decoration of a selected reference cell. SRO
+checks use the documented binary-equiatomic inversion of ATAT pair correlations;
+they do not relabel an internal SRO calculation as an independent oracle.
+
+## Completed submission benchmark
+
+The frozen 40-trial campaign produced 40 validated outputs, with saved ATAT
+oracle vectors and attainable-reference witnesses for nonzero targets. The
+portable corpus is `tools/fixtures/submission_benchmark`; its manifest checks
+all inputs and results. `m_scraps benchmark --report-only` reads it without
+external engines; a short native rerun uses the same figure definitions.
+
+The [CSV](submission_benchmark.csv) retains every trial, including RMS and
+per-order errors. [The figure](submission_benchmark.png) shows individual
+observations and censored threshold passages. Cuckoo reached maximum error
+0.01 in 5/10 trials; each other method did so in 2/10. These are limited-seed
+screening observations, not a universal ranking.
