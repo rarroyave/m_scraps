@@ -939,6 +939,49 @@ fixtures; it does not rerun the 40-trial campaign or assert wall-clock speed.
 
 Release history is recorded in the [changelog](CHANGELOG.md).
 
+### Focused small-cell benchmark (8–32 atoms)
+
+The [small-cell HTML report](docs/small_cell_benchmark.html) and
+[CSV measurements](docs/small_cell_benchmark.csv) cover 12 fixed-cell cases:
+BCC Cu–Zn and rocksalt (Ti,Zr)(C,N), 8/16/32 atoms, targets 0 and −0.1.
+They compare labeled enumeration, symmetry enumeration, bound-aware stopping,
+and the cell-search Python pair-SRO SA (three seeds). Native SCRAPS solvers,
+ATAT, icet, higher-order correlations, and shape searches are outside this screen.
+One directed first-shell component per case makes maximum, RMS and mean absolute
+errors equal. All random targets attain zero error. For target −0.1:
+
+| System | 8 atoms | 16 atoms | 32 atoms |
+| --- | ---: | ---: | ---: |
+| BCC | 0.10000 | 0.03750 | 0.00625 |
+| Rocksalt, two disordered sublattices | 0.10000 | 0.01667 | 0.01667 |
+
+These are certified minima for the specified cells: exhaustive enumeration
+establishes the 8/16-atom results, and feasible witnesses attain rigorous bounds
+at 32 atoms. Twelve 32-atom enumeration attempts were capped, not completed.
+All 36 SA trials reached their case optimum. This limited sample does not
+establish general solver superiority or an optimum across cell shapes.
+
+Reproduce from a source checkout, without ATAT or icet:
+
+```bash
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+python tools/benchmark/small_cells.py --output small-cell-results \
+  --seconds 5 --max-configurations 20000 --sa-steps 10000
+```
+
+Use a new output directory. Timings include method preparation and exclude
+interpreter startup and witness verification; threshold times are observed
+improvements, with absolute comparison tolerance 1e-12. Missing threshold times
+mean not attained. The optional `progress` callback in `enumerate_sro` reports
+the initial state and strict improvements. The archived protocol, environment,
+72 records, and 12 representative witnesses are in
+`tools/fixtures/small_cells/`. Regression tests reanalyze witnesses, preserve
+sublattice compositions, and re-establish certificates without timing assertions:
+
+```bash
+python -m pytest tools/tests/test_small_cell_benchmark.py -q
+```
+
 ## Credits and citation
 
 If you use m_scraps in research, please cite **both** the original SCRAPS paper

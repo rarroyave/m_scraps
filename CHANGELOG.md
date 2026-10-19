@@ -6,6 +6,11 @@ Release preparation only: no v0.6.0 tag, GitHub release, or Zenodo deposition
 has been published. The existing 0.5.1 DOI continues to identify that frozen
 archive; a new DOI will be added only after an approved release is archived.
 
+- Add a bounded 8/16/32-atom BCC and two-sublattice rocksalt benchmark,
+  measured threshold times, a standalone HTML report, and frozen witness
+  regression tests. Compare enumeration variants with Python pair-SRO SA;
+  certify per-cell minima while explicitly capping large enumeration spaces.
+
 ### Small-cell design with explicit accuracy and geometry limits
 
 - Add `m_scraps bounds` and `sro_bounds` for necessary lower bounds on explicit

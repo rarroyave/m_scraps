@@ -174,3 +174,21 @@ def test_stronger_bound_screens_small_cells_without_optimization(monkeypatch):
         error_tolerance=.01, max_candidates=8)
     assert report['candidates'] and not witnesses
     assert all(c['status'] == 'screened_by_bound' and c['lower_bound'] >= .025 for c in report['candidates'])
+
+
+def test_sa_progress_preserves_search_and_measures_improvements():
+    from search_cells import _anneal
+    import time
+    parent = bulk('Cu', 'bcc', a=2, cubic=True).repeat((2, 1, 1))
+    parent.symbols[2:] = 'Zn'
+    config = {'site_labels': ['all'] * 4, 'allowed': {'all': ['Cu', 'Zn']}}
+    events = []
+    observed, witness = _anneal(parent, config, [target()], 1.8, 1, 'max_error', 100, 42,
+                                time.monotonic()+10, progress=events.append)
+    reference, other = _anneal(parent, config, [target()], 1.8, 1, 'max_error', 100, 42, time.monotonic()+10)
+    assert observed['best_error'] == reference['best_error']
+    assert witness.get_chemical_symbols() == other.get_chemical_symbols()
+    assert events[0]['steps'] == 0
+    assert all(a['best_error'] > b['best_error'] for a, b in zip(events, events[1:]))
+    assert all(a['elapsed_seconds'] <= b['elapsed_seconds'] for a, b in zip(events, events[1:]))
+    assert np.isclose(events[-1]['best_error'], observed['best_error'])

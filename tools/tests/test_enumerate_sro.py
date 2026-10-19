@@ -178,3 +178,14 @@ def test_loose_zero_bound_does_not_stop_search():
     assert result['relaxed_lower_bound'] == 0
     assert result['best_error'] == 1
     assert result['complete'] and result['certificate_basis'] == 'exhaustion'
+
+
+def test_progress_observes_initial_state_and_strict_improvements():
+    atoms = ring()
+    atoms.set_chemical_symbols(['Cu', 'Zn', 'Cu', 'Zn'])
+    events = []
+    result, _ = module.enumerate_sro(atoms, cutoff=1.1, targets=[target(0)],
+                                    symmetry='none', progress=events.append)
+    assert [e['best_error'] for e in events] == [1, 0]
+    assert [e['evaluated_configurations'] for e in events] == [0, 1]
+    assert 0 <= events[0]['elapsed_seconds'] <= events[1]['elapsed_seconds'] <= result['elapsed_seconds']

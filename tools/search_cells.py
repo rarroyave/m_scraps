@@ -126,8 +126,9 @@ def _composition(atoms, sublattices, composition):
     return labels, config['allowed'], fractions
 
 
-def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadline):
+def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadline, progress=None):
     """Small Python SA using the explicit pair-SRO metric, not native fitness."""
+    start = time.monotonic()
     analysis = analyze_structure(atoms, cutoff=cutoff, shells=shells, sublattices=config, sro_targets=targets)
     bound = sro_bounds(atoms, cutoff=cutoff, shells=shells, sublattices=config, targets=targets, metric=metric)
     labels = np.asarray(config['site_labels'])
@@ -156,6 +157,10 @@ def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadlin
               if len(set(current[labels == label])) > 1]
     value = score(current)
     best, best_value = current.copy(), value
+    def emit(completed):
+        if progress is not None:
+            progress(dict(elapsed_seconds=time.monotonic() - start, best_error=best_value, steps=completed))
+    emit(0)
     completed = 0
     for step in range(steps if groups else 0):
         if time.monotonic() >= deadline:
@@ -169,6 +174,7 @@ def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadlin
             value = proposed
             if value < best_value:
                 best, best_value = current.copy(), value
+                emit(step + 1)
         else:
             current[i], current[j] = current[j], current[i]
         completed += 1

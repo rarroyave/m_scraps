@@ -64,7 +64,7 @@ def occupations(labels, composition):
 def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
                   reference=None, tolerance=0.2, shell_tolerance=1e-5,
                   metric='max_error', max_configurations=100000, max_seconds=None,
-                  symmetry='auto', symprec=1e-5, stop_at_bound=True):
+                  symmetry='auto', symprec=1e-5, stop_at_bound=True, progress=None):
     """Return (report, witness Atoms); certify by bound attainment or exhaustion.
 
     Uses the uniform-coordination pair-SRO conventions of sro_bounds. By default,
@@ -125,6 +125,13 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
     best_symbols = tuple(np.array(atoms.get_chemical_symbols())[analysis['mapping']['input_indices']])
     best_metrics, best_counts, best_residuals = evaluate(best_symbols)
     best = (best_metrics, best_symbols, best_counts, best_residuals)
+    def emit(evaluated):
+        if progress is not None:
+            value = best[0][metric]
+            progress(dict(elapsed_seconds=time.monotonic() - start,
+                          best_error=math.sqrt(value) if metric == 'rms_error' else float(value),
+                          evaluated_configurations=evaluated))
+    emit(0)
     exact_relaxed = Fraction(bound['metrics'][metric]['lower_bound_exact'])
     bound_met_initially = stop_at_bound and best_metrics[metric] == exact_relaxed
     permutations = np.arange(len(atoms))[None, :]
@@ -147,6 +154,7 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
             values, counts, residuals = evaluate(candidate)
             if values[metric] < best[0][metric]:
                 best = (values, candidate, counts, residuals)
+                emit(evaluated + 1)
             evaluated += 1
             covered += multiplicity
             if stop_at_bound and best[0][metric] == exact_relaxed:
