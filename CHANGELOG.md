@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a standalone HTML benchmark report with filterable trial metrics,
+  censored threshold times, an embedded comparison figure, and source checksums.
 - Expand the upstream comparison to distinguish scientific capabilities from
   performance, workflow, and validation improvements, with backend limitations
   stated explicitly.

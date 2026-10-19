@@ -854,7 +854,11 @@ The second command runs both native methods on BCC-128 and rocksalt-128 using
 the bundled figures. Select other cases with `--cases`; the archived 30-second
 measurements remain clearly separated from fresh measurements. Comparing
 execution times across different hosts or budgets does not establish speedup.
-See the measured [results table](docs/submission_benchmark.csv) and figure below.
+Explore the standalone [HTML benchmark report](docs/benchmark_report.html)
+(download and open it in a browser), the measured
+[results table](docs/submission_benchmark.csv), and the figure below.
+Regenerate the HTML report with
+`python tools/benchmark/submission/html_report.py`; no external engines are required.
 
 ![Fixed submission benchmark](docs/submission_benchmark.png)
 
