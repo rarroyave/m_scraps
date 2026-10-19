@@ -2,7 +2,7 @@
 
 ## 0.6.0 — 2026-10-19
 
-The v0.6.0 archive DOI will be added after Zenodo completes archival.
+Frozen archive: [doi:10.5281/zenodo.23484291](https://doi.org/10.5281/zenodo.23484291).
 The v0.5.1 DOI continues to identify the earlier frozen archive.
 
 - Add a bounded 8/16/32-atom BCC and two-sublattice rocksalt benchmark,

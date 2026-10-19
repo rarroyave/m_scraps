@@ -5,6 +5,7 @@ message: >-
 type: software
 title: "m_scraps: multi-sublattice short-range-order and cluster-correlation targeting"
 version: 0.6.0
+doi: 10.5281/zenodo.23484291
 date-released: 2026-10-19
 authors:
   - family-names: Arróyave

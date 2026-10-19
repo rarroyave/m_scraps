@@ -1053,16 +1053,16 @@ python -m pytest tools/tests/test_small_cell_external_benchmark.py -q
 
 If you use m_scraps in research, please cite **both** the original SCRAPS paper
 below and the **Zenodo DOI for the m_scraps release you used**. The frozen
-v0.5.1 archive is available at
-[doi:10.5281/zenodo.23475896](https://doi.org/10.5281/zenodo.23475896).
+v0.6.0 archive is available at
+[doi:10.5281/zenodo.23484291](https://doi.org/10.5281/zenodo.23484291).
 
 > R. Arróyave (2026). *m_scraps: multi-sublattice short-range-order and
-> cluster-correlation targeting* (Version 0.5.1) [Computer software]. Zenodo.
-> https://doi.org/10.5281/zenodo.23475896
+> cluster-correlation targeting* (Version 0.6.0) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.23484291
 
 Version **0.6.0** adds bounded small-cell search, achievable-error bounds,
-and random/diversity configuration ensembles. Its version-specific DOI will be
-added after Zenodo completes archival; the DOI above identifies v0.5.1 only.
+and random/diversity configuration ensembles. The earlier v0.5.1 archive remains
+available at [doi:10.5281/zenodo.23475896](https://doi.org/10.5281/zenodo.23475896).
 
 Machine-readable software citation metadata is provided in `CITATION.cff`.
 
