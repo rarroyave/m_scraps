@@ -14,6 +14,7 @@ is `m_scraps`; upstream attribution is retained in [Credits](#credits).
 
 - [Install](#install-and-build) and use the Python API or guided CLI.
 - [Generate diboride, MAX and Heusler cells](notebooks/07_generate_multisublattice.ipynb).
+- [Generate multiple configurations](#generate-a-configuration-ensemble).
 - [Explore small-cell bounds and geometry constraints](notebooks/08_small_cell_search.ipynb).
 - [Analyze structures and SRO](notebooks/06_structure_analysis.ipynb).
 - [Bound attainable pair-SRO error](#bound-attainable-pair-sro-error) before a search.
@@ -56,6 +57,9 @@ attributed to its authors.
 - **Certified pair-SRO error floors:** joint integer count constraints detect
   incompatible targets, and verified bound matches stop controlled stochastic
   searches for single- and multi-sublattice cells.
+- **Configuration ensembles:** retain symmetry-distinct structures within an
+  SRO-error tolerance, select for correlation diversity, and report the spread
+  for downstream configuration-sensitivity studies.
 - **Independent structure analysis:** evaluate Warren–Cowley SRO and decorated
   cluster correlations for supplied structures, with supplied reference geometry
   and figure definitions where needed, independently of running the optimizer.
@@ -1350,6 +1354,69 @@ The flag defaults off to preserve fixed-budget benchmark comparisons. This does
 not change the behavior of standalone ATAT/icet commands or direct MPI runs.
 
 
+
+## Generate a configuration ensemble
+
+`m_scraps ensemble` returns up to K symmetry-distinct structures that meet an
+absolute error tolerance on the specified pair-SRO targets. It preserves the
+cell and each sublattice's composition. Use these structures to assess how
+calculated properties vary among configurations with comparable targeted SRO.
+
+```bash
+m_scraps ensemble initial.cif --cutoff 6 --shells 3 \
+  --targets targets.json --sublattices sublattices.json \
+  --error-tolerance 0.02 --count 8 --seed 42 \
+  --max-pool 128 --max-seconds 30 --output ensemble-result
+```
+
+```python
+from m_scraps import generate_ensemble
+report, structures = generate_ensemble(
+    initial, cutoff=6, shells=3, targets=targets, sublattices=sublattices,
+    error_tolerance=0.02, count=8, seed=42,
+)
+```
+
+The default `--method auto` enumerates symmetry orbits when the labeled
+occupation count is at most `--max-configurations` (default 10000); otherwise it
+uses multiple seeded Python pair-SRO SA starts. `--method sa`, `--starts` and
+`--steps` control that search directly. Individual optimum witnesses do not stop
+ensemble collection. A rigorous bound above the requested tolerance screens an
+impossible request before searching. Tolerance checks use exact rational errors;
+`--metric rms_error` compares squared errors exactly.
+
+Candidates are reduced under verified sublattice- and target-preserving
+parent-cell symmetries, without interchanging chemical species. From the bounded
+pool, selection starts with the lowest-error candidate, then greedily adds the
+candidate farthest from those already selected. Distances are RMS differences
+in equally weighted correlation components, without variance rescaling.
+
+By default, descriptors include all defined pair-SRO components within the
+supplied cutoff and shell count, including untargeted components. To include
+higher-order information, supply `--figures FIGURES --species Ti,Zr,C,N`
+with the appropriate alphabet: selection then uses the supplied decorated
+correlation vector, including any triplets or quadruplets. FIGURES must match
+the fixed cell, site order and allowed occupations. Reading existing FIGURES
+requires neither ATAT nor icet. Descriptors are evaluated on canonical
+representatives; different structures can have identical descriptors.
+
+Each selected structure has its own `structure.extxyz`, `structure.cif` and
+`POSCAR`, preserving site order. `result.json` records exact and numerical errors,
+correlation vectors, seed/step provenance, source and input hashes, and component
+minima, maxima, means and population standard deviations. It also records the
+pairwise descriptor-distance matrix, pool size, stopping reason and whether
+occupation enumeration completed.
+
+The workflow may return fewer than K structures. Time or pool caps and limited
+SA starts restrict discovery; requesting more starts or a larger pool can help.
+A complete enumeration with fewer eligible orbits establishes that fewer exist
+under the stated symmetry convention. A single structure has zero reported
+spread but provides no estimate of configuration sensitivity.
+
+This is a configuration-sensitivity ensemble, **not a thermodynamic sample**.
+It deliberately favors descriptor diversity; its spread is neither an
+uncertainty interval nor an equilibrium fluctuation. Energies and other physical
+properties must be calculated separately for the exported configurations.
 
 ## Enumerate small cells exactly
 

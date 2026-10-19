@@ -126,7 +126,7 @@ def _composition(atoms, sublattices, composition):
     return labels, config['allowed'], fractions
 
 
-def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadline, progress=None, stop_at_bound=True):
+def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadline, progress=None, stop_at_bound=True, visit=None):
     """Small Python SA using the explicit pair-SRO metric, not native fitness."""
     start = time.monotonic()
     analysis = analyze_structure(atoms, cutoff=cutoff, shells=shells, sublattices=config, sro_targets=targets)
@@ -166,8 +166,9 @@ def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadlin
     emit(0)
     completed = 0
     attained = stopper(atoms) if stopper else False
+    keep_searching = visit(current.copy(), 0) is not False if visit else True
     for step in range(steps if groups else 0):
-        if attained or time.monotonic() >= deadline:
+        if attained or not keep_searching or time.monotonic() >= deadline:
             break
         group = groups[int(rng.integers(len(groups)))]
         i, j = rng.choice(group, 2, replace=False)
@@ -186,6 +187,8 @@ def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadlin
         else:
             current[i], current[j] = current[j], current[i]
         completed += 1
+        if visit is not None:
+            keep_searching = visit(current.copy(), completed) is not False
     witness = atoms.copy()
     witness.set_chemical_symbols(best.tolist())
     final = sro_bounds(witness, cutoff=cutoff, shells=shells, sublattices=config, targets=targets, metric=metric)
@@ -193,7 +196,7 @@ def _anneal(atoms, config, targets, cutoff, shells, metric, steps, seed, deadlin
                 best_error=final['result']['achieved_upper_bound'], lower_bound=final['result']['lower_bound'],
                 steps=completed, seed=seed, temperature_start=0.1, temperature_end=0.0001,
                 certificate=stopper.certificate if stopper else None,
-                stop_reason='bound_attained' if attained else 'steps' if completed == steps or not groups else 'time_limit'), witness
+                stop_reason='bound_attained' if attained else 'visitor_stop' if not keep_searching else 'steps' if completed == steps or not groups else 'time_limit'), witness
 
 
 def search_cells(atoms, *, cutoff, targets, min_atoms, max_atoms, sublattices=None,

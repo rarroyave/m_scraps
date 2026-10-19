@@ -695,3 +695,28 @@ and squared-sum errors. Independent blocks combine into the requested metric.
 A per-block state cap falls back to independent component bounds; a partial
 minimum is never used as a lower bound. No occupation enumeration or external
 solver is required. Cross-shell occupation compatibility remains relaxed.
+
+
+### Configuration ensembles
+
+`tools/sro_ensemble.py` implements `m_scraps ensemble` and
+`m_scraps.generate_ensemble`. It reuses fixed-cell bounds, verified site
+symmetries, symmetry-orbit enumeration and Python SA. The SA visitor receives
+initial and subsequent chain states; returning False stops that run. Ensemble
+search disables individual bound stopping to retain multiple optimum witnesses.
+Exact rational tolerance checks precede canonical occupation deduplication.
+Small occupation spaces are enumerated; large spaces use seeded starts. Both
+paths obey pool and cooperative time limits.
+
+Greedy farthest-point selection uses all analyzed pair SROs or an optional native
+FIGURES vector. It retains the lowest-error anchor and uses equal-component RMS
+distance; no thermodynamic weighting is implied. Reported spreads describe only
+the selected configurations. Tests compare the complete eight-site ring pool
+against exhaustive occupation orbits, show variability in untargeted shells,
+verify decorated pair/triplet values against direct spin products (triplets
+distinguish a pair-degenerate example), and check
+multi-sublattice compositions, seeded SA, limits and export round trips.
+
+Two bounded 48-atom BCC/rocksalt runs are retained in
+`tools/fixtures/ensemble_48.json`; offline tests independently check their
+compositions, symmetry distinction, SRO tolerance and correlation spread.

@@ -1,0 +1,1636 @@
+{
+  "description": "Two bounded 48-site Studio ensemble smoke checks; not a statistical timing benchmark.",
+  "source_archive_sha256": "6f3413a5bea8d4647aed2a017d2914d64e456cd9bfac2fea6a0b063571c38bc2",
+  "cases": [
+    {
+      "case": "bcc_48_sro",
+      "report": {
+        "schema_version": 1,
+        "objective": "directed_pair_sro",
+        "metric": "max_error",
+        "status": "requested_count_reached",
+        "stop_reason": "pool_limit",
+        "selected_count": 4,
+        "requested_count": 4,
+        "error_tolerance": 0.02,
+        "selected": [
+          {
+            "symbols": [
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn"
+            ],
+            "metrics_exact": {
+              "max_error": "1/240",
+              "mean_absolute_error": "1/240",
+              "rms_error": "1/57600"
+            },
+            "metrics": {
+              "max_error": 0.004166666666666667,
+              "mean_absolute_error": 0.004166666666666667,
+              "rms_error": 0.004166666666666667
+            },
+            "diversity_vector": [
+              0.10416666666666663,
+              -0.10416666666666674,
+              -0.10416666666666674,
+              0.10416666666666663,
+              -0.05555555555555558,
+              0.05555555555555558,
+              0.05555555555555558,
+              -0.05555555555555558
+            ],
+            "provenance": {
+              "method": "python_pair_sro_sa",
+              "seed": 42,
+              "step": 13
+            },
+            "occupations_sha256": "260f4355c5856472a26b68b2b46bbe631c6f218a95db835550614cd52e18ad0b",
+            "id": "structure-000",
+            "pool_index": 1
+          },
+          {
+            "symbols": [
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn"
+            ],
+            "metrics_exact": {
+              "max_error": "1/60",
+              "mean_absolute_error": "1/60",
+              "rms_error": "1/3600"
+            },
+            "metrics": {
+              "max_error": 0.016666666666666666,
+              "mean_absolute_error": 0.016666666666666666,
+              "rms_error": 0.016666666666666666
+            },
+            "diversity_vector": [
+              0.08333333333333337,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.08333333333333337,
+              0.19444444444444442,
+              -0.19444444444444442,
+              -0.19444444444444442,
+              0.19444444444444442
+            ],
+            "provenance": {
+              "method": "python_pair_sro_sa",
+              "seed": 42,
+              "step": 28
+            },
+            "occupations_sha256": "c6f4ca2440108ce9f93f872999e57a1fd82e3166e0a5bd2ffa15906d236ff7a9",
+            "id": "structure-001",
+            "pool_index": 5
+          },
+          {
+            "symbols": [
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn"
+            ],
+            "metrics_exact": {
+              "max_error": "1/60",
+              "mean_absolute_error": "1/60",
+              "rms_error": "1/3600"
+            },
+            "metrics": {
+              "max_error": 0.016666666666666666,
+              "mean_absolute_error": 0.016666666666666666,
+              "rms_error": 0.016666666666666666
+            },
+            "diversity_vector": [
+              0.08333333333333337,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.08333333333333337,
+              0.11111111111111116,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.11111111111111116
+            ],
+            "provenance": {
+              "method": "python_pair_sro_sa",
+              "seed": 42,
+              "step": 32
+            },
+            "occupations_sha256": "1597ce33f3559cfda4a9afb0e326b1e0600567b126245a0fbb032587322a68a3",
+            "id": "structure-002",
+            "pool_index": 6
+          },
+          {
+            "symbols": [
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Zn",
+              "Cu",
+              "Cu",
+              "Zn",
+              "Zn"
+            ],
+            "metrics_exact": {
+              "max_error": "1/240",
+              "mean_absolute_error": "1/240",
+              "rms_error": "1/57600"
+            },
+            "metrics": {
+              "max_error": 0.004166666666666667,
+              "mean_absolute_error": 0.004166666666666667,
+              "rms_error": 0.004166666666666667
+            },
+            "diversity_vector": [
+              0.10416666666666663,
+              -0.10416666666666674,
+              -0.10416666666666674,
+              0.10416666666666663,
+              0.13888888888888884,
+              -0.13888888888888884,
+              -0.13888888888888884,
+              0.13888888888888884
+            ],
+            "provenance": {
+              "method": "python_pair_sro_sa",
+              "seed": 42,
+              "step": 24
+            },
+            "occupations_sha256": "a559bc1d8482b287df28b48899f22dc9eeff658eee6f6d60d6984e8573c16727",
+            "id": "structure-003",
+            "pool_index": 4
+          }
+        ],
+        "bound": {
+          "schema_version": 3,
+          "objective": "directed_pair_sro",
+          "method": "joint_integer_pair_counts",
+          "joint": {
+            "enabled": true,
+            "max_states_per_block": 10000,
+            "blocks": [
+              {
+                "target_indices": [
+                  0
+                ],
+                "states": 0,
+                "feasible_count_tables": 0,
+                "status": "single_component",
+                "strengthened": false,
+                "explanation": "No strengthening established; a zero bound does not prove lattice feasibility.",
+                "max_error_lower_bound_exact": "1/240",
+                "sum_absolute_error_lower_bound_exact": "1/240",
+                "sum_squared_error_lower_bound_exact": "1/57600"
+              }
+            ]
+          },
+          "independent_lower_bounds_exact": {
+            "max_error": "1/240",
+            "mean_absolute_error": "1/240",
+            "rms_error": "1/57600"
+          },
+          "selected_metric": "max_error",
+          "result": {
+            "lower_bound": 0.004166666666666667,
+            "achieved_upper_bound": 0.14166666666666666,
+            "optimality_gap": 0.13749999999999998,
+            "status": "lower_bound",
+            "exact_value_convention": "error",
+            "lower_bound_exact": "1/240",
+            "achieved_upper_bound_exact": "17/120"
+          },
+          "metrics": {
+            "max_error": {
+              "lower_bound": 0.004166666666666667,
+              "achieved_upper_bound": 0.14166666666666666,
+              "optimality_gap": 0.13749999999999998,
+              "status": "lower_bound",
+              "exact_value_convention": "error",
+              "lower_bound_exact": "1/240",
+              "achieved_upper_bound_exact": "17/120"
+            },
+            "rms_error": {
+              "lower_bound": 0.004166666666666667,
+              "achieved_upper_bound": 0.14166666666666666,
+              "optimality_gap": 0.13749999999999998,
+              "status": "lower_bound",
+              "exact_value_convention": "squared error",
+              "lower_bound_exact": "1/57600",
+              "achieved_upper_bound_exact": "289/14400"
+            },
+            "mean_absolute_error": {
+              "lower_bound": 0.004166666666666667,
+              "achieved_upper_bound": 0.14166666666666666,
+              "optimality_gap": 0.13749999999999998,
+              "status": "lower_bound",
+              "exact_value_convention": "error",
+              "lower_bound_exact": "1/240",
+              "achieved_upper_bound_exact": "17/120"
+            }
+          },
+          "sites": 48,
+          "composition": {
+            "all": {
+              "counts": {
+                "Cu": 24,
+                "Zn": 24
+              },
+              "sites": 48,
+              "fixed": false
+            }
+          },
+          "entries": [
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 1,
+              "center_species": "Cu",
+              "neighbor_species": "Zn",
+              "target": -0.1,
+              "coordination": 8,
+              "reverse_coordination": 8,
+              "denominator_exact": "96",
+              "target_pair_count_exact": "528/5",
+              "admissible_count_min": 0,
+              "admissible_count_max": 192,
+              "count_step": 2,
+              "count_offset": 0,
+              "integer_only_lower_bound_exact": "1/240",
+              "nearest_relaxed_count": 106,
+              "component_lower_bound": 0.004166666666666667,
+              "component_lower_bound_exact": "1/240",
+              "achieved_pair_count": 92,
+              "achieved_error": 0.14166666666666666
+            }
+          ],
+          "convention": {
+            "sro": "1 - P(neighbor species | center species, shell, sublattice pair) / neighbor-sublattice concentration",
+            "pair_counts": "directed periodic bonds; conditional probability normalized by observed center-species bonds",
+            "shell_geometry": "input",
+            "shell_tolerance_angstrom": 1e-05,
+            "cutoff_angstrom": 3.2,
+            "requested_shells_per_sublattice_pair": 2
+          },
+          "shell_coverage": [
+            {
+              "source": "all",
+              "destination": "all",
+              "shells_within_cutoff": 2,
+              "reported_shells": 2
+            }
+          ],
+          "assumptions": [
+            "Fixed cell, geometry, sublattice membership, and input composition.",
+            "Uniform coordination within each requested sublattice-pair shell.",
+            "Only explicit targets contribute; equal weights; shells are one-based per sublattice pair.",
+            "Integer capacities, periodic-bond multiplicity congruences, self-image restrictions, and binary cut parity are enforced.",
+            "count_step=0 denotes a fixed count; otherwise admissible counts equal count_offset modulo count_step.",
+            "Completed joint blocks enforce neighbor totals and reciprocity on each identical bond graph; capped blocks fall back to independent bounds.",
+            "Different bond graphs and full occupation realizability remain relaxed; joint count tables are not enumerated structures.",
+            "A zero lower bound alone does not establish feasibility. Certification requires the supplied witness to attain it.",
+            "These are SRO-error bounds, not bounds on decorated figure-correlation or native weighted bond-count objectives."
+          ]
+        },
+        "sublattices": {
+          "site_labels": [
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all",
+            "all"
+          ],
+          "allowed": {
+            "all": [
+              "Cu",
+              "Zn"
+            ]
+          },
+          "counts": {
+            "all": {
+              "Cu": 24,
+              "Zn": 24
+            }
+          }
+        },
+        "targets": [
+          {
+            "source": "all",
+            "destination": "all",
+            "shell": 1,
+            "center_species": "Cu",
+            "neighbor_species": "Zn",
+            "target": -0.1
+          }
+        ],
+        "search": {
+          "method": "sa",
+          "evaluated": 37,
+          "eligible": 23,
+          "symmetry_duplicates": 15,
+          "pool_size": 8,
+          "site_symmetries": 384,
+          "total_configurations": 32247603683100,
+          "covered_configurations": 0,
+          "complete": false,
+          "starts_run": 1
+        },
+        "settings": {
+          "cutoff": 3.2,
+          "shells": 2,
+          "seed": 42,
+          "starts": 4,
+          "steps": 500,
+          "max_configurations": 10000,
+          "max_pool": 8,
+          "max_seconds": 10,
+          "symprec": 1e-05
+        },
+        "diversity": {
+          "kind": "pair_sro",
+          "columns": [
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 1,
+              "center_species": "Cu",
+              "neighbor_species": "Cu"
+            },
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 1,
+              "center_species": "Cu",
+              "neighbor_species": "Zn"
+            },
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 1,
+              "center_species": "Zn",
+              "neighbor_species": "Cu"
+            },
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 1,
+              "center_species": "Zn",
+              "neighbor_species": "Zn"
+            },
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 2,
+              "center_species": "Cu",
+              "neighbor_species": "Cu"
+            },
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 2,
+              "center_species": "Cu",
+              "neighbor_species": "Zn"
+            },
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 2,
+              "center_species": "Zn",
+              "neighbor_species": "Cu"
+            },
+            {
+              "source": "all",
+              "destination": "all",
+              "shell": 2,
+              "center_species": "Zn",
+              "neighbor_species": "Zn"
+            }
+          ],
+          "selection": "Lowest-error anchor, then greedy farthest-point RMS distance; equal component weights; no variance rescaling.",
+          "figures_sha256": null,
+          "species": null,
+          "spread": {
+            "min": [
+              0.08333333333333337,
+              -0.10416666666666674,
+              -0.10416666666666674,
+              0.08333333333333337,
+              -0.05555555555555558,
+              -0.19444444444444442,
+              -0.19444444444444442,
+              -0.05555555555555558
+            ],
+            "max": [
+              0.10416666666666663,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.10416666666666663,
+              0.19444444444444442,
+              0.05555555555555558,
+              0.05555555555555558,
+              0.19444444444444442
+            ],
+            "mean": [
+              0.09375,
+              -0.09375,
+              -0.09375,
+              0.09375,
+              0.09722222222222221,
+              -0.09722222222222221,
+              -0.09722222222222221,
+              0.09722222222222221
+            ],
+            "population_std": [
+              0.01041666666666663,
+              0.01041666666666674,
+              0.01041666666666674,
+              0.01041666666666663,
+              0.09316949906249122,
+              0.09316949906249122,
+              0.09316949906249122,
+              0.09316949906249122
+            ],
+            "pairwise_rms_distances": [
+              [
+                0.0,
+                0.17738944131173334,
+                0.11876827344782694,
+                0.13749298523071754
+              ],
+              [
+                0.17738944131173334,
+                0.0,
+                0.058925565098878904,
+                0.04195502074164784
+              ],
+              [
+                0.11876827344782694,
+                0.058925565098878904,
+                0.0,
+                0.024552318791199526
+              ],
+              [
+                0.13749298523071754,
+                0.04195502074164784,
+                0.024552318791199526,
+                0.0
+              ]
+            ]
+          }
+        },
+        "initial_structure_sha256": "71745df4abbb11116549928b65475364e564f502a00b11680d7df0969c212422",
+        "provenance": {
+          "source_sha256": {
+            "sro_ensemble.py": "b322fd8ce0d9d4dd8ae2a0c4d1e74bc99c96da4ad910e2754941f118acf8fc65",
+            "search_cells.py": "39bab07eca6cdc627d5d8629841781463c2185974f65a38d84b7c3abb3430bfa",
+            "sro_bounds.py": "25cc81ba1105b4cf5e9fd5fab7f3915ee7e72583cc2603d96f03a6263912f586",
+            "sro_joint_bounds.py": "b55340757b85a0b98c3ca4062b29f179bc98375af394fa0b6c4a79ce26b33e89",
+            "sro_stopping.py": "c9461e03e0ff1426c566b4611490ae6445615f9ee4dbb06d65b4342feb733eb8",
+            "enumeration_symmetry.py": "4732a7e7806d9fa950993e4e0ae9ce76e9466422d894e0b692b2cee106a93c9f",
+            "structure_analysis.py": "9a756045ed9f9751f43c973862a175eaeaa11414d5fb23391b4f0fcca16e9b5f",
+            "atat_reference.py": "71b993a6c666ab00abcae39e9f170068fc18eaa9767110fef2d115aa4f06a4a9"
+          },
+          "dependencies": {
+            "numpy": "2.5.4",
+            "ase": "3.29.0",
+            "spglib": "2.8.0"
+          }
+        },
+        "elapsed_seconds": 0.19029908441007137,
+        "limitations": [
+          "Fixed geometry and compositions; distinct under verified label- and target-preserving parent-cell symmetries. No species relabeling.",
+          "A bounded candidate pool and greedy selection do not guarantee globally maximal diversity or discovery of every eligible structure.",
+          "Distinct structures can share the same descriptor vector; zero descriptor distance does not imply structural equivalence.",
+          "No thermodynamic sampling distribution or statistical uncertainty estimate; spread describes only the selected configurations.",
+          "Time limit is cooperative, includes preparation and collection, excludes final selection/export; library calls can overrun."
+        ]
+      },
+      "witnesses": [
+        {
+          "extxyz": "48\nLattice=\"6.0 0.0 0.0 0.0 9.0 0.0 0.0 0.0 12.0\" Properties=species:S:1:pos:R:3 pbc=\"T T T\"\nCu       0.00000000       0.00000000       0.00000000\nCu       1.50000000       1.50000000       1.50000000\nCu       0.00000000       0.00000000       3.00000000\nCu       1.50000000       1.50000000       4.50000000\nCu       0.00000000       0.00000000       6.00000000\nCu       1.50000000       1.50000000       7.50000000\nCu       0.00000000       0.00000000       9.00000000\nZn       1.50000000       1.50000000      10.50000000\nCu       0.00000000       3.00000000       0.00000000\nCu       1.50000000       4.50000000       1.50000000\nCu       0.00000000       3.00000000       3.00000000\nCu       1.50000000       4.50000000       4.50000000\nZn       0.00000000       3.00000000       6.00000000\nZn       1.50000000       4.50000000       7.50000000\nCu       0.00000000       3.00000000       9.00000000\nZn       1.50000000       4.50000000      10.50000000\nZn       0.00000000       6.00000000       0.00000000\nZn       1.50000000       7.50000000       1.50000000\nZn       0.00000000       6.00000000       3.00000000\nCu       1.50000000       7.50000000       4.50000000\nZn       0.00000000       6.00000000       6.00000000\nCu       1.50000000       7.50000000       7.50000000\nCu       0.00000000       6.00000000       9.00000000\nZn       1.50000000       7.50000000      10.50000000\nCu       3.00000000       0.00000000       0.00000000\nZn       4.50000000       1.50000000       1.50000000\nZn       3.00000000       0.00000000       3.00000000\nZn       4.50000000       1.50000000       4.50000000\nZn       3.00000000       0.00000000       6.00000000\nZn       4.50000000       1.50000000       7.50000000\nCu       3.00000000       0.00000000       9.00000000\nCu       4.50000000       1.50000000      10.50000000\nCu       3.00000000       3.00000000       0.00000000\nZn       4.50000000       4.50000000       1.50000000\nCu       3.00000000       3.00000000       3.00000000\nZn       4.50000000       4.50000000       4.50000000\nCu       3.00000000       3.00000000       6.00000000\nZn       4.50000000       4.50000000       7.50000000\nZn       3.00000000       3.00000000       9.00000000\nZn       4.50000000       4.50000000      10.50000000\nZn       3.00000000       6.00000000       0.00000000\nCu       4.50000000       7.50000000       1.50000000\nZn       3.00000000       6.00000000       3.00000000\nCu       4.50000000       7.50000000       4.50000000\nZn       3.00000000       6.00000000       6.00000000\nZn       4.50000000       7.50000000       7.50000000\nCu       3.00000000       6.00000000       9.00000000\nZn       4.50000000       7.50000000      10.50000000\n",
+          "sha256": "0ddcc86aa7d3f879afacde15c862230b8fc4f96f1a72ca003e49f4cb2ec98ec9"
+        },
+        {
+          "extxyz": "48\nLattice=\"6.0 0.0 0.0 0.0 9.0 0.0 0.0 0.0 12.0\" Properties=species:S:1:pos:R:3 pbc=\"T T T\"\nCu       0.00000000       0.00000000       0.00000000\nCu       1.50000000       1.50000000       1.50000000\nCu       0.00000000       0.00000000       3.00000000\nCu       1.50000000       1.50000000       4.50000000\nZn       0.00000000       0.00000000       6.00000000\nCu       1.50000000       1.50000000       7.50000000\nZn       0.00000000       0.00000000       9.00000000\nZn       1.50000000       1.50000000      10.50000000\nCu       0.00000000       3.00000000       0.00000000\nZn       1.50000000       4.50000000       1.50000000\nZn       0.00000000       3.00000000       3.00000000\nCu       1.50000000       4.50000000       4.50000000\nZn       0.00000000       3.00000000       6.00000000\nCu       1.50000000       4.50000000       7.50000000\nCu       0.00000000       3.00000000       9.00000000\nZn       1.50000000       4.50000000      10.50000000\nCu       0.00000000       6.00000000       0.00000000\nCu       1.50000000       7.50000000       1.50000000\nZn       0.00000000       6.00000000       3.00000000\nZn       1.50000000       7.50000000       4.50000000\nCu       0.00000000       6.00000000       6.00000000\nCu       1.50000000       7.50000000       7.50000000\nZn       0.00000000       6.00000000       9.00000000\nCu       1.50000000       7.50000000      10.50000000\nZn       3.00000000       0.00000000       0.00000000\nZn       4.50000000       1.50000000       1.50000000\nZn       3.00000000       0.00000000       3.00000000\nCu       4.50000000       1.50000000       4.50000000\nZn       3.00000000       0.00000000       6.00000000\nZn       4.50000000       1.50000000       7.50000000\nCu       3.00000000       0.00000000       9.00000000\nCu       4.50000000       1.50000000      10.50000000\nCu       3.00000000       3.00000000       0.00000000\nCu       4.50000000       4.50000000       1.50000000\nCu       3.00000000       3.00000000       3.00000000\nZn       4.50000000       4.50000000       4.50000000\nZn       3.00000000       3.00000000       6.00000000\nCu       4.50000000       4.50000000       7.50000000\nZn       3.00000000       3.00000000       9.00000000\nZn       4.50000000       4.50000000      10.50000000\nZn       3.00000000       6.00000000       0.00000000\nZn       4.50000000       7.50000000       1.50000000\nZn       3.00000000       6.00000000       3.00000000\nCu       4.50000000       7.50000000       4.50000000\nCu       3.00000000       6.00000000       6.00000000\nCu       4.50000000       7.50000000       7.50000000\nZn       3.00000000       6.00000000       9.00000000\nZn       4.50000000       7.50000000      10.50000000\n",
+          "sha256": "3a45c2e627bc10639441256d3bb206e0ae01022d2cdf9b0c4f7d6d5867b9b176"
+        },
+        {
+          "extxyz": "48\nLattice=\"6.0 0.0 0.0 0.0 9.0 0.0 0.0 0.0 12.0\" Properties=species:S:1:pos:R:3 pbc=\"T T T\"\nCu       0.00000000       0.00000000       0.00000000\nCu       1.50000000       1.50000000       1.50000000\nCu       0.00000000       0.00000000       3.00000000\nCu       1.50000000       1.50000000       4.50000000\nCu       0.00000000       0.00000000       6.00000000\nCu       1.50000000       1.50000000       7.50000000\nCu       0.00000000       0.00000000       9.00000000\nZn       1.50000000       1.50000000      10.50000000\nCu       0.00000000       3.00000000       0.00000000\nCu       1.50000000       4.50000000       1.50000000\nZn       0.00000000       3.00000000       3.00000000\nZn       1.50000000       4.50000000       4.50000000\nZn       0.00000000       3.00000000       6.00000000\nCu       1.50000000       4.50000000       7.50000000\nZn       0.00000000       3.00000000       9.00000000\nCu       1.50000000       4.50000000      10.50000000\nZn       0.00000000       6.00000000       0.00000000\nZn       1.50000000       7.50000000       1.50000000\nCu       0.00000000       6.00000000       3.00000000\nZn       1.50000000       7.50000000       4.50000000\nCu       0.00000000       6.00000000       6.00000000\nCu       1.50000000       7.50000000       7.50000000\nZn       0.00000000       6.00000000       9.00000000\nCu       1.50000000       7.50000000      10.50000000\nZn       3.00000000       0.00000000       0.00000000\nZn       4.50000000       1.50000000       1.50000000\nZn       3.00000000       0.00000000       3.00000000\nZn       4.50000000       1.50000000       4.50000000\nZn       3.00000000       0.00000000       6.00000000\nCu       4.50000000       1.50000000       7.50000000\nCu       3.00000000       0.00000000       9.00000000\nCu       4.50000000       1.50000000      10.50000000\nZn       3.00000000       3.00000000       0.00000000\nZn       4.50000000       4.50000000       1.50000000\nZn       3.00000000       3.00000000       3.00000000\nCu       4.50000000       4.50000000       4.50000000\nCu       3.00000000       3.00000000       6.00000000\nZn       4.50000000       4.50000000       7.50000000\nZn       3.00000000       3.00000000       9.00000000\nCu       4.50000000       4.50000000      10.50000000\nCu       3.00000000       6.00000000       0.00000000\nZn       4.50000000       7.50000000       1.50000000\nCu       3.00000000       6.00000000       3.00000000\nZn       4.50000000       7.50000000       4.50000000\nZn       3.00000000       6.00000000       6.00000000\nCu       4.50000000       7.50000000       7.50000000\nZn       3.00000000       6.00000000       9.00000000\nZn       4.50000000       7.50000000      10.50000000\n",
+          "sha256": "1e3873d9b1a8bcb9e3f5bba127e98d80b4a8d417b809640339daad6f085536f4"
+        },
+        {
+          "extxyz": "48\nLattice=\"6.0 0.0 0.0 0.0 9.0 0.0 0.0 0.0 12.0\" Properties=species:S:1:pos:R:3 pbc=\"T T T\"\nCu       0.00000000       0.00000000       0.00000000\nCu       1.50000000       1.50000000       1.50000000\nCu       0.00000000       0.00000000       3.00000000\nCu       1.50000000       1.50000000       4.50000000\nCu       0.00000000       0.00000000       6.00000000\nZn       1.50000000       1.50000000       7.50000000\nZn       0.00000000       0.00000000       9.00000000\nZn       1.50000000       1.50000000      10.50000000\nZn       0.00000000       3.00000000       0.00000000\nCu       1.50000000       4.50000000       1.50000000\nCu       0.00000000       3.00000000       3.00000000\nZn       1.50000000       4.50000000       4.50000000\nZn       0.00000000       3.00000000       6.00000000\nZn       1.50000000       4.50000000       7.50000000\nCu       0.00000000       3.00000000       9.00000000\nCu       1.50000000       4.50000000      10.50000000\nZn       0.00000000       6.00000000       0.00000000\nCu       1.50000000       7.50000000       1.50000000\nZn       0.00000000       6.00000000       3.00000000\nZn       1.50000000       7.50000000       4.50000000\nCu       0.00000000       6.00000000       6.00000000\nCu       1.50000000       7.50000000       7.50000000\nCu       0.00000000       6.00000000       9.00000000\nZn       1.50000000       7.50000000      10.50000000\nZn       3.00000000       0.00000000       0.00000000\nCu       4.50000000       1.50000000       1.50000000\nZn       3.00000000       0.00000000       3.00000000\nZn       4.50000000       1.50000000       4.50000000\nCu       3.00000000       0.00000000       6.00000000\nZn       4.50000000       1.50000000       7.50000000\nCu       3.00000000       0.00000000       9.00000000\nZn       4.50000000       1.50000000      10.50000000\nCu       3.00000000       3.00000000       0.00000000\nZn       4.50000000       4.50000000       1.50000000\nZn       3.00000000       3.00000000       3.00000000\nCu       4.50000000       4.50000000       4.50000000\nCu       3.00000000       3.00000000       6.00000000\nZn       4.50000000       4.50000000       7.50000000\nCu       3.00000000       3.00000000       9.00000000\nZn       4.50000000       4.50000000      10.50000000\nCu       3.00000000       6.00000000       0.00000000\nZn       4.50000000       7.50000000       1.50000000\nCu       3.00000000       6.00000000       3.00000000\nZn       4.50000000       7.50000000       4.50000000\nCu       3.00000000       6.00000000       6.00000000\nCu       4.50000000       7.50000000       7.50000000\nZn       3.00000000       6.00000000       9.00000000\nZn       4.50000000       7.50000000      10.50000000\n",
+          "sha256": "17d36a668e201c4958cb68b69b3db38be7167ee9c3bcefc2f13401b192441fbf"
+        }
+      ]
+    },
+    {
+      "case": "rocksalt_48_sro",
+      "report": {
+        "schema_version": 1,
+        "objective": "directed_pair_sro",
+        "metric": "max_error",
+        "status": "requested_count_reached",
+        "stop_reason": "pool_limit",
+        "selected_count": 4,
+        "requested_count": 4,
+        "error_tolerance": 0.02,
+        "selected": [
+          {
+            "symbols": [
+              "Ti",
+              "C",
+              "Ti",
+              "C",
+              "Zr",
+              "C",
+              "Ti",
+              "N",
+              "Ti",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "C",
+              "Ti",
+              "C",
+              "Ti",
+              "C",
+              "Ti",
+              "N",
+              "Zr",
+              "C",
+              "Zr",
+              "N",
+              "Ti",
+              "N",
+              "Zr",
+              "C",
+              "Zr",
+              "N",
+              "Zr",
+              "N",
+              "Ti",
+              "N",
+              "Zr",
+              "N",
+              "Ti",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "N",
+              "Zr",
+              "N",
+              "Ti",
+              "N",
+              "Ti",
+              "N"
+            ],
+            "metrics_exact": {
+              "max_error": "1/90",
+              "mean_absolute_error": "1/90",
+              "rms_error": "1/8100"
+            },
+            "metrics": {
+              "max_error": 0.011111111111111112,
+              "mean_absolute_error": 0.011111111111111112,
+              "rms_error": 0.011111111111111112
+            },
+            "diversity_vector": [
+              0.08333333333333337,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.08333333333333337,
+              0.11111111111111116,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.11111111111111116,
+              0.11111111111111116,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.11111111111111116,
+              0.02777777777777779,
+              -0.02777777777777768,
+              -0.02777777777777768,
+              0.02777777777777779
+            ],
+            "provenance": {
+              "method": "python_pair_sro_sa",
+              "seed": 42,
+              "step": 1
+            },
+            "occupations_sha256": "9a43f52d405c3c5f754cd4c80b9dd0757c4b7885c8640a4bd65e16c32ee90e27",
+            "id": "structure-000",
+            "pool_index": 0
+          },
+          {
+            "symbols": [
+              "Ti",
+              "C",
+              "Ti",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "C",
+              "Ti",
+              "C",
+              "Ti",
+              "N",
+              "Ti",
+              "C",
+              "Ti",
+              "N",
+              "Zr",
+              "C",
+              "Ti",
+              "C",
+              "Ti",
+              "N",
+              "Zr",
+              "C",
+              "Ti",
+              "N",
+              "Zr",
+              "N",
+              "Ti",
+              "C",
+              "Zr",
+              "N",
+              "Zr",
+              "N",
+              "Zr",
+              "N",
+              "Ti",
+              "N",
+              "Zr",
+              "N",
+              "Ti",
+              "N",
+              "Zr",
+              "C",
+              "Zr",
+              "N"
+            ],
+            "metrics_exact": {
+              "max_error": "1/60",
+              "mean_absolute_error": "1/60",
+              "rms_error": "1/3600"
+            },
+            "metrics": {
+              "max_error": 0.016666666666666666,
+              "mean_absolute_error": 0.016666666666666666,
+              "rms_error": 0.016666666666666666
+            },
+            "diversity_vector": [
+              0.16666666666666663,
+              -0.16666666666666674,
+              -0.16666666666666674,
+              0.16666666666666663,
+              0.08333333333333337,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.08333333333333337,
+              0.08333333333333337,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.08333333333333337,
+              0.05555555555555558,
+              -0.05555555555555558,
+              -0.05555555555555558,
+              0.05555555555555558
+            ],
+            "provenance": {
+              "method": "python_pair_sro_sa",
+              "seed": 42,
+              "step": 19
+            },
+            "occupations_sha256": "c906640a800fb02d078fb19b9091d54fe522b28b97b65b89bccdbe365e0b4ba1",
+            "id": "structure-001",
+            "pool_index": 5
+          },
+          {
+            "symbols": [
+              "Ti",
+              "C",
+              "Ti",
+              "C",
+              "Ti",
+              "C",
+              "Ti",
+              "N",
+              "Ti",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "N",
+              "Ti",
+              "C",
+              "Ti",
+              "N",
+              "Zr",
+              "C",
+              "Zr",
+              "C",
+              "Ti",
+              "N",
+              "Zr",
+              "C",
+              "Zr",
+              "N",
+              "Ti",
+              "N",
+              "Ti",
+              "N",
+              "Zr",
+              "N",
+              "Zr",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "N",
+              "Zr",
+              "N",
+              "Ti",
+              "N",
+              "Ti",
+              "N"
+            ],
+            "metrics_exact": {
+              "max_error": "1/90",
+              "mean_absolute_error": "1/90",
+              "rms_error": "1/8100"
+            },
+            "metrics": {
+              "max_error": 0.011111111111111112,
+              "mean_absolute_error": 0.011111111111111112,
+              "rms_error": 0.011111111111111112
+            },
+            "diversity_vector": [
+              0.02777777777777779,
+              -0.02777777777777768,
+              -0.02777777777777768,
+              0.02777777777777779,
+              0.11111111111111116,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.11111111111111116,
+              0.11111111111111116,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.11111111111111116,
+              0.08333333333333337,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.08333333333333337
+            ],
+            "provenance": {
+              "method": "python_pair_sro_sa",
+              "seed": 42,
+              "step": 8
+            },
+            "occupations_sha256": "67d2aa2f196d73001511975dda94e76ad3bd0a5d199b8b492745c41861bc4f1d",
+            "id": "structure-002",
+            "pool_index": 2
+          },
+          {
+            "symbols": [
+              "Ti",
+              "C",
+              "Ti",
+              "C",
+              "Zr",
+              "N",
+              "Zr",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "C",
+              "Ti",
+              "C",
+              "Zr",
+              "C",
+              "Ti",
+              "N",
+              "Zr",
+              "N",
+              "Ti",
+              "C",
+              "Zr",
+              "C",
+              "Zr",
+              "N",
+              "Ti",
+              "N",
+              "Ti",
+              "N",
+              "Ti",
+              "N",
+              "Ti",
+              "C",
+              "Zr",
+              "C",
+              "Ti",
+              "N",
+              "Ti",
+              "N",
+              "Ti",
+              "N",
+              "Zr",
+              "N",
+              "Zr",
+              "C",
+              "Zr",
+              "N"
+            ],
+            "metrics_exact": {
+              "max_error": "1/90",
+              "mean_absolute_error": "1/90",
+              "rms_error": "1/8100"
+            },
+            "metrics": {
+              "max_error": 0.011111111111111112,
+              "mean_absolute_error": 0.011111111111111112,
+              "rms_error": 0.011111111111111112
+            },
+            "diversity_vector": [
+              0.16666666666666663,
+              -0.16666666666666674,
+              -0.16666666666666674,
+              0.16666666666666663,
+              0.11111111111111116,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.11111111111111116,
+              0.11111111111111116,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.11111111111111116,
+              0.05555555555555558,
+              -0.05555555555555558,
+              -0.05555555555555558,
+              0.05555555555555558
+            ],
+            "provenance": {
+              "method": "python_pair_sro_sa",
+              "seed": 42,
+              "step": 18
+            },
+            "occupations_sha256": "a95abb3501eca96b4cba01edd1542a6be612081fd87ad8800581d21f347430a9",
+            "id": "structure-003",
+            "pool_index": 4
+          }
+        ],
+        "bound": {
+          "schema_version": 3,
+          "objective": "directed_pair_sro",
+          "method": "joint_integer_pair_counts",
+          "joint": {
+            "enabled": true,
+            "max_states_per_block": 10000,
+            "blocks": [
+              {
+                "target_indices": [
+                  0
+                ],
+                "states": 0,
+                "feasible_count_tables": 0,
+                "status": "single_component",
+                "strengthened": false,
+                "explanation": "No strengthening established; a zero bound does not prove lattice feasibility.",
+                "max_error_lower_bound_exact": "1/90",
+                "sum_absolute_error_lower_bound_exact": "1/90",
+                "sum_squared_error_lower_bound_exact": "1/8100"
+              }
+            ]
+          },
+          "independent_lower_bounds_exact": {
+            "max_error": "1/90",
+            "mean_absolute_error": "1/90",
+            "rms_error": "1/8100"
+          },
+          "selected_metric": "max_error",
+          "result": {
+            "lower_bound": 0.011111111111111112,
+            "achieved_upper_bound": 0.12777777777777777,
+            "optimality_gap": 0.11666666666666665,
+            "status": "lower_bound",
+            "exact_value_convention": "error",
+            "lower_bound_exact": "1/90",
+            "achieved_upper_bound_exact": "23/180"
+          },
+          "metrics": {
+            "max_error": {
+              "lower_bound": 0.011111111111111112,
+              "achieved_upper_bound": 0.12777777777777777,
+              "optimality_gap": 0.11666666666666665,
+              "status": "lower_bound",
+              "exact_value_convention": "error",
+              "lower_bound_exact": "1/90",
+              "achieved_upper_bound_exact": "23/180"
+            },
+            "rms_error": {
+              "lower_bound": 0.011111111111111112,
+              "achieved_upper_bound": 0.12777777777777777,
+              "optimality_gap": 0.11666666666666665,
+              "status": "lower_bound",
+              "exact_value_convention": "squared error",
+              "lower_bound_exact": "1/8100",
+              "achieved_upper_bound_exact": "529/32400"
+            },
+            "mean_absolute_error": {
+              "lower_bound": 0.011111111111111112,
+              "achieved_upper_bound": 0.12777777777777777,
+              "optimality_gap": 0.11666666666666665,
+              "status": "lower_bound",
+              "exact_value_convention": "error",
+              "lower_bound_exact": "1/90",
+              "achieved_upper_bound_exact": "23/180"
+            }
+          },
+          "sites": 48,
+          "composition": {
+            "M": {
+              "counts": {
+                "Ti": 12,
+                "Zr": 12
+              },
+              "sites": 24,
+              "fixed": false
+            },
+            "X": {
+              "counts": {
+                "C": 12,
+                "N": 12
+              },
+              "sites": 24,
+              "fixed": false
+            }
+          },
+          "entries": [
+            {
+              "source": "M",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "Ti",
+              "neighbor_species": "N",
+              "target": -0.1,
+              "coordination": 6,
+              "reverse_coordination": 6,
+              "denominator_exact": "36",
+              "target_pair_count_exact": "198/5",
+              "admissible_count_min": 0,
+              "admissible_count_max": 72,
+              "count_step": 1,
+              "count_offset": 0,
+              "integer_only_lower_bound_exact": "1/90",
+              "nearest_relaxed_count": 40,
+              "component_lower_bound": 0.011111111111111112,
+              "component_lower_bound_exact": "1/90",
+              "achieved_pair_count": 35,
+              "achieved_error": 0.12777777777777777
+            }
+          ],
+          "convention": {
+            "sro": "1 - P(neighbor species | center species, shell, sublattice pair) / neighbor-sublattice concentration",
+            "pair_counts": "directed periodic bonds; conditional probability normalized by observed center-species bonds",
+            "shell_geometry": "input",
+            "shell_tolerance_angstrom": 1e-05,
+            "cutoff_angstrom": 3.2,
+            "requested_shells_per_sublattice_pair": 2
+          },
+          "shell_coverage": [
+            {
+              "source": "M",
+              "destination": "M",
+              "shells_within_cutoff": 1,
+              "reported_shells": 1
+            },
+            {
+              "source": "M",
+              "destination": "X",
+              "shells_within_cutoff": 1,
+              "reported_shells": 1
+            },
+            {
+              "source": "X",
+              "destination": "M",
+              "shells_within_cutoff": 1,
+              "reported_shells": 1
+            },
+            {
+              "source": "X",
+              "destination": "X",
+              "shells_within_cutoff": 1,
+              "reported_shells": 1
+            }
+          ],
+          "assumptions": [
+            "Fixed cell, geometry, sublattice membership, and input composition.",
+            "Uniform coordination within each requested sublattice-pair shell.",
+            "Only explicit targets contribute; equal weights; shells are one-based per sublattice pair.",
+            "Integer capacities, periodic-bond multiplicity congruences, self-image restrictions, and binary cut parity are enforced.",
+            "count_step=0 denotes a fixed count; otherwise admissible counts equal count_offset modulo count_step.",
+            "Completed joint blocks enforce neighbor totals and reciprocity on each identical bond graph; capped blocks fall back to independent bounds.",
+            "Different bond graphs and full occupation realizability remain relaxed; joint count tables are not enumerated structures.",
+            "A zero lower bound alone does not establish feasibility. Certification requires the supplied witness to attain it.",
+            "These are SRO-error bounds, not bounds on decorated figure-correlation or native weighted bond-count objectives."
+          ]
+        },
+        "sublattices": {
+          "site_labels": [
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X",
+            "M",
+            "X"
+          ],
+          "allowed": {
+            "M": [
+              "Ti",
+              "Zr"
+            ],
+            "X": [
+              "C",
+              "N"
+            ]
+          },
+          "counts": {
+            "M": {
+              "Ti": 12,
+              "Zr": 12
+            },
+            "X": {
+              "C": 12,
+              "N": 12
+            }
+          }
+        },
+        "targets": [
+          {
+            "source": "M",
+            "destination": "X",
+            "shell": 1,
+            "center_species": "Ti",
+            "neighbor_species": "N",
+            "target": -0.1
+          }
+        ],
+        "search": {
+          "method": "sa",
+          "evaluated": 40,
+          "eligible": 27,
+          "symmetry_duplicates": 19,
+          "pool_size": 8,
+          "site_symmetries": 48,
+          "total_configurations": 7312459672336,
+          "covered_configurations": 0,
+          "complete": false,
+          "starts_run": 1
+        },
+        "settings": {
+          "cutoff": 3.2,
+          "shells": 2,
+          "seed": 42,
+          "starts": 4,
+          "steps": 500,
+          "max_configurations": 10000,
+          "max_pool": 8,
+          "max_seconds": 10,
+          "symprec": 1e-05
+        },
+        "diversity": {
+          "kind": "pair_sro",
+          "columns": [
+            {
+              "source": "M",
+              "destination": "M",
+              "shell": 1,
+              "center_species": "Ti",
+              "neighbor_species": "Ti"
+            },
+            {
+              "source": "M",
+              "destination": "M",
+              "shell": 1,
+              "center_species": "Ti",
+              "neighbor_species": "Zr"
+            },
+            {
+              "source": "M",
+              "destination": "M",
+              "shell": 1,
+              "center_species": "Zr",
+              "neighbor_species": "Ti"
+            },
+            {
+              "source": "M",
+              "destination": "M",
+              "shell": 1,
+              "center_species": "Zr",
+              "neighbor_species": "Zr"
+            },
+            {
+              "source": "M",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "Ti",
+              "neighbor_species": "C"
+            },
+            {
+              "source": "M",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "Ti",
+              "neighbor_species": "N"
+            },
+            {
+              "source": "M",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "Zr",
+              "neighbor_species": "C"
+            },
+            {
+              "source": "M",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "Zr",
+              "neighbor_species": "N"
+            },
+            {
+              "source": "X",
+              "destination": "M",
+              "shell": 1,
+              "center_species": "C",
+              "neighbor_species": "Ti"
+            },
+            {
+              "source": "X",
+              "destination": "M",
+              "shell": 1,
+              "center_species": "C",
+              "neighbor_species": "Zr"
+            },
+            {
+              "source": "X",
+              "destination": "M",
+              "shell": 1,
+              "center_species": "N",
+              "neighbor_species": "Ti"
+            },
+            {
+              "source": "X",
+              "destination": "M",
+              "shell": 1,
+              "center_species": "N",
+              "neighbor_species": "Zr"
+            },
+            {
+              "source": "X",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "C",
+              "neighbor_species": "C"
+            },
+            {
+              "source": "X",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "C",
+              "neighbor_species": "N"
+            },
+            {
+              "source": "X",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "N",
+              "neighbor_species": "C"
+            },
+            {
+              "source": "X",
+              "destination": "X",
+              "shell": 1,
+              "center_species": "N",
+              "neighbor_species": "N"
+            }
+          ],
+          "selection": "Lowest-error anchor, then greedy farthest-point RMS distance; equal component weights; no variance rescaling.",
+          "figures_sha256": null,
+          "species": null,
+          "spread": {
+            "min": [
+              0.02777777777777779,
+              -0.16666666666666674,
+              -0.16666666666666674,
+              0.02777777777777779,
+              0.08333333333333337,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.08333333333333337,
+              0.08333333333333337,
+              -0.11111111111111116,
+              -0.11111111111111116,
+              0.08333333333333337,
+              0.02777777777777779,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.02777777777777779
+            ],
+            "max": [
+              0.16666666666666663,
+              -0.02777777777777768,
+              -0.02777777777777768,
+              0.16666666666666663,
+              0.11111111111111116,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.11111111111111116,
+              0.11111111111111116,
+              -0.08333333333333326,
+              -0.08333333333333326,
+              0.11111111111111116,
+              0.08333333333333337,
+              -0.02777777777777768,
+              -0.02777777777777768,
+              0.08333333333333337
+            ],
+            "mean": [
+              0.1111111111111111,
+              -0.1111111111111111,
+              -0.1111111111111111,
+              0.1111111111111111,
+              0.10416666666666671,
+              -0.10416666666666669,
+              -0.10416666666666669,
+              0.10416666666666671,
+              0.10416666666666671,
+              -0.10416666666666669,
+              -0.10416666666666669,
+              0.10416666666666671,
+              0.05555555555555558,
+              -0.055555555555555525,
+              -0.055555555555555525,
+              0.05555555555555558
+            ],
+            "population_std": [
+              0.05892556509887893,
+              0.058925565098879036,
+              0.058925565098879036,
+              0.05892556509887893,
+              0.012028130608117209,
+              0.012028130608117258,
+              0.012028130608117258,
+              0.012028130608117209,
+              0.012028130608117209,
+              0.012028130608117258,
+              0.012028130608117258,
+              0.012028130608117209,
+              0.019641855032959663,
+              0.019641855032959663,
+              0.019641855032959663,
+              0.019641855032959663
+            ],
+            "pairwise_rms_distances": [
+              [
+                0.0,
+                0.04811252243246886,
+                0.039283710065919325,
+                0.043920523057894185
+              ],
+              [
+                0.04811252243246886,
+                0.0,
+                0.07349309197401643,
+                0.019641855032959704
+              ],
+              [
+                0.039283710065919325,
+                0.07349309197401643,
+                0.0,
+                0.07081971546656649
+              ],
+              [
+                0.043920523057894185,
+                0.019641855032959704,
+                0.07081971546656649,
+                0.0
+              ]
+            ]
+          }
+        },
+        "initial_structure_sha256": "80de6d010247fac6da90d375cbfea86c4529f4ecfb4f1bafc00e405d7708d56d",
+        "provenance": {
+          "source_sha256": {
+            "sro_ensemble.py": "b322fd8ce0d9d4dd8ae2a0c4d1e74bc99c96da4ad910e2754941f118acf8fc65",
+            "search_cells.py": "39bab07eca6cdc627d5d8629841781463c2185974f65a38d84b7c3abb3430bfa",
+            "sro_bounds.py": "25cc81ba1105b4cf5e9fd5fab7f3915ee7e72583cc2603d96f03a6263912f586",
+            "sro_joint_bounds.py": "b55340757b85a0b98c3ca4062b29f179bc98375af394fa0b6c4a79ce26b33e89",
+            "sro_stopping.py": "c9461e03e0ff1426c566b4611490ae6445615f9ee4dbb06d65b4342feb733eb8",
+            "enumeration_symmetry.py": "4732a7e7806d9fa950993e4e0ae9ce76e9466422d894e0b692b2cee106a93c9f",
+            "structure_analysis.py": "9a756045ed9f9751f43c973862a175eaeaa11414d5fb23391b4f0fcca16e9b5f",
+            "atat_reference.py": "71b993a6c666ab00abcae39e9f170068fc18eaa9767110fef2d115aa4f06a4a9"
+          },
+          "dependencies": {
+            "numpy": "2.5.4",
+            "ase": "3.29.0",
+            "spglib": "2.8.0"
+          }
+        },
+        "elapsed_seconds": 0.1112482501193881,
+        "limitations": [
+          "Fixed geometry and compositions; distinct under verified label- and target-preserving parent-cell symmetries. No species relabeling.",
+          "A bounded candidate pool and greedy selection do not guarantee globally maximal diversity or discovery of every eligible structure.",
+          "Distinct structures can share the same descriptor vector; zero descriptor distance does not imply structural equivalence.",
+          "No thermodynamic sampling distribution or statistical uncertainty estimate; spread describes only the selected configurations.",
+          "Time limit is cooperative, includes preparation and collection, excludes final selection/export; library calls can overrun."
+        ]
+      },
+      "witnesses": [
+        {
+          "extxyz": "48\nLattice=\"0.0 4.4 4.4 6.6000000000000005 0.0 6.6000000000000005 8.8 8.8 0.0\" Properties=species:S:1:pos:R:3 pbc=\"T T T\"\nTi       0.00000000       0.00000000       0.00000000\nC        2.20000000       0.00000000       0.00000000\nTi       2.20000000       2.20000000       0.00000000\nC        4.40000000       2.20000000       0.00000000\nZr       4.40000000       4.40000000       0.00000000\nC        6.60000000       4.40000000       0.00000000\nTi       6.60000000       6.60000000       0.00000000\nN        8.80000000       6.60000000       0.00000000\nTi       2.20000000       0.00000000       2.20000000\nC        4.40000000       0.00000000       2.20000000\nZr       4.40000000       2.20000000       2.20000000\nC        6.60000000       2.20000000       2.20000000\nZr       6.60000000       4.40000000       2.20000000\nC        8.80000000       4.40000000       2.20000000\nTi       8.80000000       6.60000000       2.20000000\nC       11.00000000       6.60000000       2.20000000\nTi       4.40000000       0.00000000       4.40000000\nC        6.60000000       0.00000000       4.40000000\nTi       6.60000000       2.20000000       4.40000000\nN        8.80000000       2.20000000       4.40000000\nZr       8.80000000       4.40000000       4.40000000\nC       11.00000000       4.40000000       4.40000000\nZr      11.00000000       6.60000000       4.40000000\nN       13.20000000       6.60000000       4.40000000\nTi       0.00000000       2.20000000       2.20000000\nN        2.20000000       2.20000000       2.20000000\nZr       2.20000000       4.40000000       2.20000000\nC        4.40000000       4.40000000       2.20000000\nZr       4.40000000       6.60000000       2.20000000\nN        6.60000000       6.60000000       2.20000000\nZr       6.60000000       8.80000000       2.20000000\nN        8.80000000       8.80000000       2.20000000\nTi       2.20000000       2.20000000       4.40000000\nN        4.40000000       2.20000000       4.40000000\nZr       4.40000000       4.40000000       4.40000000\nN        6.60000000       4.40000000       4.40000000\nTi       6.60000000       6.60000000       4.40000000\nC        8.80000000       6.60000000       4.40000000\nZr       8.80000000       8.80000000       4.40000000\nC       11.00000000       8.80000000       4.40000000\nZr       4.40000000       2.20000000       6.60000000\nN        6.60000000       2.20000000       6.60000000\nZr       6.60000000       4.40000000       6.60000000\nN        8.80000000       4.40000000       6.60000000\nTi       8.80000000       6.60000000       6.60000000\nN       11.00000000       6.60000000       6.60000000\nTi      11.00000000       8.80000000       6.60000000\nN       13.20000000       8.80000000       6.60000000\n",
+          "sha256": "33f0c47192ab5c8549a9428b1b1b1b90e9ecc7ac25ad2106a8fc29039ac31587"
+        },
+        {
+          "extxyz": "48\nLattice=\"0.0 4.4 4.4 6.6000000000000005 0.0 6.6000000000000005 8.8 8.8 0.0\" Properties=species:S:1:pos:R:3 pbc=\"T T T\"\nTi       0.00000000       0.00000000       0.00000000\nC        2.20000000       0.00000000       0.00000000\nTi       2.20000000       2.20000000       0.00000000\nC        4.40000000       2.20000000       0.00000000\nZr       4.40000000       4.40000000       0.00000000\nC        6.60000000       4.40000000       0.00000000\nZr       6.60000000       6.60000000       0.00000000\nC        8.80000000       6.60000000       0.00000000\nZr       2.20000000       0.00000000       2.20000000\nC        4.40000000       0.00000000       2.20000000\nTi       4.40000000       2.20000000       2.20000000\nC        6.60000000       2.20000000       2.20000000\nTi       6.60000000       4.40000000       2.20000000\nN        8.80000000       4.40000000       2.20000000\nTi       8.80000000       6.60000000       2.20000000\nC       11.00000000       6.60000000       2.20000000\nTi       4.40000000       0.00000000       4.40000000\nN        6.60000000       0.00000000       4.40000000\nZr       6.60000000       2.20000000       4.40000000\nC        8.80000000       2.20000000       4.40000000\nTi       8.80000000       4.40000000       4.40000000\nC       11.00000000       4.40000000       4.40000000\nTi      11.00000000       6.60000000       4.40000000\nN       13.20000000       6.60000000       4.40000000\nZr       0.00000000       2.20000000       2.20000000\nC        2.20000000       2.20000000       2.20000000\nTi       2.20000000       4.40000000       2.20000000\nN        4.40000000       4.40000000       2.20000000\nZr       4.40000000       6.60000000       2.20000000\nN        6.60000000       6.60000000       2.20000000\nTi       6.60000000       8.80000000       2.20000000\nC        8.80000000       8.80000000       2.20000000\nZr       2.20000000       2.20000000       4.40000000\nN        4.40000000       2.20000000       4.40000000\nZr       4.40000000       4.40000000       4.40000000\nN        6.60000000       4.40000000       4.40000000\nZr       6.60000000       6.60000000       4.40000000\nN        8.80000000       6.60000000       4.40000000\nTi       8.80000000       8.80000000       4.40000000\nN       11.00000000       8.80000000       4.40000000\nZr       4.40000000       2.20000000       6.60000000\nN        6.60000000       2.20000000       6.60000000\nTi       6.60000000       4.40000000       6.60000000\nN        8.80000000       4.40000000       6.60000000\nZr       8.80000000       6.60000000       6.60000000\nC       11.00000000       6.60000000       6.60000000\nZr      11.00000000       8.80000000       6.60000000\nN       13.20000000       8.80000000       6.60000000\n",
+          "sha256": "4971f2604d97158ceb013f33f666a28eb1b9afb450d79b07b75e46869bb83bbb"
+        },
+        {
+          "extxyz": "48\nLattice=\"0.0 4.4 4.4 6.6000000000000005 0.0 6.6000000000000005 8.8 8.8 0.0\" Properties=species:S:1:pos:R:3 pbc=\"T T T\"\nTi       0.00000000       0.00000000       0.00000000\nC        2.20000000       0.00000000       0.00000000\nTi       2.20000000       2.20000000       0.00000000\nC        4.40000000       2.20000000       0.00000000\nTi       4.40000000       4.40000000       0.00000000\nC        6.60000000       4.40000000       0.00000000\nTi       6.60000000       6.60000000       0.00000000\nN        8.80000000       6.60000000       0.00000000\nTi       2.20000000       0.00000000       2.20000000\nC        4.40000000       0.00000000       2.20000000\nZr       4.40000000       2.20000000       2.20000000\nC        6.60000000       2.20000000       2.20000000\nZr       6.60000000       4.40000000       2.20000000\nC        8.80000000       4.40000000       2.20000000\nZr       8.80000000       6.60000000       2.20000000\nN       11.00000000       6.60000000       2.20000000\nTi       4.40000000       0.00000000       4.40000000\nC        6.60000000       0.00000000       4.40000000\nTi       6.60000000       2.20000000       4.40000000\nN        8.80000000       2.20000000       4.40000000\nZr       8.80000000       4.40000000       4.40000000\nC       11.00000000       4.40000000       4.40000000\nZr      11.00000000       6.60000000       4.40000000\nC       13.20000000       6.60000000       4.40000000\nTi       0.00000000       2.20000000       2.20000000\nN        2.20000000       2.20000000       2.20000000\nZr       2.20000000       4.40000000       2.20000000\nC        4.40000000       4.40000000       2.20000000\nZr       4.40000000       6.60000000       2.20000000\nN        6.60000000       6.60000000       2.20000000\nTi       6.60000000       8.80000000       2.20000000\nN        8.80000000       8.80000000       2.20000000\nTi       2.20000000       2.20000000       4.40000000\nN        4.40000000       2.20000000       4.40000000\nZr       4.40000000       4.40000000       4.40000000\nN        6.60000000       4.40000000       4.40000000\nZr       6.60000000       6.60000000       4.40000000\nC        8.80000000       6.60000000       4.40000000\nZr       8.80000000       8.80000000       4.40000000\nC       11.00000000       8.80000000       4.40000000\nZr       4.40000000       2.20000000       6.60000000\nN        6.60000000       2.20000000       6.60000000\nZr       6.60000000       4.40000000       6.60000000\nN        8.80000000       4.40000000       6.60000000\nTi       8.80000000       6.60000000       6.60000000\nN       11.00000000       6.60000000       6.60000000\nTi      11.00000000       8.80000000       6.60000000\nN       13.20000000       8.80000000       6.60000000\n",
+          "sha256": "7b57bf26d30de7968a5034a595c33a4259755bec180156b85cb89d171cfbbd90"
+        },
+        {
+          "extxyz": "48\nLattice=\"0.0 4.4 4.4 6.6000000000000005 0.0 6.6000000000000005 8.8 8.8 0.0\" Properties=species:S:1:pos:R:3 pbc=\"T T T\"\nTi       0.00000000       0.00000000       0.00000000\nC        2.20000000       0.00000000       0.00000000\nTi       2.20000000       2.20000000       0.00000000\nC        4.40000000       2.20000000       0.00000000\nZr       4.40000000       4.40000000       0.00000000\nN        6.60000000       4.40000000       0.00000000\nZr       6.60000000       6.60000000       0.00000000\nC        8.80000000       6.60000000       0.00000000\nZr       2.20000000       0.00000000       2.20000000\nC        4.40000000       0.00000000       2.20000000\nZr       4.40000000       2.20000000       2.20000000\nC        6.60000000       2.20000000       2.20000000\nTi       6.60000000       4.40000000       2.20000000\nC        8.80000000       4.40000000       2.20000000\nZr       8.80000000       6.60000000       2.20000000\nC       11.00000000       6.60000000       2.20000000\nTi       4.40000000       0.00000000       4.40000000\nN        6.60000000       0.00000000       4.40000000\nZr       6.60000000       2.20000000       4.40000000\nN        8.80000000       2.20000000       4.40000000\nTi       8.80000000       4.40000000       4.40000000\nC       11.00000000       4.40000000       4.40000000\nZr      11.00000000       6.60000000       4.40000000\nC       13.20000000       6.60000000       4.40000000\nZr       0.00000000       2.20000000       2.20000000\nN        2.20000000       2.20000000       2.20000000\nTi       2.20000000       4.40000000       2.20000000\nN        4.40000000       4.40000000       2.20000000\nTi       4.40000000       6.60000000       2.20000000\nN        6.60000000       6.60000000       2.20000000\nTi       6.60000000       8.80000000       2.20000000\nN        8.80000000       8.80000000       2.20000000\nTi       2.20000000       2.20000000       4.40000000\nC        4.40000000       2.20000000       4.40000000\nZr       4.40000000       4.40000000       4.40000000\nC        6.60000000       4.40000000       4.40000000\nTi       6.60000000       6.60000000       4.40000000\nN        8.80000000       6.60000000       4.40000000\nTi       8.80000000       8.80000000       4.40000000\nN       11.00000000       8.80000000       4.40000000\nTi       4.40000000       2.20000000       6.60000000\nN        6.60000000       2.20000000       6.60000000\nZr       6.60000000       4.40000000       6.60000000\nN        8.80000000       4.40000000       6.60000000\nZr       8.80000000       6.60000000       6.60000000\nC       11.00000000       6.60000000       6.60000000\nZr      11.00000000       8.80000000       6.60000000\nN       13.20000000       8.80000000       6.60000000\n",
+          "sha256": "991fbed5a360410e456d6d034b188a7c32916eff462018b9f4a64c3e7a6b19a5"
+        }
+      ]
+    }
+  ]
+}

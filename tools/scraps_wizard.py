@@ -7,6 +7,7 @@ of subcommands that ask only the questions a non-expert can answer:
 which lattice class, what composition, how many atoms.
 
 Subcommands:
+    ensemble      Return distinct configurations within an SRO-error tolerance.
     search-cells  Search bounded cell sizes/shapes with geometry constraints.
     enumerate     Certify small-cell pair-SRO minima by exhaustive enumeration.
     bounds        Bound attainable pair-SRO error (m_scraps entry point).

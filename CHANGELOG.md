@@ -31,6 +31,11 @@ archive; a new DOI will be added only after an approved release is archived.
   capped checks retain safe independent bounds. Full lattice realizability
   remains outside this relaxation.
 
+- Add `m_scraps ensemble` / `generate_ensemble` for bounded, symmetry-distinct
+  configurations within an exact pair-SRO tolerance. Select by pair or supplied
+  higher-order correlation diversity, export structures and provenance, and
+  report configuration spread without implying thermodynamic sampling.
+
 ### Small-cell design with explicit accuracy and geometry limits
 
 - Add `m_scraps bounds` and `sro_bounds` for necessary lower bounds on explicit

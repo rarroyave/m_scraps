@@ -4,6 +4,9 @@ from . import _TOOLS
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "ensemble":
+        from sro_ensemble import main as ensemble
+        return ensemble(sys.argv[2:])
     if len(sys.argv) > 1 and sys.argv[1] == "search-cells":
         from search_cells import main as search
         return search(sys.argv[2:])
