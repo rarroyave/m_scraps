@@ -20,6 +20,10 @@ if [ "${1:-}" = "compare-atat" ]; then
     shift
     exec "$python_bin" "$root/tools/compare_atat.py" "$@"
 fi
+if [ "${1:-}" = "bounds" ]; then
+    shift
+    exec "$python_bin" "$root/tools/sro_bounds.py" "$@"
+fi
 if [ "${1:-}" = "analyze" ]; then
     shift
     exec "$python_bin" "$root/tools/structure_analysis.py" "$@"

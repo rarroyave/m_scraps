@@ -22,6 +22,14 @@ cell = run_sqs_from_atoms(bulk('Cu', 'fcc', a=3.6, cubic=True), species=['Cu','Z
     max_shellnum=2, weights=[1,1], rng_seed=42, nests=8, mcstep=32, total_iter=2, auto_mcstep=0, extra_lines="GITER 1\n")
 assert len(cell) == 32
 assert analyze_structure(cell, cutoff=3.7)['sites'] == 32
+cell.write(root/'bounds-cell.extxyz')
+(root/'targets.json').write_text(json.dumps([dict(source='all', destination='all',
+    shell=1, center_species='Cu', neighbor_species='Zn', target=0)]))
+subprocess.run([command, 'bounds', str(root/'bounds-cell.extxyz'), '--cutoff', '3.7',
+    '--targets', str(root/'targets.json'), '--output', str(root/'bounds.json')], check=True)
+bound = json.loads((root/'bounds.json').read_text())['result']
+assert 0 <= bound['lower_bound'] <= bound['achieved_upper_bound']
+
 subprocess.run([command, 'benchmark', '--cases', 'bcc_128', '--seconds', '3', '--ranks', '2',
                 '--output', str(root/'fresh')], check=True)
 fresh = json.loads((root/'fresh/comparison.json').read_text())['fresh_native']

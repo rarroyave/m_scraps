@@ -15,6 +15,7 @@ is `m_scraps`; upstream attribution is retained in [Credits](#credits).
 - [Install](#install-and-build) and use the Python API or guided CLI.
 - [Generate diboride, MAX and Heusler cells](notebooks/07_generate_multisublattice.ipynb).
 - [Analyze structures and SRO](notebooks/06_structure_analysis.ipynb).
+- [Bound attainable pair-SRO error](#bound-attainable-pair-sro-error) before a search.
 - [Reproduce the benchmark](#reproducing-the-submission-benchmark) without external engines.
 - [Check independently against ATAT](#independent-atat-checks), offline or live.
 - [Technical overview](docs/OVERVIEW.md) and [contributing](CONTRIBUTING.md).
@@ -1126,3 +1127,70 @@ independently test the decorated correlations themselves.
 Maintainers can deliberately recapture these fixtures with the opt-in
 `tools/benchmark/capture_analysis_oracle.py` generator (ATAT 3.52 and icet 4.0
 required). Ordinary CI must consume the reviewed fixtures, not overwrite them.
+
+
+## Bound attainable pair-SRO error
+
+`m_scraps bounds` calculates a necessary lower bound for a specified set of
+Warren–Cowley SRO targets at fixed cell geometry and composition. It runs no
+optimization and requires neither ATAT nor icet. Supply a fully occupied cell;
+its species counts define the composition to preserve. The same cell provides
+a valid witness and therefore an achieved **upper bound** on the optimum.
+
+```bash
+m_scraps bounds structure.cif --cutoff 6 --shells 3 \
+  --targets targets.json --sublattices sublattices.json \
+  --metric max_error --output bounds.json
+```
+
+Omit `--sublattices` for a single-sublattice system. Sublattice JSON uses the
+same `site_labels`, `allowed`, and optional `counts` schema as `analyze`.
+Targets use chemical symbols and **one-based shells per ordered sublattice pair**:
+
+```json
+[{"source": "all", "destination": "all", "shell": 1,
+  "center_species": "Cu", "neighbor_species": "Zn", "target": -0.1}]
+```
+
+Use your actual sublattice labels instead of `all` when supplying sublattices.
+Only the explicitly listed components contribute, with equal weights; omitted
+components are not implicitly targeted at zero. Choose `max_error`, `rms_error`,
+or `mean_absolute_error`; all three are included in the JSON. Python users can
+call `m_scraps.sro_bounds(atoms, cutoff=6, targets=targets, ...)`.
+
+For each component, write α = 1 − n/D, where n is the directed integer pair
+count and D = Nᵢ z(σ→τ) cⱼ(τ). The target requests n* = D(1 − α*).
+If A and B are the source- and destination-species bond capacities among E
+shell bonds, necessary count limits are max(0, A+B−E) ≤ n ≤ min(A,B).
+Same-species counts within one sublattice must be even because both bond
+orientations are retained. The nearest admissible integer count gives a
+componentwise error floor; maximum, RMS, and mean absolute floors are formed
+from those componentwise bounds. Exact rational quantities are retained in
+JSON (for RMS, the exact field stores the squared error).
+
+For example, a 32-site equiatomic BCC cell has D = 16 × 8 × 0.5 = 64 for its
+first-shell unlike-species component. A target of −0.1 requests 70.4 bonds;
+rounding to 70 gives a component lower bound of 0.00625. This does not establish
+that all desired bond counts can coexist in a lattice configuration.
+
+Interpret the output as follows:
+
+- `lower_bound`: no valid decoration satisfying the assumptions can do better.
+- `achieved_upper_bound`: error of the supplied structure.
+- `optimality_gap`: upper minus lower bound, in the selected metric.
+- `status: certified_minimum`: the supplied structure exactly attains the
+  rational bound (for RMS, equality is checked on squared errors).
+- `status: lower_bound`: a nonzero gap remains. In particular, a zero lower
+  bound does **not** prove that the target is attainable.
+
+This first implementation is an **independent pair-count relaxation**. It does
+not jointly optimize neighbor totals, reciprocal target components, SRO sum
+rules, or full lattice realizability, so its bound can be loose. It supports
+shared species across labeled sublattices, but requires uniform coordination
+within each requested sublattice-pair shell. Nonuniform cases are rejected;
+provide a suitable ideal `--reference` or refine the sublattice partition.
+Inspect shell coverage and choose a cutoff containing the shells of interest.
+
+These bounds apply to the stated **SRO-error metrics**, not the native weighted
+bond-count fitness or decorated pair/triplet/quadruplet correlation errors.
+No claim of a bound on the figure benchmark's error is made.

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add `m_scraps bounds` and the Python `sro_bounds` API for independent integer
+  pair-count SRO lower bounds, achieved upper bounds, and witness-based
+  optimality certificates. Reject nonuniform coordination; report limitations.
 - Add a standalone HTML benchmark report with filterable trial metrics,
   censored threshold times, an embedded comparison figure, and source checksums.
 - Expand the upstream comparison to distinguish scientific capabilities from

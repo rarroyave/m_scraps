@@ -4,6 +4,9 @@ from . import _TOOLS
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "bounds":
+        from sro_bounds import main as bounds
+        return bounds(sys.argv[2:])
     if len(sys.argv) > 1 and sys.argv[1] == "compare-atat":
         from compare_atat import main as compare
         return compare(sys.argv[2:])

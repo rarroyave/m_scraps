@@ -7,6 +7,7 @@ of subcommands that ask only the questions a non-expert can answer:
 which lattice class, what composition, how many atoms.
 
 Subcommands:
+    bounds        Bound attainable pair-SRO error (m_scraps entry point).
     analyze       Evaluate supplied structures (m_scraps entry point).
     compare-atat  Compare against frozen or live ATAT references.
     quick         One-shot SQS for a common structure template.
