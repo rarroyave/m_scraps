@@ -22,6 +22,19 @@ is `m_scraps`; upstream attribution is retained in [Credits](#credits).
 
 ## What's new vs upstream
 
+Major additions in m_scraps include:
+
+- **Multi-sublattice capabilities:** independently constrain the allowed species
+  and composition on each sublattice, including fixed and disordered sublattices,
+  for SRO and correlation targeting in alloys and ceramics. Worked examples
+  include diborides, MAX phases with disorder on both M and A sites, and Heusler
+  intermetallics.
+- **Simulated annealing solver:** select `MC_KERNEL sa` for Metropolis acceptance
+  with an exponential cooling schedule controlled by `SA_T_INITIAL` and
+  `SA_T_FINAL`. This alternative to the default cuckoo MC kernel operates within
+  the same outer search loop and supports the same SRO and figure-correlation
+  objectives.
+
 | Feature | Upstream | This fork |
 | --- | --- | --- |
 | Random / SQS-style supercells | ✓ | ✓ (backward-compatible) |

@@ -18,8 +18,14 @@
 ## 0.5.0 — 2026-10-19
 
 - Package m_scraps with Python and CLI interfaces and legacy compatibility.
-- Provide multi-sublattice SRO and pair/triplet/quadruplet correlation targeting,
-  structure analysis, and examples for diborides, MAX phases, and Heusler phases.
+- Add multi-sublattice capabilities with independently constrained species and
+  compositions, including fixed and disordered sublattices; provide examples
+  for diborides, MAX phases with M/A disorder, and Heusler phases.
+- Add a simulated annealing solver (`MC_KERNEL sa`) with Metropolis acceptance
+  and configurable exponential cooling within the existing outer search loop,
+  alongside the default cuckoo MC kernel.
+- Provide SRO and pair/triplet/quadruplet correlation targeting and independent
+  structure analysis.
 - Include a limited, reproducible four-method benchmark, frozen ATAT references,
   optional external comparisons, and automated tests and notebook checks.
 - Fix missing-pair penalties in the full, fast-swap, and simulated-annealing
