@@ -364,7 +364,8 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
                     N_tau = (double) g_sub_count[tau];
                 }
                 if (N_tau > 0.0)
-                    avgGr[center][surr][j] += (1.0 - targetSROpair[center][surr][j])
+                    avgGr[center][surr][j] = (double) eachElement_M[center]
+                        * (1.0 - targetSROpair[center][surr][j])
                         * z_st * (double) eachElement_M[surr] / N_tau;
             }
             for(int k = 0; k < shellnum; k++) {
