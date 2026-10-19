@@ -28,7 +28,7 @@ pluggy==1.6.0
 Pygments==2.21.0
 pymatgen==2026.5.4
 pymatgen-core==2026.8.30
-pyparsing==3.3.2
+pyparsing==3.3.3
 pytest==9.1.1
 python-dateutil==2.9.0.post0
 requests==2.34.2
