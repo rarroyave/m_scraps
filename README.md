@@ -1446,6 +1446,11 @@ weighting them by degeneracy. Neither mode establishes an equilibrium
 fluctuation or a thermodynamic uncertainty interval. Energies and other physical
 properties must be calculated separately for the exported configurations.
 
+For an end-to-end walkthrough, open
+[`09_configuration_ensembles.ipynb`](notebooks/09_configuration_ensembles.ipynb).
+It compares random and diverse ensembles and inspects the archived energies
+without an ML installation or external solver.
+
 ### Reproducible MAX-phase energy-variability example
 
 The [frozen report](tools/fixtures/max_ensemble/report.html) and

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add an installed-package ensemble tutorial for the MAX-phase example,
+  comparing random and diversity selection and inspecting frozen energy
+  variability without optional solvers or ML packages. Include execution in
+  the existing release/manual package checks.
+
 ## 0.6.0 — 2026-10-19
 
 Frozen archive: [doi:10.5281/zenodo.23484291](https://doi.org/10.5281/zenodo.23484291).

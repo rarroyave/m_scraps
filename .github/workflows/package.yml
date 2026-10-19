@@ -49,8 +49,10 @@ jobs:
           cp notebooks/06_structure_analysis.ipynb "$RUNNER_TEMP/analysis.ipynb"
           cp notebooks/07_generate_multisublattice.ipynb "$RUNNER_TEMP/generation.ipynb"
           cp notebooks/08_small_cell_search.ipynb "$RUNNER_TEMP/small-cells.ipynb"
+          cp notebooks/09_configuration_ensembles.ipynb "$RUNNER_TEMP/ensembles.ipynb"
           cd "$RUNNER_TEMP"
           package-env/bin/python check_installed_package.py
           package-env/bin/python -c "import nbformat; from nbclient import NotebookClient; n=nbformat.read('analysis.ipynb', as_version=4); NotebookClient(n, timeout=120).execute(); nbformat.write(n, 'analysis-executed.ipynb')"
           package-env/bin/python -c "import nbformat; from nbclient import NotebookClient; n=nbformat.read('generation.ipynb', as_version=4); NotebookClient(n, timeout=120).execute(); nbformat.write(n, 'generation-executed.ipynb')"
           package-env/bin/python -c "import nbformat; from nbclient import NotebookClient; n=nbformat.read('small-cells.ipynb', as_version=4); NotebookClient(n, timeout=120).execute(); nbformat.write(n, 'small-cells-executed.ipynb')"
+          package-env/bin/python -c "import nbformat; from nbclient import NotebookClient; n=nbformat.read('ensembles.ipynb', as_version=4); NotebookClient(n, timeout=180).execute(); nbformat.write(n, 'ensembles-executed.ipynb')"
