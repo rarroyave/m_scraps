@@ -103,12 +103,14 @@ def test_multisublattice_shared_species_and_fixed_spectator():
 
 
 def test_sa_determinism_and_same_metric():
-    one, witnesses = run(max_configurations=1, sa_steps=80)
-    two, _ = run(max_configurations=1, sa_steps=80)
+    targets = [target(value=0), target(a='Zn', b='Cu', value=-1)]
+    one, witnesses = run(max_configurations=1, sa_steps=80, targets=targets)
+    two, _ = run(max_configurations=1, sa_steps=80, targets=targets)
+    assert any(c['optimization']['method'] == 'python_pair_sro_sa' for c in one['candidates'])
     assert [c['best_error'] for c in one['candidates']] == [c['best_error'] for c in two['candidates']]
     for c in one['candidates']:
-        assert c['optimization']['method'] == 'python_pair_sro_sa'
-        check = sro_bounds(witnesses[c['id']], cutoff=1.01, targets=[target()], sublattices=c['sublattices'])
+        assert c['optimization']['method'] in ('python_pair_sro_sa', 'initial_bound_witness')
+        check = sro_bounds(witnesses[c['id']], cutoff=1.01, targets=targets, sublattices=c['sublattices'])
         assert c['best_error'] == check['result']['achieved_upper_bound']
 
 
@@ -158,3 +160,17 @@ def test_cli_roundtrip(tmp_path):
         assert check['result']['achieved_upper_bound'] == pytest.approx(candidate['best_error'])
         assert len(candidate['files']) == 4
     assert subprocess.run(command, capture_output=True).returncode != 0
+
+
+def test_stronger_bound_screens_small_cells_without_optimization(monkeypatch):
+    import search_cells as module
+    def forbidden(*args, **kwargs):
+        raise AssertionError('A bound-screened cell must not be optimized')
+    monkeypatch.setattr(module, 'enumerate_sro', forbidden)
+    monkeypatch.setattr(module, '_anneal', forbidden)
+    parent = bulk('Cu', 'bcc', a=3, cubic=True)
+    report, witnesses = module.search_cells(parent, cutoff=2.7, targets=[target(value=-.1)],
+        min_atoms=16, max_atoms=16, composition={'all': {'Cu': '.5', 'Zn': '.5'}},
+        error_tolerance=.01, max_candidates=8)
+    assert report['candidates'] and not witnesses
+    assert all(c['status'] == 'screened_by_bound' and c['lower_bound'] >= .025 for c in report['candidates'])

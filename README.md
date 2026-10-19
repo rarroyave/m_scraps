@@ -1165,7 +1165,11 @@ count and D = Nᵢ z(σ→τ) cⱼ(τ). The target requests n* = D(1 − α*).
 If A and B are the source- and destination-species bond capacities among E
 shell bonds, necessary count limits are max(0, A+B−E) ≤ n ≤ min(A,B).
 Same-species counts within one sublattice must be even because both bond
-orientations are retained. The nearest admissible integer count gives a
+orientations are retained. Periodic bond multiplicities further restrict counts
+to a congruence class. Self-image bonds cannot connect unlike species; for binary
+within-sublattice components, cross counts equal outgoing species stubs minus
+same-species bonds, giving a stronger parity/multiplicity constraint. The nearest
+count satisfying these necessary conditions gives a
 componentwise error floor; maximum, RMS, and mean absolute floors are formed
 from those componentwise bounds. Exact rational quantities are retained in
 JSON (for RMS, the exact field stores the squared error).
@@ -1185,7 +1189,7 @@ Interpret the output as follows:
 - `status: lower_bound`: a nonzero gap remains. In particular, a zero lower
   bound does **not** prove that the target is attainable.
 
-This first implementation is an **independent pair-count relaxation**. It does
+This remains an **independent pair-count relaxation**. It does
 not jointly optimize neighbor totals, reciprocal target components, SRO sum
 rules, or full lattice realizability, so its bound can be loose. It supports
 shared species across labeled sublattices, but requires uniform coordination
@@ -1200,10 +1204,11 @@ No claim of a bound on the figure benchmark's error is made.
 
 ## Enumerate small cells exactly
 
-`m_scraps enumerate` covers all labeled-site decorations with the specified
+`m_scraps enumerate` searches labeled-site decorations with the specified
 cell and per-sublattice compositions, evaluating one representative per verified
 symmetry orbit by default. It certifies the minimum
-of the **selected pair-SRO metric** only after enumeration finishes. No native
+of the **selected pair-SRO metric** when a witness exactly attains the rigorous
+lower bound or when enumeration finishes. No native
 optimizer, ATAT, or icet is needed.
 
 ```bash
@@ -1224,7 +1229,9 @@ product of Nₛ! / ∏ₐ nₛ,ₐ! over sublattices. It refuses to start if tha
 `--max-configurations` (default 100000). A 16-site equiatomic binary cell has
 12870 labeled-site configurations; a 32-site cell has 601080390. The cap applies
 to this full count **before symmetry reduction**, bounding the combinatorial
-problem conservatively. The cap does not limit elapsed time: cost also depends
+problem conservatively. If the initial witness already attains the bound, its
+minimum is certified without enumeration, even above the configuration cap.
+The cap does not limit elapsed time: cost also depends
 on the number of sites, periodic bonds, and target components.
 
 The output directory must be new. It contains:
@@ -1242,13 +1249,30 @@ mean squared error. Decimal JSON fields are numerical presentations. The other
 two metrics describe the selected witness, not separate optimized minima.
 Ties retain the first best witness, starting with the supplied decoration.
 
-A completed search reports `status: certified_minimum`, with `lower_bound`
+A proved minimum reports `status: certified_minimum`, with `lower_bound`
 equal to `best_error` and zero `optimality_gap`. `relaxed_lower_bound` preserves
 the independent pair-count bound so one can see whether lattice constraints
 make the true minimum larger.
 
+By default, an exact bound match stops enumeration immediately, including before
+symmetry discovery if the initial witness suffices. `certificate_basis` identifies
+`bound_attained` versus `exhaustion`; `complete` refers strictly to full coverage.
+A bound certificate can therefore have `complete: false` and zero evaluated
+configurations. No floating-point tolerance is used to certify equality.
+Use `--exhaustive` (`stop_at_bound=False` in Python) to disable this shortcut for
+coverage audits; combine it with `--symmetry none` to visit all labeled occupations.
+A loose bound alone never triggers stopping.
+
+For a two-site equiatomic BCC cell at target alpha=0, the old independent integer
+bound was zero, but periodic multiplicities prove a minimum error of **1** without
+enumeration. For a 16-site equiatomic 2x2x2 conventional BCC supercell at target
+alpha=-0.1, binary cut parity raises the bound from **0.00625 to 0.025**. The latter
+is still a relaxation; enumeration may establish a larger minimum. With
+`search-cells --error-tolerance 0.01`, that cell can be excluded before searching
+its occupations. Small size alone is not a universal predictor of attainability.
+
 Optionally set `--max-seconds 30`, which includes preparation time. A time limit
-or Ctrl-C during enumeration saves the current witness and reports
+or Ctrl-C during enumeration, before obtaining a proof, saves the current witness and reports
 `status: best_found`, `complete: false`, the number evaluated, and the gap to
 the relaxed bound. The supplied structure is evaluated first so an early stop
 still has a witness. The configuration count covers the enumerated sequence;
@@ -1284,8 +1308,8 @@ leaf, the orbit multiplicity is the full group order divided by the final
 stabilizer order. Summing these multiplicities verifies coverage of the full
 combinatorial configuration count.
 
-Use `--symmetry none` for the direct exhaustive reference implementation, or
-`symmetry="none"` in Python. `--symprec` controls geometric symmetry detection
+Use `--symmetry none --exhaustive` for the direct exhaustive reference implementation,
+or `symmetry="none", stop_at_bound=False` in Python. `--symprec` controls geometric symmetry detection
 (default 0.00001 angstrom); exact bond-graph checks still apply. The result
 records the number of verified site permutations and the tolerance. Symmetry
 detection failure produces an error rather than an unsupported certificate;
@@ -1362,7 +1386,8 @@ limits the whole search, and `--seconds-per-cell` (3) limits each occupation
 search. Time limits are cooperative: individual library calls can overrun.
 The generation cap can truncate the size range; the report records this.
 With `--error-tolerance`, candidates whose lower bound exceeds that tolerance
-are recorded as screened and are not optimized.
+are recorded as screened and are not optimized. An initial witness that already
+attains its rigorous bound bypasses both enumeration and SA.
 
 Cells with at most `--max-configurations` (10000) labeled occupations use the
 verified symmetry-reduced exact enumerator. Larger spaces use a seeded Python

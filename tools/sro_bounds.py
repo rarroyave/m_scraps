@@ -6,6 +6,7 @@ It requires uniform coordination within each requested sublattice-pair shell.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from fractions import Fraction
 import hashlib
 import json
@@ -44,6 +45,58 @@ def pair_count_bound(center_bonds, neighbor_bonds, total_bonds, denominator,
     nearest = min(choices, key=lambda n: (abs(Fraction(n) - desired), n))
     error = abs(1 - Fraction(nearest) / denominator - target)
     return low, high, step, desired, nearest, error
+
+
+def graph_count_bound(ii, jj, sites, composition, source, destination, a, b,
+                      low, high, denominator, target):
+    """Necessary count congruence from periodic multiplicities, loops and cuts.
+
+    Binary within-group cross counts equal outgoing A stubs minus A-A stubs.
+    For a symmetric shell, the latter have twice the undirected multiplicity.
+    This is a relaxation: it need not describe every realizable graph cut.
+    """
+    multiplicities = Counter(zip(ii.tolist(), jj.tolist()))
+    offset = 0
+    if source != destination:
+        weights = np.array(list(multiplicities.values()), dtype=int)
+    else:
+        if any(multiplicities[j, i] != count for (i, j), count in multiplicities.items()):
+            raise ValueError('Within-sublattice shell must have symmetric directed bonds')
+        positions = np.unique(ii)
+        loops = np.array([multiplicities[i, i] for i in positions], dtype=int)
+        weights = np.array([count for (i, j), count in multiplicities.items() if i < j], dtype=int)
+        n_a = composition[source]['counts'][a]
+        if a == b:
+            weights = 2 * weights
+            if np.all(loops == loops[0]):
+                offset = n_a * int(loops[0])
+            else:
+                weights = np.concatenate((weights, loops))
+        else:
+            # Self-image bonds cannot connect different species.
+            degrees = np.bincount(ii[ii != jj], minlength=sites)[positions]
+            n_b = composition[source]['counts'][b]
+            high = min(high, n_a * int(max(degrees)), n_b * int(max(degrees)))
+            active = {s for s, n in composition[source]['counts'].items() if n}
+            if active == {a, b} and np.all(degrees == degrees[0]):
+                offset = n_a * int(degrees[0])
+                weights = 2 * weights
+    step = math.gcd(*(int(w) for w in weights))
+    desired = denominator * (1 - target)
+    if step == 0:
+        low = high = offset
+        nearest = offset
+    else:
+        offset %= step
+        low = offset + ((low - offset + step - 1) // step) * step
+        high = offset + ((high - offset) // step) * step
+        if low > high:
+            raise RuntimeError('Graph count relaxation contains no admissible count')
+        floor = offset + ((desired - offset) // step) * step
+        nearest = min({max(low, min(high, int(n))) for n in (floor, floor + step)},
+                      key=lambda n: (abs(Fraction(n) - desired), n))
+    error = abs(1 - Fraction(nearest) / denominator - target)
+    return low, high, step, offset, nearest, error
 
 
 def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
@@ -91,13 +144,20 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
         low, high, step, desired, nearest, error = pair_count_bound(
             center_bonds, neighbor_bonds, len(ii), denominator, value,
             same_species=source == destination and a == b)
+        integer_error = error
+        low, high, step, offset, nearest, error = graph_count_bound(
+            ii, jj, len(atoms), report['composition'], source, destination, a, b,
+            low, high, denominator, value)
+        if error < integer_error:
+            raise RuntimeError('Graph relaxation weakened the integer bound')
         actual = abs(1 - Fraction(row['pair_count']) / denominator - value)
         lower.append(error)
         achieved.append(actual)
         entries.append(dict(**{k: target[k] for k in KEYS}, target=float(value),
             coordination=z_src, reverse_coordination=z_dst,
             denominator_exact=str(denominator), target_pair_count_exact=str(desired),
-            admissible_count_min=low, admissible_count_max=high, count_step=step,
+            admissible_count_min=low, admissible_count_max=high, count_step=step, count_offset=offset,
+            integer_only_lower_bound_exact=str(integer_error),
             nearest_relaxed_count=nearest, component_lower_bound=float(error),
             component_lower_bound_exact=str(error), achieved_pair_count=row['pair_count'],
             achieved_error=float(actual)))
@@ -117,7 +177,7 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
             optimality_gap=high - low, status='certified_minimum' if lo == hi else 'lower_bound',
             exact_value_convention='squared error' if name == 'rms_error' else 'error',
             lower_bound_exact=str(lo), achieved_upper_bound_exact=str(hi))
-    return dict(schema_version=1, objective='directed_pair_sro', method='independent_integer_pair_counts',
+    return dict(schema_version=2, objective='directed_pair_sro', method='independent_integer_pair_counts',
         selected_metric=metric, result=metrics[metric], metrics=metrics,
         sites=len(atoms), composition=report['composition'], entries=entries,
         convention=report['convention'], shell_coverage=report['shell_coverage'],
@@ -125,7 +185,8 @@ def sro_bounds(atoms, *, cutoff, targets, shells=2, sublattices=None,
             'Fixed cell, geometry, sublattice membership, and input composition.',
             'Uniform coordination within each requested sublattice-pair shell.',
             'Only explicit targets contribute; equal weights; shells are one-based per sublattice pair.',
-            'Integer counts, source/destination capacities, and same-species parity are enforced.',
+            'Integer capacities, periodic-bond multiplicity congruences, self-image restrictions, and binary cut parity are enforced.',
+            'count_step=0 denotes a fixed count; otherwise admissible counts equal count_offset modulo count_step.',
             'Components are relaxed independently; joint neighbor totals, cross-component reciprocity, '
             'SRO sum rules, and full lattice realizability are not jointly optimized.',
             'A zero lower bound alone does not establish feasibility. Certification requires the supplied witness to attain it.',

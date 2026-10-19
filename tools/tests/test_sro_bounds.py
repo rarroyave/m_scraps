@@ -43,14 +43,14 @@ def test_capacity_and_parity_bounds():
     assert even[-1] == Fraction(1, 3)
 
 
-def test_zero_relaxation_is_not_a_feasibility_certificate():
+def test_periodic_multiplicity_closes_integer_relaxation_gap():
     # Periodic images all connect the same two occupation variables.
     atoms = bulk('Cu', 'bcc', a=2, cubic=True)
     atoms[1].symbol = 'Zn'
     result = sro_bounds(atoms, cutoff=1.8, targets=[target(0)])
-    assert result['result']['lower_bound'] == 0
+    assert result['result']['lower_bound'] == 1
     assert result['result']['achieved_upper_bound'] == 1
-    assert result['result']['status'] == 'lower_bound'
+    assert result['result']['status'] == 'certified_minimum'
     # A valid supplied witness can certify a nonzero optimum too.
     fixed = {'site_labels': ['A', 'B'], 'allowed': {'A': ['Cu'], 'B': ['Zn']}}
     result = sro_bounds(atoms, cutoff=1.8, sublattices=fixed,
@@ -119,11 +119,11 @@ def test_cli_and_public_api(tmp_path):
     subprocess.run([sys.executable, str(ROOT / 'sro_bounds.py'), *command], check=True)
     payload = json.loads(output.read_text())
     assert payload['selected_metric'] == 'rms_error'
-    assert payload['result']['status'] == 'lower_bound'
+    assert payload['result']['status'] == 'certified_minimum'
     assert set(payload['inputs']) == {'structure', 'targets'}
     sys.path.insert(0, str(ROOT.parent / 'python'))
     from m_scraps import sro_bounds as api
-    assert api(atoms, cutoff=1.8, targets=[target(0)])['result']['lower_bound'] == 0
+    assert api(atoms, cutoff=1.8, targets=[target(0)])['result']['lower_bound'] == 1
     # Exercise installed-command dispatch using the source package without building MPI.
     import os
     env = dict(os.environ, PYTHONPATH=str(ROOT.parent / 'python'))
@@ -146,3 +146,44 @@ def test_unequal_coordination_and_reference_mapping():
     assert row['admissible_count_min'] == row['admissible_count_max'] == 1
     assert result['result']['status'] == 'certified_minimum'
     assert result['result']['lower_bound'] == .1
+
+
+def test_binary_cut_parity_strengthens_16_site_bound():
+    atoms = bulk('Cu', 'bcc', a=2, cubic=True).repeat((2, 2, 2))
+    atoms.symbols[8:] = 'Zn'
+    result = sro_bounds(atoms, cutoff=1.8, targets=[target(-.1)])
+    row = result['entries'][0]
+    assert row['integer_only_lower_bound_exact'] == '1/160'
+    assert row['component_lower_bound_exact'] == '1/40'
+    assert row['count_step'] == 2
+
+
+def test_graph_congruences_against_every_small_graph_decoration():
+    from itertools import permutations
+    import numpy as np
+    from sro_bounds import graph_count_bound
+    graphs = [np.array([[4, 2, 4], [2, 2, 6], [4, 6, 0]]),
+              np.array([[2, 2, 0, 2], [2, 2, 2, 0], [0, 2, 2, 2], [2, 0, 2, 2]]),
+              np.eye(4, dtype=int) * 6]
+    for graph in graphs:
+        n = len(graph)
+        symbols = ['Cu', 'Zn', 'Al'] if n == 3 else ['Cu', 'Cu', 'Zn', 'Zn']
+        counts = {s: symbols.count(s) for s in set(symbols)}
+        composition = {'all': {'sites': n, 'counts': counts}}
+        ii, jj = [], []
+        for i in range(n):
+            for j in range(n):
+                ii.extend([i] * graph[i, j]); jj.extend([j] * graph[i, j])
+        for a, b in [('Cu', 'Cu'), ('Cu', 'Zn')]:
+            actual = [sum(graph[i, j] for i in range(n) for j in range(n) if values[i] == a and values[j] == b)
+                      for values in set(permutations(symbols))]
+            z = int(graph.sum(axis=1)[0])
+            denominator = Fraction(counts[a] * z * counts[b], n)
+            for value in [Fraction(-1, 10), Fraction(0), Fraction(1, 3)]:
+                lo, hi, _, _, _, _ = pair_count_bound(counts[a]*z, counts[b]*z, int(graph.sum()), denominator, value, same_species=a == b)
+                low, high, step, offset, nearest, error = graph_count_bound(np.array(ii), np.array(jj), n, composition,
+                    'all', 'all', a, b, lo, hi, denominator, value)
+                assert error <= min(abs(1-Fraction(v)/denominator-value) for v in actual)
+                for v in actual:
+                    assert low <= v <= high
+                    assert (v-offset) % step == 0 if step else v == offset

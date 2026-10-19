@@ -24,8 +24,8 @@ def ring():
 
 
 def test_ring_six_decorations_two_representatives():
-    reduced, _ = enumerate_sro(ring(), cutoff=1.1, targets=[target(.25)])
-    exhaustive, _ = enumerate_sro(ring(), cutoff=1.1, targets=[target(.25)], symmetry='none')
+    reduced, _ = enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, targets=[target(.25)])
+    exhaustive, _ = enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, targets=[target(.25)], symmetry='none')
     assert reduced['evaluated_configurations'] == 2
     assert exhaustive['evaluated_configurations'] == 6
     assert reduced['covered_configurations'] == 6
@@ -55,17 +55,17 @@ def test_shared_species_distinct_targets_and_constraints(metric):
               'allowed': {'A': ['Cu', 'Zn'], 'B': ['Cu', 'Zn']},
               'counts': {'A': {'Cu': 1, 'Zn': 1}, 'B': {'Cu': 1, 'Zn': 1}}}
     targets = [target(.3, 'A', 'B'), target(-.4, 'B', 'A', a='Zn', b='Cu')]
-    auto, _ = enumerate_sro(ring(), cutoff=1.1, sublattices=config, targets=targets, metric=metric)
-    full, _ = enumerate_sro(ring(), cutoff=1.1, sublattices=config, targets=targets, metric=metric, symmetry='none')
+    auto, _ = enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, sublattices=config, targets=targets, metric=metric)
+    full, _ = enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, sublattices=config, targets=targets, metric=metric, symmetry='none')
     assert auto['best_error_exact'] == full['best_error_exact']
     assert auto['covered_configurations'] == full['total_configurations'] == 4
     assert auto['evaluated_configurations'] < full['evaluated_configurations']
     # Unequal sublattice compositions must also remain fixed.
     atoms = ring(); atoms.set_chemical_symbols(['Cu', 'Cu', 'Cu', 'Zn'])
     config['counts']['A'] = {'Cu': 2, 'Zn': 0}
-    auto, _ = enumerate_sro(atoms, cutoff=1.1, sublattices=config,
+    auto, _ = enumerate_sro(atoms, stop_at_bound=False, cutoff=1.1, sublattices=config,
                             targets=[target(.2, 'A', 'B')], metric=metric)
-    full, _ = enumerate_sro(atoms, cutoff=1.1, sublattices=config,
+    full, _ = enumerate_sro(atoms, stop_at_bound=False, cutoff=1.1, sublattices=config,
                             targets=[target(.2, 'A', 'B')], metric=metric, symmetry='none')
     assert auto['best_error_exact'] == full['best_error_exact']
     assert auto['covered_configurations'] == 2
@@ -87,8 +87,8 @@ def test_exact_bond_graph_rejects_invalid_geometric_reduction():
 def test_bcc_parent_symmetry_ignores_initial_chemical_decoration():
     atoms = bulk('Cu', 'bcc', a=2, cubic=True).repeat((2, 1, 1))
     atoms.symbols[2:] = 'Zn'
-    reduced, _ = enumerate_sro(atoms, cutoff=1.8, targets=[target(-.1)])
-    full, _ = enumerate_sro(atoms, cutoff=1.8, targets=[target(-.1)], symmetry='none')
+    reduced, _ = enumerate_sro(atoms, stop_at_bound=False, cutoff=1.8, targets=[target(-.1)])
+    full, _ = enumerate_sro(atoms, stop_at_bound=False, cutoff=1.8, targets=[target(-.1)], symmetry='none')
     assert reduced['covered_configurations'] == 6
     assert reduced['evaluated_configurations'] < 6
     assert reduced['best_error_exact'] == full['best_error_exact']
@@ -100,7 +100,7 @@ def test_symmetry_group_closure_and_invalid_options():
     with pytest.raises(ValueError, match='exceeds'):
         permutation_group([(1, 2, 0)], 3, limit=2)
     with pytest.raises(ValueError, match='symprec'):
-        enumerate_sro(ring(), cutoff=1.1, targets=[target()], symprec=0)
+        enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, targets=[target()], symprec=0)
 
 
 def test_interrupted_symmetry_search_reports_only_covered_orbits(monkeypatch):
@@ -110,7 +110,7 @@ def test_interrupted_symmetry_search_reports_only_covered_orbits(monkeypatch):
         yield next(original(*args))
         raise KeyboardInterrupt
     monkeypatch.setattr(enumeration_symmetry, 'symmetry_occupations', interrupted)
-    result, _ = enumerate_sro(ring(), cutoff=1.1, targets=[target(.25)])
+    result, _ = enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, targets=[target(.25)])
     assert result['status'] == 'best_found' and not result['complete']
     assert result['stop_reason'] == 'interrupted'
     assert result['evaluated_configurations'] == 1

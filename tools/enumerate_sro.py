@@ -64,16 +64,16 @@ def occupations(labels, composition):
 def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
                   reference=None, tolerance=0.2, shell_tolerance=1e-5,
                   metric='max_error', max_configurations=100000, max_seconds=None,
-                  symmetry='auto', symprec=1e-5):
-    """Return (report, witness Atoms); certify only after complete enumeration.
+                  symmetry='auto', symprec=1e-5, stop_at_bound=True):
+    """Return (report, witness Atoms); certify by bound attainment or exhaustion.
 
     Uses the uniform-coordination pair-SRO conventions of sro_bounds. By default,
     verified sublattice/target-preserving site symmetries reduce the search to
     orbit representatives. symmetry="none" retains exhaustive reference mode. All
     comparisons use rational arithmetic (mean squared error for RMS). The
     structure returned uses reference geometry/order when reference is supplied.
-    A time limit or Ctrl-C during enumeration returns best_found, never an
-    exhaustive certificate. The initial decoration supplies a witness even if
+    Exact bound attainment stops early unless stop_at_bound=False. A time
+    limit or Ctrl-C without a proof returns best_found. The initial decoration supplies a witness even if
     the time limit expires during preparation. No resume state is produced.
     """
     start = time.monotonic()
@@ -89,7 +89,7 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
         sublattices=sublattices, reference=reference, tolerance=tolerance,
         shell_tolerance=shell_tolerance, metric=metric)
     total = configuration_count(bound['composition'])
-    if total > max_configurations:
+    if total > max_configurations and not (stop_at_bound and bound['result']['status'] == 'certified_minimum'):
         raise ValueError(f'{total} configurations exceed --max-configurations {max_configurations}; '
                          'choose a smaller cell or explicitly raise the cap')
     analysis = analyze_structure(atoms, cutoff=cutoff, shells=shells, sublattices=sublattices,
@@ -125,8 +125,10 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
     best_symbols = tuple(np.array(atoms.get_chemical_symbols())[analysis['mapping']['input_indices']])
     best_metrics, best_counts, best_residuals = evaluate(best_symbols)
     best = (best_metrics, best_symbols, best_counts, best_residuals)
+    exact_relaxed = Fraction(bound['metrics'][metric]['lower_bound_exact'])
+    bound_met_initially = stop_at_bound and best_metrics[metric] == exact_relaxed
     permutations = np.arange(len(atoms))[None, :]
-    if symmetry == 'auto' and total > 1:
+    if symmetry == 'auto' and total > 1 and not bound_met_initially:
         from enumeration_symmetry import site_permutations
         permutations = site_permutations(geometry, labels, prepared, symprec)
     if symmetry == 'auto' and len(permutations) > 1:
@@ -134,7 +136,9 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
         candidates = symmetry_occupations(labels, bound['composition'], permutations)
     else:
         candidates = ((candidate, 1) for candidate in occupations(labels, bound['composition']))
-    evaluated, covered, reason = 0, 0, 'exhausted'
+    if bound_met_initially:
+        candidates = iter(())
+    evaluated, covered, reason = 0, 0, 'bound_attained' if bound_met_initially else 'exhausted'
     try:
         for candidate, multiplicity in candidates:
             if max_seconds is not None and time.monotonic() - start >= max_seconds:
@@ -145,10 +149,13 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
                 best = (values, candidate, counts, residuals)
             evaluated += 1
             covered += multiplicity
+            if stop_at_bound and best[0][metric] == exact_relaxed:
+                reason = 'bound_attained'
+                break
     except KeyboardInterrupt:
         reason = 'interrupted'
     best_metrics, best_symbols, best_counts, best_residuals = best
-    complete = reason == 'exhausted' and covered == total
+    complete = covered == total
     if complete:
         reason = 'exhausted'
     elif reason == 'exhausted':
@@ -156,7 +163,8 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
     exact_best = best_metrics[metric]
     exact_relaxed = Fraction(bound['metrics'][metric]['lower_bound_exact'])
     convert = math.sqrt if metric == 'rms_error' else float
-    certified_lower = exact_best if complete else exact_relaxed
+    certified = complete or reason == 'bound_attained'
+    certified_lower = exact_best if certified else exact_relaxed
     witness = geometry.copy()
     witness.set_chemical_symbols(best_symbols)
     entries = []
@@ -164,8 +172,10 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
         entries.append(dict(**{k: target[k] for k in KEYS}, target=float(target['target']),
             pair_count=count, alpha=float(residual + Fraction(str(target['target']))),
             residual=float(residual), residual_exact=str(residual)))
-    result = dict(schema_version=2, objective='directed_pair_sro', method='symmetry_reduced_occupations' if symmetry == 'auto' else 'exhaustive_labeled_occupations',
-        status='certified_minimum' if complete else 'best_found', complete=complete,
+    result = dict(schema_version=3, objective='directed_pair_sro', method='symmetry_reduced_occupations' if symmetry == 'auto' else 'exhaustive_labeled_occupations',
+        status='certified_minimum' if certified else 'best_found', complete=complete,
+        certificate_basis='exhaustion' if complete else ('bound_attained' if certified else None),
+        stop_at_bound=stop_at_bound,
         stop_reason=reason, selected_metric=metric, total_configurations=total,
         evaluated_configurations=evaluated, covered_configurations=covered,
         symmetry=dict(mode=symmetry, site_permutations=len(permutations), symprec=symprec,
@@ -191,7 +201,7 @@ def enumerate_sro(atoms, *, cutoff, targets, shells=2, sublattices=None,
                      'Uniform coordination within requested sublattice-pair shells is required.',
                      'Other reported metrics describe the selected witness, not independently optimized minima.',
                      'Pair-SRO error only; no decorated higher-order correlation certificate.',
-                     'Incomplete searches report best_found even if the witness matches the relaxed bound.'])
+                     'Bound attainment certifies the selected minimum without claiming exhaustive coverage.'])
     return result, witness
 
 
@@ -208,6 +218,7 @@ def main(argv=None):
     parser.add_argument('--metric', choices=METRICS, default='max_error')
     parser.add_argument('--symmetry', choices=('auto', 'none'), default='auto',
                         help='Use objective-preserving symmetry reduction (default auto), or exhaustive reference mode')
+    parser.add_argument('--exhaustive', action='store_true', help='Disable bound-attainment stopping to audit full coverage')
     parser.add_argument('--symprec', type=float, default=1e-5, help='Symmetry detection tolerance in angstrom')
     parser.add_argument('--max-configurations', type=int, default=100000)
     parser.add_argument('--max-seconds', type=float, help='Optional time limit including preparation')
@@ -222,7 +233,7 @@ def main(argv=None):
             reference=read(args.reference) if args.reference else None,
             tolerance=args.tolerance, shell_tolerance=args.shell_tolerance,
             metric=args.metric, max_configurations=args.max_configurations, max_seconds=args.max_seconds,
-            symmetry=args.symmetry, symprec=args.symprec)
+            symmetry=args.symmetry, symprec=args.symprec, stop_at_bound=not args.exhaustive)
         inputs = {'structure': args.structure, 'targets': args.targets,
                   'sublattices': args.sublattices, 'reference': args.reference}
         report['inputs'] = {name: dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())

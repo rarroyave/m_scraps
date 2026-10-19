@@ -268,7 +268,12 @@ def search_cells(atoms, *, cutoff, targets, min_atoms, max_atoms, sublattices=No
             candidate.update(status='screened_by_bound', best_error=None)
         else:
             remaining = max(1e-9, min(seconds_per_cell, deadline - time.monotonic()))
-            if candidate['total_configurations'] <= max_configurations:
+            if bound['result']['status'] == 'certified_minimum':
+                optimization = dict(method='initial_bound_witness', status='certified_minimum',
+                    best_error=bound['result']['achieved_upper_bound'], lower_bound=bound['result']['lower_bound'],
+                    certificate_basis='bound_attained', evaluated_configurations=0)
+                witness = cell
+            elif candidate['total_configurations'] <= max_configurations:
                 optimization, witness = enumerate_sro(cell, cutoff=cutoff, targets=targets, shells=shells,
                     sublattices=config, metric=metric, max_configurations=max_configurations, max_seconds=remaining)
             else:

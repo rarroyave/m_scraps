@@ -38,12 +38,12 @@ def test_multinomial_count_and_unique_generation():
     assert module.configuration_count({'all': {'sites': 32, 'counts': {'Cu': 16, 'Zn': 16}}}) == 601080390
 
 
-def test_unattainable_zero_bound_and_periodic_image_multiplicity():
+def test_unattainable_random_target_and_periodic_image_multiplicity():
     atoms = bulk('Cu', 'bcc', a=2, cubic=True)
     atoms[1].symbol = 'Zn'
-    result, witness = module.enumerate_sro(atoms, cutoff=1.8, targets=[target(0)])
+    result, witness = module.enumerate_sro(atoms, stop_at_bound=False, cutoff=1.8, targets=[target(0)])
     assert result['total_configurations'] == result['covered_configurations'] == 2
-    assert result['relaxed_lower_bound'] == 0
+    assert result['relaxed_lower_bound'] == 1
     assert result['best_error_exact'] == result['lower_bound_exact'] == '1'
     assert result['status'] == 'certified_minimum'
     assert result['entries'][0]['pair_count'] == 8
@@ -68,7 +68,7 @@ def test_matches_independent_bruteforce(metric, multi):
         atoms.set_chemical_symbols(values)
         measured.append(analyze_structure(atoms, cutoff=1.1, sublattices=config,
                          sro_targets=targets)['sro_comparison']['metrics'][metric])
-    result, witness = module.enumerate_sro(atoms, cutoff=1.1, targets=targets,
+    result, witness = module.enumerate_sro(atoms, stop_at_bound=False, cutoff=1.1, targets=targets,
                                           sublattices=config, metric=metric)
     assert result['complete'] and result['optimality_gap'] == 0
     assert result['covered_configurations'] == len(valid)
@@ -84,7 +84,7 @@ def test_reference_order_fixed_spectator_and_unequal_coordination():
     atoms = ref[[2, 0, 1]]
     atoms.positions += [.01, 0, 0]
     config = {'site_labels': ['A', 'B', 'B'], 'allowed': {'A': ['Ti'], 'B': ['Cu', 'Zn']}}
-    result, witness = module.enumerate_sro(atoms, reference=ref, cutoff=1.1,
+    result, witness = module.enumerate_sro(atoms, stop_at_bound=False, reference=ref, cutoff=1.1,
         sublattices=config, targets=[target(.1, 'A', 'B', a='Ti')])
     assert result['covered_configurations'] == 2
     assert result['best_error_exact'] == '1/10'
@@ -97,13 +97,13 @@ def test_cap_refuses_before_enumeration(monkeypatch):
         raise AssertionError('Search should not begin')
     monkeypatch.setattr(module, 'occupations', forbidden)
     with pytest.raises(ValueError, match='6 configurations exceed'):
-        module.enumerate_sro(ring(), cutoff=1.1, targets=[target(0)], max_configurations=5)
+        module.enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, targets=[target(0)], max_configurations=5)
 
 
 def test_time_limit_and_interrupt_never_claim_completion(monkeypatch):
     ticks = iter([0., 10., 11.])
     monkeypatch.setattr(module.time, 'monotonic', lambda: next(ticks))
-    result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=[target(0)], max_seconds=1, symmetry='none')
+    result, _ = module.enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, targets=[target(0)], max_seconds=1, symmetry='none')
     assert result['stop_reason'] == 'time_limit'
     assert result['status'] == 'best_found' and not result['complete']
     assert result['evaluated_configurations'] == 0
@@ -114,7 +114,7 @@ def test_time_limit_and_interrupt_never_claim_completion(monkeypatch):
         yield next(original(*args))
         raise KeyboardInterrupt
     monkeypatch.setattr(module, 'occupations', interrupted)
-    result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=[target(0)], symmetry='none')
+    result, _ = module.enumerate_sro(ring(), stop_at_bound=False, cutoff=1.1, targets=[target(0)], symmetry='none')
     assert result['evaluated_configurations'] == 1
     assert result['status'] == 'best_found' and result['stop_reason'] == 'interrupted'
 
@@ -142,3 +142,39 @@ def test_cli_outputs_roundtrip_and_public_api(tmp_path):
     sys.path.insert(0, str(ROOT.parent / 'python'))
     from m_scraps import enumerate_sro
     assert enumerate_sro(ring(), cutoff=1.1, targets=[target(.25)])[0]['best_error'] == .25
+
+
+@pytest.mark.parametrize('metric', module.METRICS)
+def test_bound_attainment_stops_before_full_coverage(metric):
+    atoms = ring()
+    atoms.set_chemical_symbols(['Cu', 'Zn', 'Cu', 'Zn'])
+    result, witness = module.enumerate_sro(atoms, cutoff=1.1, targets=[target(0)],
+                                           metric=metric, symmetry='none')
+    assert result['status'] == 'certified_minimum'
+    assert result['certificate_basis'] == result['stop_reason'] == 'bound_attained'
+    assert result['evaluated_configurations'] == 1
+    assert not result['complete'] and result['covered_configurations'] == 1
+    assert result['best_error'] == result['lower_bound'] == 0
+    full, _ = module.enumerate_sro(atoms, cutoff=1.1, targets=[target(0)],
+                                   metric=metric, stop_at_bound=False, symmetry='none')
+    assert full['complete'] and full['evaluated_configurations'] == 6
+    assert full['best_error_exact'] == result['best_error_exact']
+
+
+def test_initial_proof_needs_no_enumeration_even_above_cap(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError('No symmetry discovery or occupation search is needed')
+    import enumeration_symmetry
+    monkeypatch.setattr(enumeration_symmetry, 'site_permutations', forbidden)
+    result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=[target(0)], max_configurations=1)
+    assert result['certificate_basis'] == 'bound_attained'
+    assert result['evaluated_configurations'] == result['covered_configurations'] == 0
+    assert result['total_configurations'] == 6 and not result['complete']
+
+
+def test_loose_zero_bound_does_not_stop_search():
+    targets = [target(0), target(-1, a='Zn', b='Cu')]
+    result, _ = module.enumerate_sro(ring(), cutoff=1.1, targets=targets)
+    assert result['relaxed_lower_bound'] == 0
+    assert result['best_error'] == 1
+    assert result['complete'] and result['certificate_basis'] == 'exhaustion'

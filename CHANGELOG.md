@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Strengthen small-cell SRO bounds using periodic bond multiplicities, self-image
+  restrictions and binary cut parity. Stop enumeration on exact bound attainment,
+  record the proof separately from exhaustive coverage, and retain `--exhaustive`
+  for audits. Cell searches skip optimization when the initial witness proves
+  the minimum and screen tolerances using the stronger bounds.
+
 - Add bounded cell-size/shape search with reduced-basis aspect and shortest-repeat
   constraints, symmetry-equivalent lattice removal, exact composition checks,
   pair-SRO bound screening, exact enumeration or seeded SA, and Pareto candidates
