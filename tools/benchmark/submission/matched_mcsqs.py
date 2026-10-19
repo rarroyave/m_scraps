@@ -93,6 +93,8 @@ def prepare(case):
         reference=np.loadtxt(ROOT/'inputs'/(case['id']+'.reference-occupations.txt'),dtype=int)
         write_structure(d/'reference.out',model,reference)
         targets=atat_vector(d,'reference.out').tolist()
+    if case.get('target_mode') == 'explicit':
+        targets = [f['target'] for f in model['features']]
     target_error=float(np.max(np.abs(np.asarray(targets)-[f['target'] for f in model['features']])));assert target_error<2e-10
     (d/'target-correlations.in').write_text('\n'.join(f'{f["target"]:.17g}' for f in model['features'])+'\n')
     parsed=parsed_for(case);rng=np.random.default_rng(20261018);errors=[]
@@ -119,15 +121,15 @@ def prepare(case):
     report=dict(case=case['id'],components=len(targets),orders=sorted(set(f['order'] for f in model['features'])),target_error=target_error,random_probe_errors=errors,native_pilot_atat_errors=native_errors,preparation_seconds=time.perf_counter()-start,input_hashes={n:digest(d/n) for n in ['rndstr.in','clusters.out','sqscell.out','target-correlations.in']},shared_species_labels=model['uses_auxiliary_labels'])
     save(done,report);return report
 
-def run_mcsqs(case,profile,seed,out,budget=60):
+def run_mcsqs(case,profile,seed,out,budget=60,workers=4):
     out.mkdir(parents=True);source=input_dir(case);model=model_for(case);parsed=parsed_for(case)
     processes=[];logs=[];snapshots=[];errors=[]
-    for rank in range(4):
+    for rank in range(workers):
         d=out/f'worker-{rank}';d.mkdir()
         for name in ['rndstr.in','clusters.out','sqscell.out','target-correlations.in']:(d/name).symlink_to(source/name)
     start=time.perf_counter()
     try:
-        for rank in range(4):
+        for rank in range(workers):
             d=out/f'worker-{rank}';log=(d/'stdout.log').open('w');logs.append(log)
             cmd=[str(BIN/'mcsqs'),f'-n={case["sites"]}','-rc',f'-sd={seed+rank*100000}',f'-wd={profile["wd"]}',f'-wn={profile["wn"]}','-wr=1','-tol=0.001','-sig=17','-tcf=target-correlations.in']
             processes.append(subprocess.Popen(cmd,cwd=d,stdout=log,stderr=subprocess.STDOUT,start_new_session=True))
@@ -161,7 +163,7 @@ def run_mcsqs(case,profile,seed,out,budget=60):
         except (ValueError,IndexError,AssertionError) as exc:invalid.append(dict(**s,error=repr(exc)))
     # Check native mcsqs targets; correlations come from independent evaluation.
     target_errors=[]
-    for rank in range(4):
+    for rank in range(workers):
         file=out/f'worker-{rank}'/'bestcorr.out'
         if file.exists():
             rows=[list(map(float,line.split())) for line in file.read_text().splitlines() if line.strip() and not line.startswith('Objective')]
@@ -179,7 +181,7 @@ def run_mcsqs(case,profile,seed,out,budget=60):
             if delta>2e-10:errors.append(dict(error=f'ATAT correlation mismatch {delta}'))
     else:errors.append(dict(error='No valid mcsqs output within budget'))
     passage={metric:[bench.first_passage(candidates,metric,t,budget) for t in thresholds] for metric,thresholds in [('max_error',[.05,.025,.01,.001]),('weighted_l1',[.01,.005,.002,.001])]}
-    record=dict(case=case['id'],method='mcsqs',profile=profile['name'],seed=seed,ranks=4,budget_seconds=budget,search_wall_seconds=search_wall,assessment_seconds=time.perf_counter()-assessed,errors=errors,invalid_snapshots=invalid,candidates=candidates,passage=passage,native_target_errors=target_errors,atat_discrepancies=discrepancy,snapshot_policy='One-second observations through 10 s, then every 5 s; first observed upper bounds, not exact internal attainment')
+    record=dict(case=case['id'],method='mcsqs',profile=profile['name'],seed=seed,ranks=workers,budget_seconds=budget,search_wall_seconds=search_wall,assessment_seconds=time.perf_counter()-assessed,errors=errors,invalid_snapshots=invalid,candidates=candidates,passage=passage,native_target_errors=target_errors,atat_discrepancies=discrepancy,snapshot_policy='One-second observations through 10 s, then every 5 s; first observed upper bounds, not exact internal attainment')
     save(out/'result.json',record);return record
 
 def record_run(case,profile,seed,out,method,budget=60):

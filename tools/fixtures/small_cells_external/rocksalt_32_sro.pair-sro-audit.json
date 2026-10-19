@@ -1,0 +1,9 @@
+{
+  "correlation_equals_sro_for_equiatomic_binary_groups": true,
+  "max_error_discrepancies": [
+    7.632783294297951e-17,
+    2.7755575615628914e-17,
+    0.0
+  ],
+  "explanation": "With zero spin mean on each group, the binary pair correlation equals the selected unlike-species Warren-Cowley alpha."
+}

@@ -1,0 +1,24 @@
+{
+  "cases": 12,
+  "trials": 48,
+  "methods": [
+    "scraps_cuckoo",
+    "scraps_sa",
+    "mcsqs",
+    "icet_atat"
+  ],
+  "seed": 42,
+  "seconds": 5,
+  "workers": 1,
+  "objective": "One binary pair correlation per case, equal to the selected pair-SRO alpha; ATAT score has the same ranking for these attainable discrete errors. icet uses the matched ATAT calculator, not its stock score.",
+  "initialization": "Native engine initialization; seeds do not imply identical initial occupations across engines. Native SCRAPS restarts increment the seed.",
+  "timing": "Process launch to observed output, including executable/import startup; input preparation and post-search verification excluded. ATAT/icet snapshots at 1-second intervals and budget-0.02; native checkpoints/completed outputs. First-observed times are upper bounds.",
+  "comparison": "Earlier in-process Python SA timings exclude interpreter startup and include method preparation: no direct speedup claim against those times.",
+  "thresholds": [
+    0.01,
+    0.05
+  ],
+  "threshold_tolerance": 1e-12,
+  "units": "maximum absolute pair-SRO error; RMS and MAE identical for this single component",
+  "scope": "Fixed cells, no shape search, no higher-order correlations; one-seed screen, not statistical ranking."
+}

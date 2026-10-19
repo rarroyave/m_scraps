@@ -1,0 +1,387 @@
+{
+  "format": "SCRAPS_FIGURES",
+  "version": 1,
+  "icet_version": "4.0",
+  "species": [
+    "Cu",
+    "Zn"
+  ],
+  "element_counts": [
+    4,
+    4
+  ],
+  "cutoffs": [
+    2.7
+  ],
+  "cell": [
+    [
+      6.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      6.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      3.0
+    ]
+  ],
+  "fractional_sites": [
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.5,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.5,
+      0.0
+    ],
+    [
+      0.5,
+      0.5,
+      0.0
+    ],
+    [
+      0.25,
+      0.25,
+      0.5
+    ],
+    [
+      0.75,
+      0.25,
+      0.5
+    ],
+    [
+      0.25,
+      0.75,
+      0.5
+    ],
+    [
+      0.75,
+      0.75,
+      0.5
+    ]
+  ],
+  "basis": [
+    [
+      -1.0,
+      1.0
+    ]
+  ],
+  "features": [
+    {
+      "index": 2,
+      "orbit_index": 1,
+      "order": 2,
+      "diameter": 2.598076211353316,
+      "multicomponent_vector": [
+        0,
+        0
+      ],
+      "multiplicity": 4,
+      "target": 0,
+      "terms": [
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              0,
+              0
+            ],
+            [
+              4,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              0,
+              0
+            ],
+            [
+              5,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              0,
+              0
+            ],
+            [
+              6,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              0,
+              0
+            ],
+            [
+              7,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              1,
+              0
+            ],
+            [
+              4,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              1,
+              0
+            ],
+            [
+              5,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              1,
+              0
+            ],
+            [
+              6,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              1,
+              0
+            ],
+            [
+              7,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              2,
+              0
+            ],
+            [
+              4,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              2,
+              0
+            ],
+            [
+              5,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              2,
+              0
+            ],
+            [
+              6,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              2,
+              0
+            ],
+            [
+              7,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              3,
+              0
+            ],
+            [
+              4,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              3,
+              0
+            ],
+            [
+              5,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              3,
+              0
+            ],
+            [
+              6,
+              0
+            ]
+          ]
+        },
+        {
+          "coefficient": 0.0625,
+          "factors": [
+            [
+              3,
+              0
+            ],
+            [
+              7,
+              0
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "basis_allowed_species": [
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ]
+  ],
+  "site_allowed_species": [
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      1
+    ]
+  ],
+  "basis_moments": [
+    0.0
+  ],
+  "sublattice_groups": [
+    {
+      "id": 0,
+      "basis": [
+        0,
+        1
+      ],
+      "species": [
+        0,
+        1
+      ],
+      "counts": [
+        4,
+        4
+      ],
+      "fixed": false,
+      "symmetry_labels": [
+        "Cu",
+        "Zn"
+      ]
+    }
+  ],
+  "site_groups": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "uses_auxiliary_labels": false,
+  "target_convention": "independent random-site occupations",
+  "self_interacting": true
+}

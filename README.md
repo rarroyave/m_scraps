@@ -945,8 +945,8 @@ The [small-cell HTML report](docs/small_cell_benchmark.html) and
 [CSV measurements](docs/small_cell_benchmark.csv) cover 12 fixed-cell cases:
 BCC Cu–Zn and rocksalt (Ti,Zr)(C,N), 8/16/32 atoms, targets 0 and −0.1.
 They compare labeled enumeration, symmetry enumeration, bound-aware stopping,
-and the cell-search Python pair-SRO SA (three seeds). Native SCRAPS solvers,
-ATAT, icet, higher-order correlations, and shape searches are outside this screen.
+and the cell-search Python pair-SRO SA (three seeds). The extension below adds native SCRAPS, ATAT and icet. Higher-order
+correlations and shape searches remain outside this screen.
 One directed first-shell component per case makes maximum, RMS and mean absolute
 errors equal. All random targets attain zero error. For target −0.1:
 
@@ -980,6 +980,57 @@ sublattice compositions, and re-establish certificates without timing assertions
 
 ```bash
 python -m pytest tools/tests/test_small_cell_benchmark.py -q
+```
+
+### Small-cell extension: native solvers, ATAT and icet
+
+The [all-method HTML report](docs/small_cell_all_methods.html) compares all eight
+methods on the same 12 fixed cells and targets. The extension adds 48 trials:
+native SCRAPS cuckoo, native SCRAPS SA, ATAT `mcsqs`, and icet with the matched
+ATAT calculator. Each added trial uses seed 42, one worker, and a five-second
+budget. Engine-specific initialization differs; using the same seed does not
+create identical starting occupations. Native restarts increment the seed.
+
+All four added methods reached the certified optimum in every case (48/48
+trials). Each reached error ≤0.01 in the same seven cases; the other five have
+certified floors above that threshold. The largest discrepancy between the
+saved witness correlations and ATAT was 2.8×10⁻¹⁷.
+
+For these equiatomic binary groups, the selected pair correlation equals the
+pair-SRO alpha. The input mapping and best witnesses are checked independently
+with ATAT `corrdump`. The single-component ATAT objective has the same error
+ranking on these discrete cells. This is not a comparison of stock icet scoring.
+Report maximum, RMS, and mean absolute errors, gap to the certified optimum,
+and time to first observe errors at most 0.01 and 0.05.
+
+Added-method timings include process/import startup but exclude input preparation
+and post-search verification. ATAT/icet observations are approximately one second
+apart, with a final observation just before the budget expires. Native results
+include completed outputs and checkpoints. Threshold times are observation upper
+bounds, not exact internal attainment times. The earlier in-process Python SA
+measurements use a different startup/preparation boundary; direct speedup claims
+would be inappropriate. One seed is sufficient for a bounded screen, not a
+statistical ranking.
+
+Optional fresh run from a source checkout with icet 4.0 and ATAT available:
+
+```bash
+python tools/benchmark/small_cells_external.py --output new-external-results \
+  --binary SCRAPs/m_scraps --mpirun /path/to/matching/mpirun \
+  --atat-bin /path/to/atat/bin --seconds 5 --seed 42
+```
+
+The runner validates all inputs before optimization, records source/executable
+hashes and environment versions, locks the output directory, and resumes only
+completed trials with matching source and protocol. An interrupted trial is
+retained separately before retrying. Use `--prepare-only` to run the independent
+input audits first. The frozen records and ATAT correlations are in
+`tools/fixtures/small_cells_external/`; users need neither external engine to
+inspect the report or run the witness/correlation regressions:
+
+```bash
+python tools/benchmark/small_cells_report.py
+python -m pytest tools/tests/test_small_cell_external_benchmark.py -q
 ```
 
 ## Credits and citation

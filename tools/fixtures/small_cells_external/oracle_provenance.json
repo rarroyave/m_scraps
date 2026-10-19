@@ -1,0 +1,15 @@
+{
+  "engine": "ATAT corrdump",
+  "command": [
+    "-l=rndstr.in",
+    "-ro",
+    "-c",
+    "-noe",
+    "-nop",
+    "-s=probe.out",
+    "-sig=17"
+  ],
+  "sha256": "0221a57551ad1f2909a32300feb2a6ad89fcd88b8cbdc70e02166e639f32a228",
+  "source_archive_sha256": "48c40e8bdbf4adf11c1dc3cd4df73a150a4e4bb867d7c20fae19ede3473c18b7",
+  "witnesses": 48
+}

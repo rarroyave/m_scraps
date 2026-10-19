@@ -1,0 +1,13 @@
+{
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/source/tools/benchmark/small_cells_external.py": "a74d29a7b8ec4f53ee1b71bb086aa0d8121b8bf46abadd4a68dcef2d373b6614",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/source/SCRAPs/scraps": "d2ad411dd6cd9778ace9badbb4612390af122b78b3aed58122e4891f4ac2260a",
+  "/opt/homebrew/Cellar/open-mpi/5.0.10/bin/mpirun": "c462f089ca8b551fed457543e1f90a048185919362f9c914204a7919830e883d",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/results/matched-atat/bin/corrdump": "0221a57551ad1f2909a32300feb2a6ad89fcd88b8cbdc70e02166e639f32a228",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/results/matched-atat/bin/mcsqs": "a77ac7dbe5758d7ff2178d0bc438634db03578aeafc673d4d6f13f9401a88f24",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/source/tools/higher_order.py": "abe36dcbd61692f03078030a168e553e7f65e832c4d9bf7acb4781bb07671c8b",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/source/tools/structure_analysis.py": "9a756045ed9f9751f43c973862a175eaeaa11414d5fb23391b4f0fcca16e9b5f",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/source/tools/benchmark_atat_reference.py": "1e6006a395e13440fd07a0460d1caecbbfadebf28619526b0f2e0cc2eca64485",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/source/tools/benchmark/submission/matched_mcsqs.py": "56cca8de40eba5bee63ba636caeafb184fa0e49fbbc0c4810b63cff3743ffea3",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/source/tools/benchmark/submission/icet_extension.py": "f7aac436dd5ef99863099c708d57bfa127b0780db5ff509775467c2e3003ff02",
+  "/Users/raymundo.arroyave/runs/scraps-perpair/small-cells-all-methods-20261019/source/tools/fixtures/small_cells/cases.json": "446bc17e2ad27f4ca9d68e8f8baef13025969e3474c74280463f6c5d8b20629b"
+}

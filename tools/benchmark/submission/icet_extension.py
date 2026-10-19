@@ -90,19 +90,19 @@ def worker(case,profile,seed,directory):
         emit(annealer,force=True);annealer.generate_structure(number_of_trial_steps=3000);emit(annealer,force=True)
         trials+=annealer.total_trials;restarts+=1
 
-def trial(case,profile,seed,out,budget=60):
+def trial(case,profile,seed,out,budget=60,workers=4):
     out.mkdir(parents=True);logs=[];processes=[];snapshots=[];errors=[]
-    for rank in range(4):(out/f'worker-{rank}').mkdir()
+    for rank in range(workers):(out/f'worker-{rank}').mkdir()
     start=time.perf_counter()
     try:
-        for rank in range(4):
+        for rank in range(workers):
             d=out/f'worker-{rank}';log=(d/'stdout.log').open('w');logs.append(log)
             cmd=[sys.executable,str(Path(__file__)),'worker','--case',json.dumps(case),'--profile',json.dumps(profile),'--seed',str(seed+rank*100000),'--directory',str(d)]
             processes.append(subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT,start_new_session=True,env=dict(os.environ,OMP_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',VECLIB_MAXIMUM_THREADS='1')))
         deadlines=[x for x in list(range(1,11))+list(range(15,int(budget),5)) if x<budget]+[budget-.02]
         for deadline in deadlines:
             while time.perf_counter()-start<deadline:time.sleep(min(.05,max(0,deadline-(time.perf_counter()-start))))
-            for rank in range(4):
+            for rank in range(workers):
                 src=out/f'worker-{rank}'/'best.json'
                 if src.exists():
                     dst=out/f'snapshot-{deadline}-{rank}.json';dst.write_bytes(src.read_bytes())
@@ -138,7 +138,7 @@ def trial(case,profile,seed,out,budget=60):
         if delta>2e-10:errors.append(dict(error=f'ATAT correlation mismatch {delta}'))
     if not candidates:errors.append(dict(error='No completed icet output within budget'))
     passage={metric:[bench.first_passage(candidates,metric,t,budget) for t in thresholds] for metric,thresholds in [('max_error',[.05,.025,.01,.001]),('weighted_l1',[.01,.005,.002,.001])]}
-    record=dict(case=case['id'],method=METHOD,profile=profile['name'],seed=seed,ranks=4,budget_seconds=budget,errors=errors,candidates=candidates,passage=passage,search_wall_seconds=search_wall,assessment_seconds=time.perf_counter()-assessed,atat_discrepancies=errors_atat,implementation='icet 4.0 TargetClusterVectorAnnealing with ATAT-compatible TargetVectorCalculator subclass; four independent processes; 3000-step schedules 5 to .001; no stock-icet-score claim')
+    record=dict(case=case['id'],method=METHOD,profile=profile['name'],seed=seed,ranks=workers,budget_seconds=budget,errors=errors,candidates=candidates,passage=passage,search_wall_seconds=search_wall,assessment_seconds=time.perf_counter()-assessed,atat_discrepancies=errors_atat,implementation='icet 4.0 TargetClusterVectorAnnealing with ATAT-compatible TargetVectorCalculator subclass; configurable independent processes; 3000-step schedules 5 to .001; no stock-icet-score claim')
     save(out/'result.json',record);return record
 
 def run_record(case,profile,seed,out,budget=60):

@@ -11,6 +11,11 @@ archive; a new DOI will be added only after an approved release is archived.
   regression tests. Compare enumeration variants with Python pair-SRO SA;
   certify per-cell minima while explicitly capping large enumeration spaces.
 
+- Extend the small-cell screen with native cuckoo, native SA, ATAT mcsqs,
+  and icet using the matched score: 48 five-second, single-worker trials on
+  the same 12 cases. Archive ATAT-audited witnesses, gap-to-optimum metrics,
+  threshold observations, and an eight-method report with timing limitations.
+
 ### Small-cell design with explicit accuracy and geometry limits
 
 - Add `m_scraps bounds` and `sro_bounds` for necessary lower bounds on explicit
