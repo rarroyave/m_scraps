@@ -1,12 +1,7 @@
 MIT License
 
 Copyright (c) 2020 Iowa State University
-    Original SCRAPS / Hybrid-Cuckoo-Search code by Duane D. Johnson,
-    Rahul Singh, Prashant Singh, Aayush Sharma, and Ganesh Balasubramanian.
-
 Copyright (c) 2026 Raymundo Arroyave (Texas A&M University)
-    Per-pair Warren-Cowley SRO targeting extension, bug fixes, build
-    scripts, and verification tooling.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -17,13 +12,6 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
-
-If you use this software for research, please cite the original SCRAPS paper:
-
-    R. Singh, A. Sharma, P. Singh, G. Balasubramanian, D. D. Johnson,
-    "Accelerating computational modeling and design of high-entropy alloys",
-    Nature Computational Science 1, 54-61 (2021).
-    doi:10.1038/s43588-020-00006-7
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
