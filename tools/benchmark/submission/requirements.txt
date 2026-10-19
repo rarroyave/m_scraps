@@ -1,0 +1,2 @@
+# In addition to tools/requirements.txt; the annealer hook is version-specific.
+icet==4.0

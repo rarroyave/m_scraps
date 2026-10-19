@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "atat_version": "3.52",
+  "cases": [
+    "diboride",
+    "max211",
+    "heusler"
+  ],
+  "configurations_per_case": 2,
+  "command": [
+    "corrdump",
+    "-l=rndstr.in",
+    "-ro",
+    "-c",
+    "-noe",
+    "-nop",
+    "-s=configuration-SEED.out",
+    "-sig=17"
+  ],
+  "corrdump_sha256": "0221a57551ad1f2909a32300feb2a6ad89fcd88b8cbdc70e02166e639f32a228",
+  "generator_sha256": "c7b67f1931229425e5394a67941ec79efdfe3cda99f1609e7d07ba0b4415b6bc",
+  "atat_source_sha256": "8536fb078375b30096df780e02f4e0c97972f5ebaad9a84a94f22e00f50c7516",
+  "metric_weights": {
+    "wd": 0,
+    "wn": 1
+  },
+  "sha256": {
+    "diboride-137.corrdump.txt": "d7a542ad1ff60a0491e8bc147bc85bce6866450c01752a4b279eb166e210f54c",
+    "diboride-137.str.out": "02156199b21bb7a35e8fd835a15ae9e57cae38386287ca85180c2d7817d468e9",
+    "diboride-42.corrdump.txt": "08bac3ff137452c74a2604692815fd4b4c2eb270ec3ed3c105acca1448e48e93",
+    "diboride-42.str.out": "2356ea705cc78def35aaecd2bbfc22db4f8dca12536859fe6c8951b9b81906c7",
+    "diboride.clusters.out": "72fe4db0f7eed528b13fed6797d3c81f09c27af55f15b75001969bd1eee26f75",
+    "diboride.figures.gz": "63006a2b3d8cb2db06007b862fac436641d75b3b3e761a68e1006fe8aeeff71f",
+    "diboride.json": "a940fe95ced2f4f94a095d345ff77e87649f9cbbdb917529b6155e83ada80cfc",
+    "diboride.rndstr.in": "554f7635ebeba20379d21e33012a6045a8fec3bfe9fd76ccab059e532753a8fa",
+    "heusler-137.corrdump.txt": "5af07b034231e2081562eedb86e8e13f5bb730a4a78a4ad4e37f157c08fdcb1e",
+    "heusler-137.str.out": "23cf0a69c7aa97bf0ba63d09ed0a595fd83d9dfd7e7dd5723439f5028570202a",
+    "heusler-42.corrdump.txt": "ca6a918e13acba0db30087928f0e73b1618bfc1c7010437b00970c8d1f6e1bb9",
+    "heusler-42.str.out": "a917983abefc6598b69faf0bbc182ab4f69a8deca127972777484c1323775767",
+    "heusler.clusters.out": "b6f139ff57fcef7ffe61a7ce1eae646d11c4c724c597568eea591dca47cab807",
+    "heusler.figures.gz": "dd26333b7473c9ddefaf028f887786cb1fbbad3821055fb2fb98481d1095204e",
+    "heusler.json": "69c011cbbf2a15fe89fa8144bbbd7eab41490710626d30dedb06ccc64f8997da",
+    "heusler.rndstr.in": "b09e4528126cf9d4711f9f47f77f4b6e2d5750f3fd752cf78d6c711981976683",
+    "max211-137.corrdump.txt": "9ef9c98207309da39c9facfb231d630259a2592b7c989d356a102992f8089908",
+    "max211-137.str.out": "d86fcbde079eb85dc895f6b9e119524864c4ddff8ec240acdd5ff8cb32f34301",
+    "max211-42.corrdump.txt": "ac343517184c57aa2ed5efa6c287dedbfbaeb9fe39fd6e82a3a0dd29b3c47784",
+    "max211-42.str.out": "9c9b47c37126077fed045f37d219c1ede5b6ff80f5013726af524c3961b1f748",
+    "max211.clusters.out": "db8818922e886770d961e19b91f1d6ac608ebec9e7c9a3311b5565ab9eef0103",
+    "max211.figures.gz": "156bfcf222b33f0da3d4e087344f780142bc2b8a8e055b8f227da9d8936e4728",
+    "max211.json": "ad1f92fdf93c20552edf9c864f35bd6fccb2b5ebe86ebc3b81388a1e175435ca",
+    "max211.rndstr.in": "25420dad50b5e96d68887d5cebab5d918c99a97218079b8be2de027c2269c9b2"
+  }
+}

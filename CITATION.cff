@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "Please cite this software and the original SCRAPS paper listed in references."
+type: software
+title: "m_scraps: multi-sublattice short-range-order and cluster-correlation targeting"
+version: 0.5.0
+authors:
+  - family-names: Arróyave
+    given-names: Raymundo
+    orcid: "https://orcid.org/0000-0002-0773-9939"
+    affiliation: Texas A&M University
+repository-code: "https://github.com/rarroyave/m_scraps"
+license: MIT
+abstract: >-
+  m_scraps extends SCRAPS / Hybrid-Cuckoo-Search with per-pair short-range-order
+  targets, independently constrained sublattices, decorated pair/triplet/quadruplet
+  correlations, structure evaluation, and reproducible external-reference tests.
+  Original SCRAPS authorship and licensing are preserved.
+  Development of m_scraps is supported by the U.S. National Science Foundation
+  under Award OAC-2608825 (PhaseForge).
+keywords:
+  - short-range order
+  - special quasirandom structures
+  - multi-sublattice alloys
+  - ceramics
+references:
+  - type: article
+    title: Accelerating computational modeling and design of high-entropy alloys
+    authors:
+      - {family-names: Singh, given-names: Rahul}
+      - {family-names: Sharma, given-names: Aayush}
+      - {family-names: Singh, given-names: Prashant}
+      - {family-names: Balasubramanian, given-names: Ganesh}
+      - {family-names: Johnson, given-names: Duane D.}
+    journal: Nature Computational Science
+    volume: 1
+    start: 54
+    end: 61
+    year: 2021
+    doi: 10.1038/s43588-020-00006-7

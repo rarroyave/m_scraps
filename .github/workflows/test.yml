@@ -63,3 +63,12 @@ jobs:
           OMPI_MCA_rmaps_base_oversubscribe: "1"
           MPIRUN: ${{ runner.os == 'macOS' && '/opt/homebrew/bin/mpirun' || 'mpirun' }}
         run: pytest tools/tests/ -v
+
+      - name: Optional icet exporter tests
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
+        env:
+          OMPI_MCA_rmaps_base_oversubscribe: "1"
+          MPIRUN: /usr/bin/mpirun
+        run: |
+          python -m pip install 'icet==4.0'
+          pytest tools/tests/test_shared_species_export.py tools/tests/test_higher_order_export.py tools/tests/test_shared_species_api.py -v -rs

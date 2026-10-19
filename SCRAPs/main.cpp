@@ -43,6 +43,7 @@ THE SOFTWARE.
 #include "readInput.hpp"
 #include "FigureObjective.hpp"
 #include <iomanip>
+#include <cstdio>
 #include <mpi.h>
 #include <math.h>
 #include <unistd.h>
@@ -61,6 +62,35 @@ static FigureObjective g_figures;
 static double g_figure_best_score = std::numeric_limits<double>::infinity();
 static std::vector<int> g_figure_best;
 
+static double g_checkpoint_seconds = 0.0;
+static int g_checkpoint_rank = 0;
+static auto g_checkpoint_last = std::chrono::steady_clock::now();
+
+// Each rank publishes a coherent best-so-far snapshot without MPI collectives
+// or random draws. Readers time availability themselves, including startup.
+static void checkpoint_figure(bool force = false) {
+    if (g_checkpoint_seconds == 0.0 || g_figure_best.empty()) return;
+    auto now = std::chrono::steady_clock::now();
+    if (!force && std::chrono::duration<double>(now - g_checkpoint_last).count()
+            < g_checkpoint_seconds) return;
+    std::string path = "FIGURE_CHECKPOINT.rank" + std::to_string(g_checkpoint_rank) + ".json";
+    std::ofstream out(path + ".tmp");
+    out << std::setprecision(17) << "{\"rank\":" << g_checkpoint_rank
+        << ",\"score\":" << g_figure_best_score << ",\"occupations\":[";
+    for (size_t i = 0; i < g_figure_best.size(); ++i)
+        out << (i ? "," : "") << g_figure_best[i];
+    out << "],\"correlations\":[";
+    auto values = g_figures.correlations(g_figure_best);
+    for (size_t i = 0; i < values.size(); ++i) out << (i ? "," : "") << values[i];
+    out << "]}\n";
+    out.close();
+    if (!out || std::rename((path + ".tmp").c_str(), path.c_str()) != 0) {
+        std::cerr << "ERROR: cannot publish figure checkpoint " << path << std::endl;
+        MPI_Abort(MPI_COMM_WORLD, 1);
+    }
+    g_checkpoint_last = now;
+}
+
 // An archive is separate from SA/PT chain state so retaining the best visited
 // structure does not change temperature sampling or replica exchanges.
 static void archive_figure(const std::vector<int>& nest, double proposed_score) {
@@ -71,6 +101,7 @@ static void archive_figure(const std::vector<int>& nest, double proposed_score) 
             g_figure_best = nest;
         }
     }
+    checkpoint_figure();
 }
 // Process-level controls for targeted (residual-biased) swap proposals.
 // When g_targeted_swaps is true, empty_nests_fast proposes
@@ -1479,6 +1510,8 @@ int main(int argc, char ** argv)
     cout << "Lattice Built....." << endl;
     if (!inputfile.figuresFile.empty()) {
         try {
+            g_checkpoint_seconds = inputfile.figureCheckpointSeconds;
+            g_checkpoint_rank = id;
             g_figures.mode = inputfile.figureObjective;
             g_figures.wd = inputfile.figureWd;
             g_figures.wn = inputfile.figureWn;
@@ -2304,6 +2337,7 @@ int main(int argc, char ** argv)
             }
         }
     }
+    checkpoint_figure(true);
     if (g_figures.active() && !g_figure_best.empty()) nests[0] = g_figure_best;
     vector<int> nest1D;
     if (id != 0) {

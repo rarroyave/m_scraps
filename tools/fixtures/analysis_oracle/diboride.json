@@ -1,0 +1,511 @@
+{
+  "case": {
+    "id": "diboride",
+    "species": [
+      "Ti",
+      "Zr",
+      "B"
+    ],
+    "counts": [
+      4,
+      4,
+      16
+    ],
+    "sites": 24,
+    "cell_dim": [
+      2,
+      2,
+      2
+    ],
+    "cutoffs": [
+      4.6,
+      4.6,
+      4.6
+    ],
+    "constraints": []
+  },
+  "configurations": [
+    {
+      "seed": 42,
+      "occupations": [
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "correlations": [
+        -0.3333333333333333,
+        -1.0,
+        0.3333333333333333,
+        0.0,
+        0.0,
+        0.0,
+        0.3333333333333333,
+        1.0,
+        -0.3333333333333333
+      ],
+      "metrics": {
+        "max_error": 1.0,
+        "rms_error": 0.5211573066470477,
+        "mean_absolute_error": 0.3703703703703704,
+        "weighted_l1": 0.3703703703703704
+      },
+      "sro": [
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 3.1,
+          "alpha": 0.3333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 3.1,
+          "alpha": -0.3333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 3.1,
+          "alpha": -0.3333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 3.1,
+          "alpha": 0.3333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 3.3,
+          "alpha": 1.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 3.3,
+          "alpha": -1.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 3.3,
+          "alpha": -1.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 3.3,
+          "alpha": 1.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 4.5276926,
+          "alpha": -0.3333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 4.5276926,
+          "alpha": 0.3333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 4.5276926,
+          "alpha": 0.3333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 4.5276926,
+          "alpha": -0.3333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        }
+      ]
+    },
+    {
+      "seed": 137,
+      "occupations": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "correlations": [
+        0.0,
+        0.0,
+        -0.3333333333333333,
+        0.0,
+        0.0,
+        0.0,
+        0.3333333333333333,
+        -0.3333333333333333,
+        0.0
+      ],
+      "metrics": {
+        "max_error": 0.3333333333333333,
+        "rms_error": 0.19245008972987526,
+        "mean_absolute_error": 0.1111111111111111,
+        "weighted_l1": 0.1111111111111111
+      },
+      "sro": [
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 3.1,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 3.1,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 3.1,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 3.1,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 3.3,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 3.3,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 3.3,
+          "alpha": 0.0,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 3.3,
+          "alpha": -0.0,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Ti",
+          "distance": 4.5276926,
+          "alpha": 0.3333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ti",
+          "neighbor_species": "Zr",
+          "distance": 4.5276926,
+          "alpha": -0.3333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Ti",
+          "distance": 4.5276926,
+          "alpha": -0.3333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Zr",
+          "neighbor_species": "Zr",
+          "distance": 4.5276926,
+          "alpha": 0.3333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "case": "diboride",
+    "components": 9,
+    "orders": [
+      2,
+      3,
+      4
+    ],
+    "target_error": 0.0,
+    "random_probe_errors": [
+      1.3877787807814457e-17,
+      1.1102230246251565e-16,
+      4.440892098500626e-16
+    ],
+    "native_pilot_atat_errors": [],
+    "preparation_seconds": 0.2351603750139475,
+    "input_hashes": {
+      "rndstr.in": "554f7635ebeba20379d21e33012a6045a8fec3bfe9fd76ccab059e532753a8fa",
+      "clusters.out": "72fe4db0f7eed528b13fed6797d3c81f09c27af55f15b75001969bd1eee26f75",
+      "sqscell.out": "365013e89f30c28777e516781645e4ab2718dd0b9429865fb16ea6eeb9ee100a",
+      "target-correlations.in": "b001705bffae5bd2f6dac78b083f095d273d2e9eb7e5323395e4f6176a943c3c"
+    },
+    "shared_species_labels": false
+  },
+  "sro_conversion": "binary equiatomic: alpha_ab = -gamma(a)*gamma(b)*<gamma_i gamma_j>; ATAT pair orbits combined by multiplicity",
+  "sro_scope": "disordered-disordered pairs within figure cutoff; fixed-site pairs tested analytically"
+}

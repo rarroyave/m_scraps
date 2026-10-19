@@ -1,9 +1,24 @@
-# scraps-perpair
+# m_scraps
 
-A fork of [DuaneDJohnson/Hybrid-Cuckoo-Search](https://github.com/DuaneDJohnson/Hybrid-Cuckoo-Search)
-(SCRAPS — Super-Cell Random APproximates) extended to support
-**per-pair, per-shell Warren-Cowley α targets** instead of a single hard-coded
-scalar applied uniformly to every species pair.
+**Multi-sublattice SCRAPS** generates alloy and ceramic supercells with
+specified chemical short-range order and pair, triplet, and quadruplet
+correlations. It extends [SCRAPS / Hybrid-Cuckoo-Search](https://github.com/DuaneDJohnson/Hybrid-Cuckoo-Search)
+(Super-Cell Random APproximates) with per-pair, per-shell Warren–Cowley targets,
+independently constrained sublattices, and a decorated-correlation objective.
+
+Formerly named `scraps-perpair`. Existing `scraps-*` commands, Python imports,
+INPUT keywords, and output filenames remain compatible. The new primary CLI
+is `m_scraps`; upstream attribution is retained in [Credits](#credits).
+
+## Start here
+
+- [Install](#install-and-build) and use the Python API or guided CLI.
+- [Generate diboride, MAX and Heusler cells](notebooks/07_generate_multisublattice.ipynb).
+- [Analyze structures and SRO](notebooks/06_structure_analysis.ipynb).
+- [Reproduce the benchmark](#reproducing-the-submission-benchmark) without external engines.
+- [Check independently against ATAT](#independent-atat-checks), offline or live.
+- [Technical overview](docs/OVERVIEW.md) and [contributing](CONTRIBUTING.md).
+- Citation metadata: [CITATION.cff](CITATION.cff); see [upstream credits](#credits).
 
 ## What's new vs upstream
 
@@ -20,9 +35,21 @@ See the commit messages on `main` for the bug-by-bug breakdown.
 
 ## Install and build
 
+From the checkout, install the Python package with `python -m pip install .`.
+This compiles the native optimizer and installs the `m_scraps` command and
+Python API. Install system MPI, Eigen, CMake and a C++17 compiler first. For
+example, macOS uses `brew install open-mpi eigen cmake`; Ubuntu uses
+`sudo apt install libopenmpi-dev openmpi-bin libeigen3-dev cmake g++`.
+Use a virtual environment and set `MPICXX`/`MPIRUN` together when overriding MPI.
+The locally built wheel links against system MPI and is not a portable binary
+for arbitrary machines. No package has been published to PyPI yet.
+
+The existing checkout installer is also supported:
+
+
 Requires a working MPI compiler, Eigen headers, and a C++17 (or newer)
-compiler. The canonical checkout is `~/src/tools/scraps-perpair`. On macOS with
-Homebrew:
+compiler. Clone [rarroyave/m_scraps](https://github.com/rarroyave/m_scraps) and
+run the installer from the checkout. On macOS with Homebrew:
 
 ```bash
 brew install eigen open-mpi
@@ -32,12 +59,13 @@ brew install eigen open-mpi
 The installer discovers the Homebrew prefix, selects matching `mpic++` and
 `mpirun` binaries, builds the C++ core, creates an isolated Python environment
 from `tools/requirements-lock.txt`, and installs stable commands under
-`~/.local/bin`: `scraps-wizard`, `scraps-run`, `scraps-verify`, and
+`~/.local/bin`: `m_scraps` (the guided CLI), `scraps-wizard`, `scraps-run`, `scraps-verify`, and
 `scraps-htp`. Set `MPICXX`, `MPIRUN`, or `EIGEN_INC` explicitly to override
 auto-detection. This avoids accidentally pairing Anaconda's MPICH launcher with
 a Homebrew Open MPI build.
 
-Output binary: `SCRAPs/scraps`.
+Native executable: `SCRAPs/m_scraps`; `SCRAPs/scraps` remains available for
+compatibility. Start the guided CLI with `m_scraps --help`.
 
 Run the complete regression suite with `./scripts/test.sh -q`. MPI needs local
 socket access, so restricted execution sandboxes may need to permit local MPI
@@ -170,7 +198,7 @@ correlations in the native C++ search. The legacy Warren–Cowley pair objective
 and defaults remain unchanged when `FIGURES_FILE` is absent. The exporter
 supports independently constrained sublattices, shared species, fixed spectators, and
 pair/triplet/quadruplet cutoffs. `SRO` and `TARGETED_SWAPS` are rejected in
-figure mode. Multi-sublattice performance has not yet been benchmarked.
+figure mode. The submission benchmark below compares single- and multi-sublattice performance using the same decorated correlations.
 
 Install the optional preprocessor in the Python environment used for SCRAPs:
 
@@ -281,6 +309,15 @@ For direct INPUT use (the Python API generates these lines and `FIGURES`):
 | `FIGURE_WN value` | `1` | Order multiplier, strictly positive and at most 1 |
 | `FIGURE_WR value` | `1` | Nonnegative exact-match-range reward, ATAT mode only |
 | `FIGURE_TOL value` | `0.001` | Nonnegative match tolerance (also used in final residual report) |
+| `FIGURE_CHECKPOINT_SECONDS seconds` | `0` | Atomic per-rank best-structure snapshots; 0 disables |
+
+`FIGURE_CHECKPOINT_SECONDS seconds` enables atomic per-rank best-figure snapshots
+(`FIGURE_CHECKPOINT.rankN.json`), containing occupations, correlations and objective
+score. Default 0 disables output; positive finite values specify the minimum
+interval between snapshots at proposal boundaries. Requires `FIGURES_FILE`.
+Snapshots preserve the search RNG and annealing schedule; they are assessable
+structures, not restart state. Benchmark readers must timestamp observation,
+including startup, and retain snapshots observed before their deadline.
 
 `atat` follows the mcsqs 3.52 objective's order-coupled matching ranges and
 weighted residual subset; it is not simply `weighted_l1` minus one range.
@@ -673,6 +710,157 @@ For these lattice types, use ATAT's `mcsqs`
 (<https://www.brown.edu/Departments/Engineering/Labs/avdw/atat/>),
 which supports sublattice-resolved SQS construction natively.
 
+## ATAT-free regression tests and automatic benchmarks
+
+Saved ATAT 3.52 numerical outputs are bundled under `tools/fixtures/atat/`.
+No ATAT executable, ATAT source, network access, or icet installation is needed
+for these checks:
+
+```bash
+bash build.sh
+python -m pytest tools/tests/test_atat_reference.py tools/tests/test_reference_benchmark.py -q
+```
+
+The suite checks 160 saved ATAT objective values, eight saved `corrdump`
+correlation vectors for independently disordered rocksalt and fixed-boron
+diboride cells, native incremental swaps, and analytical shared-species B2
+random targets. Hashes protect the frozen corpus. ATAT's terminal score is
+explicitly tested separately from all-components correlation convergence.
+The native objective probe needs a C++17 compiler; end-to-end optimization
+also needs the SCRAPs binary and a matching MPI launcher.
+
+After the tests pass, benchmark current SCRAPs without launching ATAT:
+
+```bash
+python tools/benchmark_atat_reference.py \
+  --output "$HOME/runs/scraps-perpair/reference-benchmark-001" \
+  --trials 5 --seconds 60 --ranks 4
+```
+
+Use a new output directory for each run. Defaults cover FCC binary 32,
+BCC ternary 54, rocksalt ternary/binary 16, fixed-B diboride 24, and shared
+Fe/Al B2 16 sites. `--cases fcc_binary_32 bcc_ternary_54` selects a subset;
+`--profile atat_default` selects uniform weighting (default: geometric decay).
+All cases optimize pairs, triplets, and quadruplets. Each trial uses repeated
+finite SCRAPs searches at the requested rank count with fixed seeds and a wall-clock cap.
+
+Outputs include `provenance.json`, `summary.json`, `historical-comparison.json`,
+and per-trial inputs, logs, structures, correlations, and `result.json`.
+Time-to-target uses maximum absolute correlation-error thresholds of 0.05,
+0.025, 0.01, and 0.001, plus weighted absolute-error thresholds. Unreached
+thresholds remain right-censored at the budget, including trials with no
+completed structure. Medians include these trials; a null median means fewer
+than half reached the target. Times refer to observed completed outputs,
+not unrecorded intermediate search states. These are numerical tolerances,
+not calibrated property-error tolerances.
+
+Fixture unpacking/model loading, search, and independent assessment are timed
+separately. Search includes MPI startup, initialization, repeated input
+loading, and optimization. Original cluster generation is excluded because
+this benchmark uses frozen inputs. Archived mcsqs quality data cover only
+the two single-sublattice cases and are a frozen partial-campaign snapshot
+from a four-core Mac Studio M1 Max run. Reports flag core-count mismatches;
+comparisons across hosts are historical quality references, not measured
+speedup factors. This older frozen corpus has no multi-sublattice mcsqs timing
+baselines; the separate submission benchmark below provides a matched comparison.
+
+The **ATAT-free reference benchmark** GitHub Actions workflow runs reference
+tests before a short five-case benchmark on relevant pull requests or manual
+dispatch. Reports are uploaded as artifacts. CI timings are informational;
+correctness failures fail the job, but timing fluctuations and unmet accuracy
+thresholds do not. For controlled performance studies, run the same command
+on a dedicated host with the same allocated cores and retain its provenance.
+
+## Reproducing the submission benchmark
+
+The default workflow requires **neither ATAT nor icet**. The package includes
+frozen reference results, figure definitions and checksum-verified regression
+fixtures for all 40 trials:
+
+```bash
+m_scraps benchmark --report-only --output archived-results
+m_scraps benchmark --seconds 5 --ranks 4 --output fresh-results
+```
+
+The second command runs both native methods on BCC-128 and rocksalt-128 using
+the bundled figures. Select other cases with `--cases`; the archived 30-second
+measurements remain clearly separated from fresh measurements. Comparing
+execution times across different hosts or budgets does not establish speedup.
+See the measured [results table](docs/submission_benchmark.csv) and figure below.
+
+![Fixed submission benchmark](docs/submission_benchmark.png)
+
+The recorded host was an Apple M1 Max Mac Studio (10 physical CPU cores,
+64 GiB RAM), with four cores allocated per trial. All 40 trials produced
+ATAT-validated structures. At maximum absolute
+correlation error ≤0.01, cuckoo reached the threshold in 5/10 trials and each
+other method in 2/10. SA achieved the lowest error on random BCC-432 and on
+the two nonzero-target rocksalt-128 repeats; cuckoo achieved the lowest error
+on the other problem/seed combinations. This limited screening does not
+establish statistical superiority across materials or search settings.
+
+### Optional full four-method rerun
+
+
+The fixed benchmark in `tools/benchmark/submission/run.py` compares native
+cuckoo search, native simulated annealing, ATAT 3.52 `mcsqs`, and the icet 4.0
+annealer with an explicitly matched ATAT objective calculator. The icet arm
+is **not a benchmark of the stock icet objective**. All arms optimize and
+independently assess the same decorated pairs, triplets, and quadruplets.
+
+| Dimension | Fixed selection |
+| --- | --- |
+| Structures | BCC Nb–Mo–Ta; rocksalt (Ti,Zr,Hf)(C,N) |
+| Cell sizes | 128 and 432 sites |
+| Targets | Independent-site random; nonzero ordering-biased reference |
+| Repetition | Seed 20261019 everywhere; seed 21261019 also on 128-site nonzero targets |
+| Budget | 30 seconds, four allocated cores per trial; 40 trials total |
+| Objective | ATAT matching-range objective, WD=0, WN=1, WR=1, tolerance=0.001 |
+
+Install the normal Python dependencies and `icet==4.0`, build SCRAPs with
+`bash build.sh`, and supply separately installed ATAT 3.52 `mcsqs` and
+`corrdump` executables in one directory. No ATAT binaries are bundled.
+Run on an otherwise idle machine:
+
+```bash
+python tools/benchmark/submission/run.py \
+  --output "$HOME/runs/scraps-perpair/submission-001" \
+  --atat-bin /path/to/atat/bin
+```
+
+`--prepare-only` constructs and independently validates the inputs without
+running searches. Repeating the command with the same output directory resumes
+completed trials; changes to frozen source, inputs, or executables require a
+new directory. There is no automatic matrix expansion. Search allocation is
+20 minutes total; input generation and independent assessment add wall time.
+
+The nonzero target contains the exact pair, triplet, and quadruplet correlations
+of one saved fixed-composition configuration. That configuration proves
+attainability but never initializes a search. Target strengths differ by
+chemistry and size; the input artifacts include their directed Warren–Cowley
+values. The random targets need not be exactly attainable in a finite cell.
+
+`summary.json` records maximum absolute, RMS, and mean absolute correlation
+errors, per-order errors at the best-maximum-error structure, quality curves,
+and first-observed passages through 0.05, 0.025, and 0.01. A missing passage is
+right-censored at 30 seconds, including trials with no valid output. These
+correlation tolerances do not imply a calibrated property error. The ATAT
+optimization score and actual correlation errors are reported separately.
+
+Every method includes startup and initialization in its search budget. SCRAPs
+uses four MPI ranks; mcsqs and icet use four independent workers. Native
+checkpoints are emitted at proposal boundaries at intervals of at least 0.25 s.
+Readers observe at 1–10, 15, 20, 25, and 29.98 s; completed native outputs are
+also recorded. Availability is the actual read-completion time, and candidates
+read after 30 s are excluded. First-observed times are upper bounds, not exact
+internal attainment times. No speedup claim should be inferred from the
+limited seed sample or from comparisons on different machines.
+
+The output preserves source/input/executable hashes, Python and MPI versions,
+all search inputs and logs, independently validated structures, and portable
+regression fixtures. Routine CI checks numerical correctness using saved
+fixtures; it does not rerun the 40-trial campaign or assert wall-clock speed.
+
 ## Credits
 
 Original SCRAPS / Hybrid-Cuckoo-Search code by Rahul Singh, Aayush Sharma,
@@ -687,7 +875,160 @@ this code:
 
 Extension work and bug fixes by Raymundo Arroyave (Texas A&M).
 
+## Release verification
+
+The test suite generates integration structures in temporary directories; no
+pre-existing `SCRAPS.vasp` files are required. Run `pytest tools/tests -q -rs`
+after building the native optimizer. Install `icet==4.0` to exercise the optional
+figure-export tests as well. GitHub CI separately checks core tests without icet,
+optional exporters with icet, and clean package installation plus notebooks.
+Dependency updates arrive as pull requests; there is no automatic publication
+or merge workflow.
+
+## Funding acknowledgment
+
+Development of m_scraps is supported by the U.S. National Science Foundation under Award [OAC-2608825](https://www.nsf.gov/awardsearch/showAward?AWD_ID=2608825) (PhaseForge).
+
+Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
+
 ## License
 
 MIT (preserved from upstream). See `SCRAPs/ReadMe.md` and individual
 source-file headers for the original Iowa State copyright notice.
+
+## Analyze an existing structure
+
+`m_scraps analyze` evaluates fully occupied periodic structures without running
+an optimizer or requiring ATAT/icet. Standard ASE-readable structures (including
+species-labelled POSCAR, CIF and extended XYZ) are accepted.
+
+```bash
+m_scraps analyze structure.cif --cutoff 6 --shells 3 \
+  --output analysis.json --csv sro.csv
+```
+
+The output gives directed pair counts, species-conditioned coordination,
+Warren–Cowley SRO, distances and shell coverage. Shells are numbered from one
+**separately for each ordered sublattice pair**. The cutoff is in angstrom;
+inspect `shell_coverage` and increase it if fewer shells are available than
+requested. Periodic images are included even for small cells.
+
+For multi-sublattice materials, supply `--sublattices sublattices.json` with
+explicit labels in reference-site order, for example:
+
+```json
+{"site_labels": ["M", "M", "A", "A", "C"],
+ "allowed": {"M": ["Ti", "Zr"], "A": ["Al", "Si"], "C": ["C"]},
+ "counts": {"M": {"Ti": 1, "Zr": 1}, "A": {"Al": 1, "Si": 1}, "C": {"C": 1}}}
+```
+
+This illustrates the schema, not a MAX-phase unit cell. Supply one label per
+actual site. Counts are optional; forbidden occupations always cause an error.
+Without labels, all sites form one sublattice. Fixed sublattices and pairs
+involving them are flagged explicitly. SRO uses the concentration on the
+**neighbor sublattice**, and the conditional probability uses the observed
+number of bonds from the center species. Missing species or bonds produce
+JSON `null`, not a fabricated zero.
+
+For relaxed structures, add `--reference ideal_supercell.cif --tolerance 0.2`.
+Neighbors and shells then come from the reference geometry; chemical symbols
+come from the mapped input sites. Mapping accepts atom reordering and periodic
+wrapping but requires cells matching within 0.0001 angstrom (to accommodate
+legacy output rounding) and a unique site within the tolerance
+(angstrom). It does not fit strain, origin shifts, rotations or vacancies.
+Without a reference, shells use actual distances; `--shell-tolerance` controls
+the maximum distance width of a shell (default `0.00001` angstrom).
+
+Optional `--targets targets.json` compares selected SRO entries, reporting
+signed residuals, maximum absolute error, RMS error and mean absolute error:
+
+```json
+[{"source": "M", "destination": "A", "shell": 1,
+  "center_species": "Ti", "neighbor_species": "Si", "target": -0.1}]
+```
+
+For pair/triplet/quadruplet correlations, supply a native figure file and its
+species alphabet in the original index order:
+
+```bash
+m_scraps analyze structure.cif --cutoff 6 \
+  --figures figures.dat --species Ti,Zr,Al,Si,C --output analysis.json
+```
+
+The figure file provides the reference cell, site order, occupational basis,
+explicit decorated cluster sums and targets. Its SHA-256 hash and basis are
+recorded in the report. Version-3 figure files also supply sublattice groups
+and required compositions. Correlation errors use the same evaluator as the
+benchmark: maximum absolute error, RMS, mean absolute error, per-order errors
+and weighted L1. Defaults `--wd 0 --wn 1` give uniform feature weights; other
+weights follow the native diameter/order convention. Preserve the figure file
+with the report to reproduce the complete cluster definitions. The evaluator
+does not construct new figure sets.
+
+The Python equivalent is:
+
+```python
+from ase.io import read
+from m_scraps import analyze_structure
+report = analyze_structure(read("structure.cif"), cutoff=6, shells=3)
+```
+
+See [the materials-analysis notebook](notebooks/06_structure_analysis.ipynb)
+for diboride, MAX-211 and Heusler examples with explicit sublattices. These
+prototype decorations illustrate analysis and do not establish phase stability.
+
+### Independent ATAT checks
+
+The materials-analysis reference corpus preserves actual ATAT 3.52 `corrdump`
+outputs, lattice and cluster files, structures, figure definitions, executable
+and source hashes, and expected error metrics. It contains two seeded
+configurations each of the diboride, MAX-211 and Heusler examples. Normal tests
+read these frozen outputs; they never regenerate expected answers using the
+implementation being tested.
+
+Run the comparisons **without ATAT or icet**:
+
+```bash
+m_scraps compare-atat --output frozen-comparison.json
+```
+
+If ATAT is installed, rerun the independent calculations yourself:
+
+```bash
+m_scraps compare-atat --corrdump /path/to/atat/bin/corrdump \
+  --output live-comparison.json
+```
+
+This compares the live ATAT output both to the frozen reference and to the
+current m_scraps evaluator. It checks every cluster correlation, aggregate
+error metrics, and the covered SRO entries. Exit status is 1 for a numerical
+disagreement (default absolute tolerance `2e-10`), 2 for invalid inputs or an
+execution failure, and 0 when all comparisons pass. Results include the actual
+ATAT executable hash. Temporary ATAT working files are isolated from the corpus.
+No icet installation is needed for this replay.
+
+You can also analyze your own decoration of one of the supplied reference cells:
+
+```bash
+m_scraps compare-atat --case max211 --structure my_max211.cif \
+  --corrdump /path/to/atat/bin/corrdump --output my-comparison.json
+```
+
+The cell, allowed occupations and per-sublattice compositions must match the
+selected case. Atom order may differ; small internal relaxations are mapped to
+reference sites. This compares ATAT and m_scraps on **your occupations**, rather
+than expecting your correlations to equal those of a bundled configuration.
+It is not an automatic reference generator for arbitrary new lattice types.
+
+The three new SRO reference cases have binary equiatomic mixed sublattices.
+With ATAT point values gamma = -1,+1, their SRO follows
+`alpha_ab = -gamma(a)*gamma(b)*<gamma_i gamma_j>`. Pair orbits at the same distance
+and sublattice pair are combined using orbit multiplicities. Fixed-site pairs
+are checked analytically rather than presented as nontrivial ATAT correlations.
+General multicomponent SRO requires the full basis inversion; the binary
+conversion is not applied to ternary sublattices. Existing ternary fixtures
+independently test the decorated correlations themselves.
+
+Maintainers can deliberately recapture these fixtures with the opt-in
+`tools/benchmark/capture_analysis_oracle.py` generator (ATAT 3.52 and icet 4.0
+required). Ordinary CI must consume the reviewed fixtures, not overwrite them.

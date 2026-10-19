@@ -1,5 +1,13 @@
 # Comparison: scraps-perpair vs ATAT `mcsqs`
 
+> **Historical exploratory comparisons.** These results used older versions,
+> objectives, and budgets and are retained as provenance. They do not establish
+> a matched algorithm-performance comparison. Use the fixed submission benchmark
+> in [README](../README.md#reproducing-the-submission-benchmark) for current
+> comparisons. ATAT 3.52 accepts explicit multibody targets through `-tcf`, and
+> current m_scraps supports independently constrained disordered sublattices.
+> Earlier capability statements below reflect the versions tested at that time.
+
 Independent head-to-head on two standard test systems to verify that
 scraps-perpair produces SQS quality equivalent to the reference tool
 (`mcsqs` from ATAT 3.50), and to characterize their relative performance.

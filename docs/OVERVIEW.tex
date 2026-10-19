@@ -42,6 +42,44 @@
 }{% if KOMA class
   \KOMAoptions{parskip=half}}
 \makeatother
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\newenvironment{Shaded}{}{}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\BuiltInTok}[1]{\textcolor[rgb]{0.00,0.50,0.00}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{#1}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{#1}}
+\newcommand{\ImportTok}[1]{\textcolor[rgb]{0.00,0.50,0.00}{\textbf{#1}}}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{#1}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
 \usepackage{longtable,booktabs,array}
 \usepackage{calc} % for calculating minipage widths
 % Correct order of tables after \paragraph or \subparagraph
@@ -66,9 +104,9 @@
   urlcolor={blue},
   pdfcreator={LaTeX via pandoc}}
 
-\title{scraps-perpair: project overview}
+\title{m\_scraps: project overview}
 \author{Raymundo Arroyave}
-\date{2026-05-20}
+\date{2026-10-19}
 
 \begin{document}
 \maketitle
@@ -77,8 +115,7 @@
 \setcounter{tocdepth}{2}
 \tableofcontents
 }
-\section{scraps-perpair: project
-overview}\label{scraps-perpair-project-overview}
+\section{m\_scraps: project overview}\label{m_scraps-project-overview}
 
 This document describes (a) what SCRAPS is, (b) what was extended in
 this fork, and (c) how to use the resulting tool. It is meant as a
@@ -178,8 +215,8 @@ limitations}\label{original-assumptions-and-limitations}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\subsection{2. What scraps-perpair adds and
-fixes}\label{what-scraps-perpair-adds-and-fixes}
+\subsection{2. What m\_scraps adds and
+fixes}\label{what-m_scraps-adds-and-fixes}
 
 Six bug fixes from the upstream code, a feature extension (per-pair SRO
 targets), spectator-sublattice support for HEB-class structures,
@@ -388,8 +425,8 @@ matter how long it runs.
 This caught us by surprise during the cell-size benchmark: 25:50:25 on
 FCC \texttt{k×k×k} is feasible for \texttt{k} even and infeasible for
 \texttt{k} odd (at shell 1, \(T_{AC} = 3k^2/2\)), explaining the
-deterministic \texttt{fitness\ =\ √2.5\ ≈\ 1.58} plateau at n=108 and
-n=500.
+deterministic \texttt{fitness\ =\ √2.5\ \ approximately\ \ 1.58} plateau
+at n=108 and n=500.
 
 \texttt{tools/suggest\_cell.py} walks candidate cell sizes (including
 non-cubic supercells) and returns the closest feasible
@@ -400,7 +437,59 @@ check at startup and prints a warning naming the offending pair(s) when
 the configured \texttt{(ELEMENT,\ Cell\_DIM,\ MAXSHELLNUM)} is
 infeasible.
 
-\subsubsection{2.7 MPI singleton-mode
+\subsubsection{2.7 Multi-sublattice SQS (the v0.4.0
+headline)}\label{multi-sublattice-sqs-the-v0.4.0-headline}
+
+For structures with two or more chemically-disordered sublattices
+(rocksalt HEA-carbides, double perovskites, full Heusler with
+independent X/Y/Z mixing, spinels), upstream SCRAPS had no API for
+designing per-sublattice compositions --- \texttt{ELEMENT} is a single
+flat species count over all positions and \texttt{randomizeLattice} did
+a flat shuffle. The fork adds a \texttt{SUBLATTICE} INPUT keyword that
+partitions basis positions and species into disjoint sublattices, with
+every swap-proposal site gated so atoms only swap within a sublattice.
+
+\begin{verbatim}
+SUBLATTICE <id> BASIS <b1> <b2> ... SPECIES <s1> <s2> ...
+\end{verbatim}
+
+Disjoint species per sublattice means
+\texttt{pairGr{[}i{]}{[}j{]}{[}shell{]}} and
+\texttt{targetSROpair{[}i{]}{[}j{]}{[}shell{]}} need no new dimension
+--- cross-sublattice pair counts (e.g.~metal--carbon nearest-neighbor in
+HEA carbides) naturally fall in the right bins because species
+\texttt{i} and \texttt{j} only live on one sublattice each.
+
+INPUT-level validation in the parser (disjoint species, disjoint basis,
+in-range, non-empty blocks); POSCAR-level validation in
+\texttt{main.cpp} (BASIS bound, spectator-vs-sublattice conflict,
+ELEMENT sum matches per-sublattice capacity, full basis coverage). When
+no \texttt{SUBLATTICE} keyword is given, \texttt{main.cpp} synthesizes a
+default single-sublattice spec covering all non-spectator basis
+positions and species, so every downstream path (randomizeLattice, all
+five swap-proposal sites, the targeted-swap residual scorer) uses one
+uniform code path regardless of single- vs multi-sublattice mode --- no
+\texttt{if/else} branching. The legacy
+\texttt{SPECTATOR\_BASIS\_SPECIES} for fixed-species sublattices
+continues to work alongside (and is, in effect, a special case of
+``sublattice with one allowed species'').
+
+Sublattice detection helper: \texttt{tools/sublattice\_detect.py} reads
+a POSCAR via pymatgen, runs Wyckoff-orbit analysis (spglib under the
+hood), and emits draft \texttt{SUBLATTICE} blocks with
+\texttt{\textless{}fill\ in\textgreater{}} placeholders for SPECIES. Two
+basis positions in the same Wyckoff orbit have identical
+pair-correlation environments, so the orbit partition is the unique
+coarsest partition that respects the lattice symmetry --- the right
+default for multi-sublattice SQS. Users can override the auto-detected
+partition by writing \texttt{SUBLATTICE} blocks by hand (e.g.~to break
+symmetry intentionally).
+
+Validated against rocksalt and Heusler L2₁ POSCARs:
+\texttt{sublattice\_detect.py} reproduces the textbook orbit assignments
+(NaCl \(\to\) 4a + 4b; Cu₂MnAl \(\to\) 4a Mn + 4b Al + 8c Cu).
+
+\subsubsection{2.8 MPI singleton-mode
 diagnosis}\label{mpi-singleton-mode-diagnosis}
 
 The macOS-with-Homebrew-Open-MPI setup commonly fails to form a real
@@ -424,6 +513,144 @@ with the OS PID so concurrent singletons don't race-and- interleave
 their writes (the test helper handles both modes).
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\subsubsection{2.9 Opt-in higher-order figure
+objective}\label{opt-in-higher-order-figure-objective}
+
+\texttt{tools/higher\_order.py} uses icet 4.x to enumerate decorated
+symmetry orbits, map their periodic figures to SCRAPs site order, and
+export point-function values in the API's species order. Supported
+figures have order 2--4, with one or more disordered sublattices and
+optional fixed spectators. Shared species are supported with explicit
+per-group integer counts in figure mode. Each local point function gets
+a global basis row, with zero entries outside its allowed species set;
+each term references the row appropriate to its site. Concentration
+moments use the site's local species fractions. Symmetry enumeration
+preserves declared sublattice identities, including groups with
+identical allowed physical species. icet removes fixed-site constant
+factors rather than introducing redundant chemical figures; fully fixed
+sites remain present in the geometry and occupation constraints. The
+exporter validates its explicit products against icet cluster vectors
+before writing. Random-alloy targets are products of
+concentration-weighted point-function moments; they are not assumed zero
+and do not correct for finite-cell sampling without replacement.
+
+\texttt{SCRAPs/FigureObjective.hpp} reads \texttt{FIGURES\_FILE} and
+computes orbit averages. Each term stores a coefficient and
+\texttt{(site,\ point-function)} factors; coefficients sum to one within
+each decorated component. Periodic images that map to the same site
+remain repeated factors, rather than being collapsed into a lower-order
+cluster. A site-to-term incidence list enables swap updates. The union
+of both sites' incidence lists visits shared terms once; rejected moves
+leave accepted state untouched. Full recomputation refreshes the
+incremental state every 1,024 proposals and at final scoring.
+
+\texttt{main.cpp} routes every global fitness call and local search
+kernel to this backend when enabled. It retains the native cuckoo
+population/MPI gathering and the SA/PT acceptance and temperature
+machinery. Compound moves compose swap updates before a joint decision;
+\texttt{FAST\_SWAPS\ 0} supplies a full-evaluation reference.
+\texttt{RNG\_SEED} seeds a separate reproducible figure-kernel stream. A
+separate best-evaluated archive survives SA uphill moves and PT
+exchanges without changing chain state. Figure-mode cuckoo proposals
+accept improvements or numerical ties (1e-12), rather than applying the
+legacy pair-count error band to normalized correlations. The legacy pair
+path remains the default. Pair-specific \texttt{TARGETED\_SWAPS}, and
+\texttt{SRO} fail clearly in figure mode. Swaps use the existing
+same-sublattice site pools and skip fixed spectators. Randomization
+preserves each local count. Legacy pair-coordination uniformity is not
+required by the figure objective. The existing pair neighbor graph is
+still built, but figure mode suppresses the legacy SRO diagnostic; use
+\texttt{FIGURE\_CORRELATIONS.csv} for its actual targets.
+
+The input controls are \texttt{FIGURES\_FILE},
+\texttt{FIGURE\_OBJECTIVE} (\texttt{weighted\_l1} or \texttt{atat}),
+\texttt{FIGURE\_WD} (default 0), \texttt{FIGURE\_WN} (default 1),
+\texttt{FIGURE\_WR} (default 1), and \texttt{FIGURE\_TOL} (default
+0.001). All are validated and known to the INPUT parser. In normalized
+weighted-L1 mode, \(w_\alpha=\exp(-w_d d_\alpha/d_0)w_n^{n_\alpha-2}\)
+applies to every decorated component, including pairs. One global
+denominator preserves relative order penalties. No extra multiplicity
+weighting or per-order normalization is applied. Geometric decay is a
+prior for interaction importance, not a property-error guarantee.
+
+\texttt{FIGURE\_CHECKPOINT\_SECONDS\ seconds} enables atomic per-rank
+best-figure snapshots (\texttt{FIGURE\_CHECKPOINT.rankN.json}),
+containing occupations, correlations and objective score. Default 0
+disables output; positive finite values specify the minimum interval
+between snapshots at proposal boundaries. Requires
+\texttt{FIGURES\_FILE}. Snapshots preserve the search RNG and annealing
+schedule; they are assessable structures, not restart state. Benchmark
+readers must timestamp observation, including startup, and retain
+snapshots observed before their deadline.
+
+ATAT mode reproduces the 3.52 \texttt{calc\_objective\_func}
+prescription: initialize one range per order to its largest included
+diameter plus \(d_0\), truncate at the first mismatched diameter, cap
+each higher-order range by the preceding order, and normalize residuals
+over diameters at least the minimum range minus ATAT's
+\texttt{zero\_tolerance=0.001}. Subtract
+\(w_r\sum_{p=0}^{n_{max}-2}w_n^p R_p/d_0\) from this error.
+Compatibility also retains ATAT's \texttt{-FLT\_MAX} sentinel when the
+unnormalized weighted residual sum is below 0.001. This can arise
+through very small weights despite unmatched correlations. Final
+reporting therefore evaluates maximum residual independently;
+negative/sentinel fitness never drives the old zero-error termination
+check. Cutoff completeness and the icet point basis must also match
+before comparing to an ATAT run: objective compatibility alone is not
+identical feature-space compatibility.
+
+The version-1 text format remains supported for unconstrained systems
+and is whitespace-delimited (no comments):
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{SCRAPS\_FIGURES 1}
+\NormalTok{N\_sites N\_species N\_basis\_rows N\_components}
+\NormalTok{\textless{}9 cell values, row{-}vector order\textgreater{}}
+\NormalTok{\textless{}N\_sites fractional xyz positions, SCRAPs basis{-}major z/y/x order\textgreater{}}
+\NormalTok{\textless{}N\_basis\_rows rows of N\_species point{-}function values\textgreater{}}
+\NormalTok{\textless{}for each component: order diameter target N\_terms\textgreater{}}
+\NormalTok{\textless{}for each term: coefficient site\_0 basis\_0 ... site\_(order{-}1) basis\_(order{-}1)\textgreater{}}
+\end{Highlighting}
+\end{Shaded}
+
+Constrained exports use \texttt{SCRAPS\_FIGURES\ 2}. Immediately after
+the basis matrix, version 2 inserts one row per site:
+\texttt{N\_allowed\ species\_0\ ...}. The native reader checks these
+allowed sets against the \texttt{SUBLATTICE} and
+\texttt{SPECTATOR\_BASIS\_SPECIES} declarations after expanding the
+lattice, and rejects version 1 for constrained systems. Python validates
+full site/species coverage, disjoint basis sets and integer counts
+against each group's capacity before export. The JSON additionally
+records basis/site allowed sets and local basis moments. Explicit local
+counts use format version 3. After the allowed-species rows, each site
+has \texttt{group\_index\ count\_0\ ...\ count\_(TYP-1)}: active groups
+use INPUT declaration order and their full local budget; fixed sites use
+group \texttt{-1} and a one-hot occupation count. The native reader
+checks this metadata against INPUT, rejecting stale targets after a
+local-composition or partition change. For overlapping species the
+exporter uses distinct auxiliary alphabets only during symmetry
+enumeration, preserving physical atomic-number ordering within each
+group. Exported occupations and structures use physical species. For
+shared species, append \texttt{COUNTS\ n0\ n1\ ...} to every
+\texttt{SUBLATTICE} line, aligned with its \texttt{SPECIES} list. These
+local budgets plus fixed occupations must sum exactly to
+\texttt{ELEMENT}. The Python API uses four-member tuples
+\texttt{(id,\ basis\_positions,\ species\_indices,\ counts)}; CLI
+partition JSON follows the same layout. The native optimizer initializes
+and conserves each local budget. Without explicit counts,
+disjoint-species behavior is retained. Legacy Warren--Cowley pair mode
+rejects this extension because its pair reference arrays do not resolve
+shared species by sublattice.
+
+The C++ reader checks dimensions, finite values, indices, coefficient
+normalization, presence of pairs, and consistency of the cell/site
+ordering with POSCAR and \texttt{Cell\_DIM}. The exporter writes a
+companion JSON containing provenance and feature metadata. Final
+component correlations and native occupations are saved separately for
+independent reconstruction. Performance and scientific superiority over
+pair-only optimization remain to be measured.
 
 \subsection{3. ``Is SCRAPS lucky, or is it actually
 optimizing?''}\label{is-scraps-lucky-or-is-it-actually-optimizing}
@@ -506,24 +733,58 @@ and returns an SQS \texttt{Atoms} out; \texttt{read\_scraps\_output} /
 \texttt{write\_scraps\_poscar} / \texttt{make\_scraps\_inputs} are
 lower-level helpers. Handles the SCRAPS vs canonical-VASP POSCAR layout
 difference internally. \\
+\texttt{sublattice\_detect.py} & Wyckoff-orbit-based sublattice
+detection. Reads a POSCAR via pymatgen, runs \texttt{SpacegroupAnalyzer}
+(spglib), groups basis positions by orbit, emits draft
+\texttt{SUBLATTICE} blocks for INPUT. \texttt{-\/-write} appends to an
+existing INPUT (with \texttt{\textless{}fill\ in\textgreater{}} SPECIES
+placeholders); \texttt{-\/-json} emits machine-readable output. Defaults
+\texttt{symprec=1e-3}; loosen for noisy POSCARs. \\
+\texttt{plot\_convergence.py} & Plots \texttt{CONVERGENCE\_LOG}
+fitness-vs-iteration trajectories (single or multi-run overlay). \\
+\texttt{scraps\_wizard.py} & Novice-friendly CLI orchestrating the other
+tools end-to-end. Three subcommands:
+\texttt{quick\ -\/-template\ \textless{}name\textgreater{}\ -\/-composition\ X:0.5,Y:0.5}
+one-shots from a built-in template
+(FCC/BCC/B2/rocksalt/Heusler-L2\_1/perovskite-ABO\_3);
+\texttt{from-structure\ FILE} reads any POSCAR/CIF, auto-detects Wyckoff
+orbits via \texttt{sublattice\_detect.py}, prompts for per-orbit
+composition; \texttt{interactive} is a step-by-step REPL with prompts.
+All paths set \texttt{AUTO\_BUDGET=2}, pick a feasible cell from
+\texttt{-\/-target-atoms}, call \texttt{run\_sqs\_from\_atoms}, and
+export to CIF / VASP / XYZ. \\
+\texttt{scraps\_htp.py} & High-throughput composition-space sweeps for
+HEA exploration. Three subcommands: \texttt{linear} (binary alloy along
+composition axis), \texttt{simplex} (N-ary on the Gibbs simplex at
+integer resolution k -- C(k+n-1, n-1) compositions), and \texttt{list}
+(explicit compositions from CSV/JSON). Reuses
+\texttt{scraps\_wizard.run\_pipeline} per composition; writes one subdir
+per composition + a top-level \texttt{manifest.json} summary. Supports
+\texttt{-\/-workers\ N} for parallel runs and resumes by skipping
+compositions whose \texttt{sqs.cif} already exists. Multi-sublattice
+templates accept \texttt{-\/-fixed\ ORBIT\_INDEX:Species:Frac} to pin
+non-swept orbits. \\
 \end{longtable}
 
-All four are pymatgen-and/or-ASE-based and run completely outside the
-C++ code. \texttt{verify\_sro.py} is in particular the canonical ``did
+All are pymatgen-and/or-ASE-based and run completely outside the C++
+code. \texttt{verify\_sro.py} is in particular the canonical ``did
 SCRAPS actually achieve what it claims?'' cross-check.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
 \subsection{5. Test suite}\label{test-suite}
 
-\texttt{tools/tests/}, run with \texttt{pytest}. \textbf{48 tests,
-\textasciitilde34 s locally}, all with \texttt{RNG\_SEED} pinned so the
-optimizer behavior is reproducible:
+\texttt{tools/tests/}, run with \texttt{pytest}, contains native, Python
+and frozen-oracle regressions. Native integration tests generate their
+structures in scratch directories. Optional icet-export tests run in a
+separate CI step; frozen-oracle tests require no external engines.
+Search tests pin \texttt{RNG\_SEED}; reproducibility also depends on
+build and MPI settings. The original test groups include:
 
 \begin{itemize}
 \tightlist
 \item
-  \texttt{test\_verify\_sro.py} (19 tests): verifier against
+  \texttt{test\_verify\_sro.py} (10 tests): verifier against
   analytically-known structures (B2 NiAl, L1₂ Ni₃Al, random binary, HEB
   random and CSRO).
 \item
@@ -542,6 +803,46 @@ optimizer behavior is reproducible:
 \item
   \texttt{test\_scraps\_ase.py} (8 tests): ASE I/O round-tripping and
   the end-to-end ASE wrapper on FCC SQS and BCC B2.
+\item
+  \texttt{test\_input\_parser.py} (13 tests): INPUT keyword parser
+  hardening --- required-keyword aborts, ELEMENT-vs-TYP cross-check,
+  Cell\_DIM validation, comment/blank-line handling,
+  unrecognized-keyword warnings.
+\item
+  \texttt{test\_poscar\_parser.py} (12 tests): defensive VASP POSCAR
+  parser on every dialect (scale-as-volume, species-label line,
+  Selective dynamics, Cartesian vs Direct, multi-species counts).
+\item
+  \texttt{test\_warm\_start.py} (7 tests): \texttt{INIT\_NEST}
+  warm-start round-trips and preserves an already-optimal nest.
+\item
+  \texttt{test\_sa\_kernel.py} (6 tests): \texttt{MC\_KERNEL=sa} reaches
+  zero on feasible SQS, plateau matches cuckoo on infeasible, PT
+  exchanges fire on multi-rank, PT degrades gracefully on single-rank.
+\item
+  \texttt{test\_cluster\_swap.py} (4 tests):
+  \texttt{CLUSTER\_SWAP\_K\textgreater{}1} reaches zero on feasible SQS,
+  matches K=1 plateau on infeasible (negative finding for L2₁), default
+  K=1 unchanged.
+\item
+  \texttt{test\_plot\_convergence.py} (4 tests): convergence-log plotter
+  smoke + multi-run overlay.
+\item
+  \texttt{test\_sublattice\_parser.py} (12 tests): \texttt{SUBLATTICE}
+  INPUT parser --- round-trip, section-order independence, disjointness
+  errors, range errors, structural errors.
+\item
+  \texttt{test\_sublattice\_detect.py} (8 tests): Wyckoff-orbit
+  detection on FCC, rocksalt, Heusler L2₁; JSON output;
+  \texttt{-\/-write} to INPUT; symprec sensitivity.
+\item
+  \texttt{test\_multi\_sublattice.py} (8 tests): end-to-end
+  multi-sublattice optimization --- banner appears, partition is
+  preserved in output POSCAR (per-position species/sublattice
+  consistency), BASIS bound abort, ELEMENT-vs-capacity abort,
+  spectator-vs-sublattice conflict abort, partial-coverage abort,
+  spectator + sublattice coexist, default-synthesis path still reaches
+  fit=0.
 \end{itemize}
 
 End-to-end tests skip gracefully when the scraps binary or mpirun isn't
@@ -554,30 +855,26 @@ changes.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\subsection{6. Validation against ATAT
-mcsqs}\label{validation-against-atat-mcsqs}
+\subsection{6. Independent validation and matched
+benchmarking}\label{independent-validation-and-matched-benchmarking}
 
-\texttt{docs/mcsqs\_comparison.md} documents head-to-head comparisons
-against ATAT 3.50's mcsqs across three system classes:
+The completed submission benchmark compares native cuckoo search, native
+SA, ATAT 3.52 mcsqs and icet 4.0 with a matched ATAT objective on the
+same pair, triplet and quadruplet targets. It includes BCC and rocksalt,
+128/432 sites, random and attainable nonzero targets, and 40 fixed
+trials with 30-second, four-core budgets. See the completed-benchmark
+section below and the README for the full protocol and limitations.
 
-\begin{itemize}
-\tightlist
-\item
-  108-atom NiCoCr FCC SQS (multi-shell), single-sublattice stoichiometry
-  sweep (50:50 / 75:25 / ternary on FCC and BCC),
-\item
-  FCC cell-size sweep (32 / 108 / 256 / 500 atoms) at 25:50:25 ternary,
-\item
-  HEB (Hf,Zr,Ti,Ta,Nb)B₂ at 150 and 600 atoms.
-\end{itemize}
+Frozen ATAT outputs also validate the native C++ evaluator, incremental
+swaps, the independent Python evaluator and the new structure-analysis
+workflow. The diboride, MAX-211 and Heusler cases include
+binary-equiatomic SRO checks obtained from external pair correlations.
+Users can rerun these with their own corrdump installation; ordinary
+tests need neither ATAT nor icet.
 
-Summary verdict: SCRAPS matches or beats mcsqs in α-matrix quality on
-every case at comparable wall budgets, and is consistently faster
-(5--60× wall time, 1.5--15× CPU time) because of the explicit α-residual
-loss versus mcsqs's correlation-engineering approach.
-
-The per-pair SRO targeting (§2.2) is the unique value-add --- mcsqs has
-no direct API for per-species-pair \(\alpha\) targets.
+\texttt{docs/mcsqs\_comparison.md} retains historical experiments with
+different objectives and settings. Their timing ratios are not evidence
+for a general speedup or an inherent accuracy limit of another method.
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
@@ -586,12 +883,66 @@ no direct API for per-species-pair \(\alpha\) targets.
 \begin{itemize}
 \tightlist
 \item
-  \textbf{v0.3.0} (this commit) --- warm-start API
-  (\texttt{INIT\_NEST}), JOSS paper draft under \texttt{paper/},
-  delta-vs-legacy fitness disagreement fix (the L2₁ warm-start case
-  where the perfect Heusler nest has zero X-Y and X-Z 2NN pairs,
-  exposing a \texttt{countgr==0} edge case in the legacy fitness). 80
-  tests passing.
+  \textbf{v0.4.2} (this commit) --- Per-Wyckoff-orbit SUBLATTICE on
+  lattices with non-uniform coordination (fluorite, sigma phase, Laves,
+  MAX phases). Generalized \texttt{Lattice::coordination\_per\_shell} to
+  check uniformity WITHIN each sublattice rather than across all
+  non-spectator atoms --- different sublattices may legitimately have
+  different z (fluorite cation z=8 vs anion z=4). The per-sublattice
+  fitness machinery from v0.4.1 already handled the math; this commit
+  just lifts the safety check. Feasibility-warning math also generalized
+  to per-sublattice. Tests: 4 new fluorite cases in
+  \texttt{tools/tests/test\_non\_uniform\_coordination.py} (fluorite
+  without SUBLATTICE still aborts; with per-Wyckoff SUBLATTICE runs
+  cleanly; SQS quality and CSRO targeting both work). 126 tests.
+\item
+  \textbf{v0.4.1} --- Per-sublattice c\_j fitness, B2 mcsqs comparison,
+  multi-sublattice tutorial notebook. The fitness fix swaps the global
+  N\_j/N\_M reference for the per-sublattice N\_j/N\_τ reference +
+  per-(σ,τ,k) coordination tensor; without it the multi-sublattice
+  optimizer minimizes the wrong target and drives toward clustering
+  rather than per-sublattice SQS. Single- sublattice and HEB-spectator
+  cases reduce to the prior formula exactly. Validated on (Ni,Co)(Ti,Zr)
+  B2 50/50 in \texttt{docs/compare\_b2\_multisub.py}: SCRAPs converges
+  to exact α=0 on intra-sub shells in \textless1 s for the SQS case
+  (mcsqs leaves max \textbar α\textbar{} approximately 0.1--0.2 in
+  80--130 s on the same problem); SCRAPs hits the per-pair α targets
+  exactly for ordered (α=−1), clustered (α=+0.5), and mixed CSRO
+  patterns at both N=4 and N=6 in under 1.3 s. Tutorial:
+  \texttt{notebooks/04\_multi\_sublattice.ipynb}. 122 tests.
+\item
+  \textbf{v0.4.0} --- multi-sublattice SQS support (\texttt{SUBLATTICE}
+  keyword + Wyckoff-orbit detector
+  \texttt{tools/sublattice\_detect.py}). All swap-proposal sites gated
+  by sublattice; randomizeLattice rewritten to draw from per-sublattice
+  budgets; POSCAR-level validation (BASIS bound, ELEMENT vs capacity,
+  spectator-vs-sublattice conflict, full coverage). When no
+  \texttt{SUBLATTICE} is declared, \texttt{main.cpp} synthesizes a
+  default single-sublattice spec so legacy behavior is preserved
+  exactly. 122 tests. \textbf{Note}: tagged only at v0.4.1 --- the
+  v0.4.0 commits are runnable but produce semantically wrong
+  multi-sublattice output (global-c\_j target drives toward clustering);
+  the capability is correct from v0.4.1 onward.
+\item
+  \textbf{v0.3.2} --- K-atom cluster swap moves
+  (\texttt{CLUSTER\_SWAP\_K}). Negative finding documented: K in \{2,
+  4\} also plateaus at \textasciitilde148 on the L2₁ cold-start case
+  (same as cuckoo, SA, PT). The barrier is move topology, not move size
+  --- \texttt{INIT\_NEST} warm-start remains the recommended workaround.
+  94 tests.
+\item
+  \textbf{v0.3.1} --- Parallel-tempering MC kernel
+  (\texttt{MC\_KERNEL=pt}): per-rank log-spaced temperatures, periodic
+  Metropolis exchanges between adjacent ranks. Plus
+  \texttt{docs/sa\_vs\_cuckoo.sh} benchmark and the SA-vs-cuckoo section
+  of \texttt{mcsqs\_comparison.md}. 90 tests.
+\item
+  \textbf{v0.3.0} --- Warm-start API (\texttt{INIT\_NEST}),
+  simulated-annealing kernel (\texttt{MC\_KERNEL=sa}), JOSS paper draft
+  under \texttt{paper/}, delta-vs-legacy fitness disagreement fix (the
+  L2₁ warm-start case where the perfect Heusler nest has zero X-Y and
+  X-Z 2NN pairs, exposing a \texttt{countgr==0} edge case in the legacy
+  fitness). 80 tests.
 \item
   \textbf{v0.2.2} --- INPUT parser hardening: unrecognized-keyword
   warnings, \texttt{\#} comment/blank-line support, required-keyword
@@ -613,25 +964,87 @@ no direct API for per-species-pair \(\alpha\) targets.
   48 tests.
 \end{itemize}
 
-\subsection{8. What's next}\label{whats-next}
+\subsection{8. Release scope and remaining scientific
+limitations}\label{release-scope-and-remaining-scientific-limitations}
 
-Open items as of v0.3.0: - \textbf{Apply to a real research case.}
-Refractory HEB with literature CSRO targets, DFT validation. The
-infrastructure is in place; the work to do it is not. - \textbf{Make the
-repo public + submit JOSS paper.} The manuscript draft under
-\texttt{paper/} is submission-ready; gating items are flipping the repo
-to public visibility and ORCID verification. - \textbf{Sigma-phase /
-Heusler with independent compositions.} The only remaining functional
-gap vs ATAT \texttt{mcsqs} is true multi-sublattice with independent
-designed compositions on each sublattice. - \textbf{Upstream a subset of
-fixes.} The six C++ bug fixes (§2.1) and the POSCAR/INPUT parser
-hardening are upstreamable as PRs to
-\texttt{DuaneDJohnson/Hybrid-Cuckoo-Search}. -
-\textbf{\texttt{tools/plot\_convergence.py}} --- small matplotlib helper
-that reads \texttt{CONVERGENCE\_LOG} and plots fitness vs iteration.
-Shipped with v0.3.0.
+The proposed release combines generation, structure analysis, worked
+examples, checksummed external references and a bounded benchmark.
+Publication of the repository, release and Zenodo archive requires the
+author's final approval.
 
-See the \texttt{\#\#\ 13.\ scraps-perpair} entry in the project memory
-catalog for the live status of these items.
+The benchmark has limited repetitions and does not establish broad
+statistical superiority. Multi-component SRO inversion from ATAT
+correlations remains a future extension; current independent SRO
+fixtures cover binary equiatomic mixed sublattices. Structure mapping
+accepts small displacements and atom reordering, with cell agreement
+within 0.0001 angstrom for serialization rounding; it does not fit
+arbitrary strain, rotations, origin shifts or vacancies. Prototype
+examples do not establish phase stability or property accuracy.
+
+\subsection{Submission benchmark}\label{submission-benchmark}
+
+\texttt{tools/benchmark/submission/run.py} is the fixed four-method
+comparison driver. It generates eight problems (two crystal families ×
+two sizes × two target modes), runs every method on every problem, and
+repeats the two smaller nonzero-target problems with a second seed: 40
+trials at 30 s/four cores. \texttt{matched\_mcsqs.py} provides the ATAT
+cluster mapping and independent audit; \texttt{icet\_extension.py}
+retains icet 4.0's annealer with a shared ATAT score;
+\texttt{sro\_targets.py} constructs realizable pair/triplet/quadruplet
+targets. The saved realization is withheld from optimizer
+initialization. Native checkpoint observation includes unfinished
+annealing schedules. The driver freezes sources and inputs, resumes only
+matching runs, and exports numerical regression fixtures. See README for
+reproduction commands and timing limits.
+
+\subsection{Evaluation of supplied
+structures}\label{evaluation-of-supplied-structures}
+
+\texttt{tools/structure\_analysis.py} implements
+\texttt{m\_scraps\ analyze} and the public \texttt{analyze\_structure}
+Python API. It maps structures to an explicit full-supercell reference,
+counts ASE periodic neighbors by directed sublattice pair, and
+normalizes Warren--Cowley SRO by the destination-sublattice
+concentration. Coordination is conditioned on the center species, so
+nonuniform coordination is reported rather than silently replaced by a
+global average. Optional SRO targets produce residuals and aggregate
+errors. Missing pairs remain undefined.
+
+For supplied native figure files it reuses the independent Python
+decorated correlation evaluator and benchmark metric definitions.
+Species ordering, figure hash, basis, targets and weights accompany the
+result. Mapping requires a unique bijection within the displacement
+tolerance and equal cells; arbitrary strain, origin registration and
+vacancy fitting are outside this interface. Tests include exact B2
+ordering, sublattice normalization, fixed-site violations,
+permuted/relaxed sites, and archived ATAT pair/triplet/quadruplet
+correlations.
+
+\texttt{m\_scraps\ compare-atat} supports offline golden-result
+verification and optional live \texttt{corrdump} replay. The
+\texttt{analysis\_oracle} fixtures retain raw external stdout, ATAT
+inputs and checksums for three materials, with two configurations each.
+Live replay also accepts a new decoration of a selected reference cell.
+SRO checks use the documented binary-equiatomic inversion of ATAT pair
+correlations; they do not relabel an internal SRO calculation as an
+independent oracle.
+
+\subsection{Completed submission
+benchmark}\label{completed-submission-benchmark}
+
+The frozen 40-trial campaign produced 40 validated outputs, with saved
+ATAT oracle vectors and attainable-reference witnesses for nonzero
+targets. The portable corpus is
+\texttt{tools/fixtures/submission\_benchmark}; its manifest checks all
+inputs and results. \texttt{m\_scraps\ benchmark\ -\/-report-only} reads
+it without external engines; a short native rerun uses the same figure
+definitions.
+
+The \href{submission_benchmark.csv}{CSV} retains every trial, including
+RMS and per-order errors. \href{submission_benchmark.png}{The figure}
+shows individual observations and censored threshold passages. Cuckoo
+reached maximum error 0.01 in 5/10 trials; each other method did so in
+2/10. These are limited-seed screening observations, not a universal
+ranking.
 
 \end{document}

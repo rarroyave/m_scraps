@@ -1,0 +1,22 @@
+{
+  "trials": 40,
+  "seconds": 30,
+  "ranks": 4,
+  "methods": [
+    "scraps_cuckoo",
+    "scraps_sa",
+    "mcsqs",
+    "icet_atat"
+  ],
+  "objective": {
+    "name": "uniform_figures",
+    "wd": 0,
+    "wn": 1,
+    "wr": 1
+  },
+  "checkpoint_seconds": 0.25,
+  "target": "random or exact pair/triplet/quadruplet correlations of a seeded ordered reference; reference occupations never initialize searches",
+  "sampling": "1..10,15,20,25,29.98 seconds plus completed native outputs; actual read-completion timestamps; no post-budget candidates",
+  "seeds": "20261019 everywhere; 21261019 repeats only 128-site nonzero-target cases",
+  "interpretation": "Small reproducible screening benchmark; limited repetitions do not establish broad statistical superiority"
+}

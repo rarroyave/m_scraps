@@ -6,7 +6,7 @@ NESTS   24
 MCSTEP  750
 TOTALIter 10
 MAXSHELLNUM 2
-WEIGHT 2.0 1.0 1.0
+WEIGHT 2.0 1.0
 
 # No SRO lines = random / SQS target (all alpha_ij = 0).
 # Species: 0=Ni, 1=Co, 2=Cr.

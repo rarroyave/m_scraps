@@ -12,4 +12,16 @@ source "$root/scripts/mpi-env.sh"
 set_scraps_mpi_environment
 python_bin="${SCRAPS_PYTHON:-$root/.venv/bin/python}"
 [ -x "$python_bin" ] || { echo "Run $root/install.sh first." >&2; exit 1; }
+if [ "${1:-}" = "benchmark" ]; then
+    shift
+    exec "$python_bin" "$root/tools/benchmark_submission.py" "$@"
+fi
+if [ "${1:-}" = "compare-atat" ]; then
+    shift
+    exec "$python_bin" "$root/tools/compare_atat.py" "$@"
+fi
+if [ "${1:-}" = "analyze" ]; then
+    shift
+    exec "$python_bin" "$root/tools/structure_analysis.py" "$@"
+fi
 exec "$python_bin" "$root/tools/scraps_wizard.py" "$@"

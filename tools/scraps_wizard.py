@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Novice-friendly CLI for designing SQS supercells with scraps-perpair.
+"""Novice-friendly CLI for designing SQS supercells with m_scraps.
 
 Orchestrates the existing tooling -- sublattice_detect, suggest_cell,
 run_sqs_from_atoms (with AUTO_BUDGET), verify_sro -- behind a small set
@@ -7,6 +7,8 @@ of subcommands that ask only the questions a non-expert can answer:
 which lattice class, what composition, how many atoms.
 
 Subcommands:
+    analyze       Evaluate supplied structures (m_scraps entry point).
+    compare-atat  Compare against frozen or live ATAT references.
     quick         One-shot SQS for a common structure template.
     from-structure  Read a POSCAR/CIF, auto-detect sublattices, prompt
                   for composition per orbit.
@@ -797,7 +799,7 @@ def cmd_interactive(args) -> int:
 
 def make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="scraps-wizard",
+        prog="m_scraps",
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

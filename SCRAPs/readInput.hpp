@@ -53,6 +53,7 @@ public:
  // Input Variables
     std::string figuresFile;
     std::string figureObjective = "weighted_l1";
+    double figureCheckpointSeconds = 0.0;
     double figureWd = 0.0, figureWn = 1.0, figureWr = 1.0, figureTol = 1e-3;
     int typeofatoms;
     int globalIter;

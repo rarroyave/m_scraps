@@ -1,0 +1,25 @@
+{
+  "cases": [
+    "bcc_128",
+    "rocksalt_128",
+    "bcc_432",
+    "rocksalt_432"
+  ],
+  "methods": [
+    "scraps_cuckoo",
+    "scraps_sa",
+    "mcsqs",
+    "icet_atat"
+  ],
+  "sha256": {
+    "rocksalt_128.figures.gz": "886debd672ba410517cbef7f791de32e006580a88229ab3622e892e62133450e",
+    "bcc_432.json.gz": "5e6867aa73dbcf6b3b0862b06febf945aeb566b8c5a0cbb2957117934d3e649e",
+    "rocksalt_432.figures.gz": "073d42b75a65ac31d1856aa248e7aae2e3f9de707dffa6a4ce8a5cc9f4a4e060",
+    "rocksalt_128.json.gz": "aadb59189fbb4ac46d8c03d694f2170c775eda64316dc1a158636b1e761b2d18",
+    "bcc_128.json.gz": "ead117ed3c434380fd44a8238dbe4367e270fa10a2a5f4b715d037c84180f4ea",
+    "bcc_432.figures.gz": "2fa60de80e579de392aea61e231196e89e3de1ebb63f8ef35c07e7922e157dca",
+    "rocksalt_432.json.gz": "36d82542fae0c768a0d7b7eabc57d43a6a76781ada66ae68d9bc0aa20cc84e78",
+    "bcc_128.figures.gz": "1149fa72665b87af579988a29de94d89b5bca7a669de584b290eb281500935ba"
+  },
+  "checkpoint_validation_source": "checkpoint-validation-20261019: extra SA and cuckoo examples; original 16 trials retained"
+}

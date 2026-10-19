@@ -1,5 +1,5 @@
 ---
-title: 'scraps-perpair: per-pair and multi-sublattice Warren-Cowley short-range-order targeting for multicomponent alloys and ceramics'
+title: 'm_scraps: multi-sublattice short-range-order and cluster-correlation targeting for alloys and ceramics'
 tags:
   - C++
   - Python
@@ -24,11 +24,11 @@ bibliography: paper.bib
 
 # Summary
 
-`scraps-perpair` is an open-source C++/Python code for generating
+`m_scraps` is an open-source C++/Python code for generating
 multicomponent alloy and ceramic supercells with user-specified
 Warren-Cowley short-range-order (SRO) parameters [@Cowley:1950]. It
 extends the upstream Hybrid Cuckoo Search engine of @Singh:2021 with
-four capabilities that turn a single-sublattice special-quasi-random-
+five capabilities that turn a single-sublattice special-quasi-random-
 structure (SQS) tool into a general multi-sublattice SRO design tool:
 (1) per-pair, per-shell $\alpha_{ij}^{(k)}$ targets via a single `SRO`
 INPUT keyword (the upstream supported only a scalar $\alpha$ applied
@@ -40,8 +40,11 @@ orbits, with a per-sublattice concentration reference $c_j^{\tau}$ in
 the fitness formula that gives the chemically correct target for
 structures with two or more chemically-disordered sublattices
 (rocksalt HEA carbides, double perovskites, Heusler L2$_1$, fluorite-
-type oxides, sigma and Laves phases); and (4) a defensive
-POSCAR/INPUT parser with comprehensive regression tests. The code
+type oxides, sigma and Laves phases); (4) a defensive
+POSCAR/INPUT parser with comprehensive regression tests; and (5) an optional
+decorated-correlation backend for pairs, triplets, and quadruplets with explicit
+local composition constraints. The name denotes Multi-sublattice SCRAPS; the
+project was previously named `scraps-perpair`. The code
 ships with a Python tool suite (`verify_sro`, `suggest_cell`,
 `run_sqs`, `scraps_ase`, `sublattice_detect`) that covers structure
 verification, cell-size feasibility analysis, end-to-end workflows,
@@ -53,12 +56,11 @@ and automatic Wyckoff-orbit detection via spglib [@spglib:2018].
 Special quasi-random structures (SQS) [@Zunger:1990] are the standard
 tool for modeling random alloys in *ab initio* calculations, and
 ATAT's `mcsqs` [@vanderWalle:2013] is the de facto reference
-implementation. However, mcsqs targets pair correlations through
-cluster expansion, with no direct API for specifying
-$\alpha_{ij}^{(k)}$ on a per-species-pair basis, and its internal
-supercell enumeration scales poorly for multi-sublattice cells with
-$N \gtrsim 400$ atoms. These limitations bite in four application
-domains:
+implementation. The `mcsqs` interface accepts target multibody correlations, including
+nonrandom targets. Specifying individual Warren–Cowley parameters therefore
+requires mapping them into the corresponding cluster correlations. A direct
+per-pair, per-shell interface with explicit sublattice composition constraints
+simplifies this task in four application domains:
 
 1. **Compositionally complex alloys with measured chemical
    short-range order.** Recent diffuse-scattering, atom-probe, and
@@ -96,7 +98,7 @@ domains:
    SCRAPS and in mcsqs's correlation-engineering treatment does not
    handle natively.
 
-`scraps-perpair` was developed to fill these gaps while preserving
+`m_scraps` was developed to fill these gaps while preserving
 the underlying Hybrid Cuckoo Search optimizer that makes SCRAPS
 competitive with `mcsqs` on speed and SQS quality.
 
@@ -197,8 +199,7 @@ Six classical ordered structures (B2, L1$_2$, L1$_0$, D0$_3$, L1$_1$,
 and L2$_1$/Heusler) and six multi-sublattice structure classes
 (fluorite, Laves C15, Heusler L2$_1$ end-to-end, sigma $\sigma$-FeCr,
 spinel, pyrochlore) are recovered as worked test cases in the
-repository. A 183-test pytest suite, every test pinned via
-`RNG_SEED`, covers structure verification, feasibility math,
+repository. The pytest suite uses fixed seeds for stochastic checks and covers structure verification, feasibility math,
 end-to-end optimization regressions, convergence-trajectory checks,
 ASE I/O round-tripping, multi-sublattice parser validation, Wyckoff-
 orbit detection, per-sublattice SQS / CSRO quality on non-uniform-
@@ -214,22 +215,20 @@ within 0.003 at every cell size in under 2 s of wall time per
 supercell on a laptop, and exercises the natural same-species INPUT
 form together with the sum-rule auto-expansion described above.
 
-Head-to-head comparisons with ATAT's `mcsqs` 3.50 on four
-structurally distinct multi-sublattice cells (`docs/mcsqs_comparison.md`)
-show `scraps-perpair` converging to exact per-sublattice $\alpha=0$
-in well under one second at every cell size tested (16 to 432 atoms),
-while `mcsqs` requires 2 to 130 seconds per case and leaves residual
-max$|\alpha| \in [0.1, 0.7]$ at its convergence point. For the
-`mcsqs`-untargetable per-pair CSRO patterns, `scraps-perpair` hits
-arbitrary target $\alpha$ values on multiple sublattices
-simultaneously to within numerical precision in $\sim 1$ s on
-128-atom cells. An independent random-baseline ablation, pinned to
-the same `RNG_SEED` and using the `RANDOM_ONLY` keyword,
-demonstrates 12-15$\times$ quality improvement over
-best-of-$N$-random-nests on infeasibility-plateau cases and
-qualitatively infinite improvement on ordered-structure targets,
-where random search has $\sim 10^{-35}$ probability per nest of
-finding the target.
+The submission benchmark compares native cuckoo search, native simulated
+annealing, ATAT 3.52 `mcsqs`, and the icet 4.0 annealer with a common ATAT
+objective calculator. All methods use identical decorated pair, triplet,
+and quadruplet targets for BCC Nb–Mo–Ta and rocksalt (Ti,Zr,Hf)(C,N), at
+128 and 432 sites. Random targets and realizable nonzero correlation targets
+are assessed using maximum absolute, RMS, and mean absolute correlation
+errors. Forty trials allocate four cores and 30 seconds per method and
+problem, with a second seed for the smaller nonzero-target cases. Atomic
+native checkpoints retain assessable structures from unfinished annealing
+schedules. Time-to-target is first observed availability including startup;
+unreached thresholds remain right-censored. Independent `corrdump` checks,
+frozen input hashes, and saved regression fixtures make the numerical
+comparison auditable. The limited repetition supports a reproducible screening
+comparison, rather than a general claim of statistical or runtime superiority.
 
 # Mathematics
 
@@ -258,6 +257,10 @@ stochastic acceptance to escape micro-plateaus, or via the optional
 simulated annealing and parallel tempering kernels.
 
 # Acknowledgements
+
+Development of m_scraps is supported by the U.S. National Science Foundation under Award OAC-2608825 (PhaseForge).
+
+Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
 
 This fork builds on the upstream Hybrid Cuckoo Search code by Rahul
 Singh, Prashant Singh, Aayush Sharma, Ganesh Balasubramanian, and

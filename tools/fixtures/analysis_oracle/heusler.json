@@ -1,0 +1,987 @@
+{
+  "case": {
+    "id": "heusler",
+    "species": [
+      "Co",
+      "Ni",
+      "Mn",
+      "Fe",
+      "Al"
+    ],
+    "counts": [
+      32,
+      32,
+      16,
+      16,
+      32
+    ],
+    "sites": 128,
+    "cell_dim": [
+      2,
+      2,
+      2
+    ],
+    "cutoffs": [
+      4.3,
+      4.3,
+      4.3
+    ],
+    "constraints": []
+  },
+  "configurations": [
+    {
+      "seed": 42,
+      "occupations": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        0,
+        0,
+        3,
+        2,
+        2,
+        2,
+        2,
+        3,
+        2,
+        3,
+        2,
+        2,
+        3,
+        2,
+        3,
+        2,
+        2,
+        3,
+        2,
+        2,
+        2,
+        3,
+        3,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        2,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "correlations": [
+        0.0625,
+        -0.02083333333333333,
+        -0.08333333333333333,
+        -0.04166666666666666,
+        -0.0625,
+        0.02083333333333333,
+        0.0,
+        -0.02083333333333333,
+        -0.03125,
+        0.0625,
+        0.0,
+        0.0625,
+        -0.04166666666666666,
+        0.0,
+        0.0,
+        -0.08333333333333333,
+        -0.03125,
+        0.0625,
+        0.0,
+        0.375,
+        -0.25
+      ],
+      "metrics": {
+        "max_error": 0.375,
+        "rms_error": 0.10763088807950563,
+        "mean_absolute_error": 0.0625,
+        "weighted_l1": 0.0625
+      },
+      "sro": [
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Co",
+          "neighbor_species": "Co",
+          "distance": 2.975,
+          "alpha": 0.02083333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Co",
+          "neighbor_species": "Ni",
+          "distance": 2.975,
+          "alpha": -0.02083333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ni",
+          "neighbor_species": "Co",
+          "distance": 2.975,
+          "alpha": -0.02083333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ni",
+          "neighbor_species": "Ni",
+          "distance": 2.975,
+          "alpha": 0.02083333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Co",
+          "neighbor_species": "Co",
+          "distance": 4.2072853,
+          "alpha": 0.04166666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Co",
+          "neighbor_species": "Ni",
+          "distance": 4.2072853,
+          "alpha": -0.04166666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ni",
+          "neighbor_species": "Co",
+          "distance": 4.2072853,
+          "alpha": -0.04166666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ni",
+          "neighbor_species": "Ni",
+          "distance": 4.2072853,
+          "alpha": 0.04166666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Co",
+          "neighbor_species": "Mn",
+          "distance": 2.5764256,
+          "alpha": -0.0625,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Co",
+          "neighbor_species": "Fe",
+          "distance": 2.5764256,
+          "alpha": 0.0625,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Ni",
+          "neighbor_species": "Mn",
+          "distance": 2.5764256,
+          "alpha": 0.0625,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Ni",
+          "neighbor_species": "Fe",
+          "distance": 2.5764256,
+          "alpha": -0.0625,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Mn",
+          "neighbor_species": "Co",
+          "distance": 2.5764256,
+          "alpha": -0.0625,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Mn",
+          "neighbor_species": "Ni",
+          "distance": 2.5764256,
+          "alpha": 0.0625,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Fe",
+          "neighbor_species": "Co",
+          "distance": 2.5764256,
+          "alpha": 0.0625,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Fe",
+          "neighbor_species": "Ni",
+          "distance": 2.5764256,
+          "alpha": -0.0625,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Mn",
+          "neighbor_species": "Mn",
+          "distance": 4.2072853,
+          "alpha": 0.08333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Mn",
+          "neighbor_species": "Fe",
+          "distance": 4.2072853,
+          "alpha": -0.08333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Fe",
+          "neighbor_species": "Mn",
+          "distance": 4.2072853,
+          "alpha": -0.08333333333333333,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Fe",
+          "neighbor_species": "Fe",
+          "distance": 4.2072853,
+          "alpha": 0.08333333333333333,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        }
+      ]
+    },
+    {
+      "seed": 137,
+      "occupations": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        2,
+        2,
+        2,
+        3,
+        2,
+        2,
+        3,
+        3,
+        3,
+        2,
+        3,
+        3,
+        3,
+        3,
+        2,
+        2,
+        3,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        2,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "correlations": [
+        0.109375,
+        -0.0625,
+        -0.04166666666666666,
+        0.07291666666666667,
+        0.05208333333333334,
+        -0.02083333333333333,
+        0.05208333333333334,
+        0.0,
+        -0.125,
+        -0.09375,
+        0.03125,
+        0.04166666666666666,
+        0.015625,
+        -0.015625,
+        -0.015625,
+        0.10416666666666667,
+        0.03125,
+        -0.0625,
+        -0.0625,
+        0.0625,
+        -0.125
+      ],
+      "metrics": {
+        "max_error": 0.125,
+        "rms_error": 0.06754597444719533,
+        "mean_absolute_error": 0.0570436507936508,
+        "weighted_l1": 0.0570436507936508
+      },
+      "sro": [
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Co",
+          "neighbor_species": "Co",
+          "distance": 2.975,
+          "alpha": 0.0625,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Co",
+          "neighbor_species": "Ni",
+          "distance": 2.975,
+          "alpha": -0.0625,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ni",
+          "neighbor_species": "Co",
+          "distance": 2.975,
+          "alpha": -0.0625,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ni",
+          "neighbor_species": "Ni",
+          "distance": 2.975,
+          "alpha": 0.0625,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            1
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Co",
+          "neighbor_species": "Co",
+          "distance": 4.2072853,
+          "alpha": -0.07291666666666667,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Co",
+          "neighbor_species": "Ni",
+          "distance": 4.2072853,
+          "alpha": 0.07291666666666667,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ni",
+          "neighbor_species": "Co",
+          "distance": 4.2072853,
+          "alpha": 0.07291666666666667,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "0",
+          "center_species": "Ni",
+          "neighbor_species": "Ni",
+          "distance": 4.2072853,
+          "alpha": -0.07291666666666667,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            3
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Co",
+          "neighbor_species": "Mn",
+          "distance": 2.5764256,
+          "alpha": -0.109375,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Co",
+          "neighbor_species": "Fe",
+          "distance": 2.5764256,
+          "alpha": 0.109375,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Ni",
+          "neighbor_species": "Mn",
+          "distance": 2.5764256,
+          "alpha": 0.109375,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "0",
+          "destination": "1",
+          "center_species": "Ni",
+          "neighbor_species": "Fe",
+          "distance": 2.5764256,
+          "alpha": -0.109375,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Mn",
+          "neighbor_species": "Co",
+          "distance": 2.5764256,
+          "alpha": -0.109375,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Mn",
+          "neighbor_species": "Ni",
+          "distance": 2.5764256,
+          "alpha": 0.109375,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Fe",
+          "neighbor_species": "Co",
+          "distance": 2.5764256,
+          "alpha": 0.109375,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "0",
+          "center_species": "Fe",
+          "neighbor_species": "Ni",
+          "distance": 2.5764256,
+          "alpha": -0.109375,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            0
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Mn",
+          "neighbor_species": "Mn",
+          "distance": 4.2072853,
+          "alpha": 0.04166666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Mn",
+          "neighbor_species": "Fe",
+          "distance": 4.2072853,
+          "alpha": -0.04166666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Fe",
+          "neighbor_species": "Mn",
+          "distance": 4.2072853,
+          "alpha": -0.04166666666666666,
+          "spin_factor": 1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        },
+        {
+          "source": "1",
+          "destination": "1",
+          "center_species": "Fe",
+          "neighbor_species": "Fe",
+          "distance": 4.2072853,
+          "alpha": 0.04166666666666666,
+          "spin_factor": -1.0,
+          "feature_indices": [
+            2
+          ],
+          "weights": [
+            1.0
+          ]
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "case": "heusler",
+    "components": 21,
+    "orders": [
+      2,
+      3,
+      4
+    ],
+    "target_error": 0.0,
+    "random_probe_errors": [
+      5.551115123125783e-17,
+      4.163336342344337e-17,
+      6.938893903907228e-17
+    ],
+    "native_pilot_atat_errors": [],
+    "preparation_seconds": 0.2522060004994273,
+    "input_hashes": {
+      "rndstr.in": "b09e4528126cf9d4711f9f47f77f4b6e2d5750f3fd752cf78d6c711981976683",
+      "clusters.out": "b6f139ff57fcef7ffe61a7ce1eae646d11c4c724c597568eea591dca47cab807",
+      "sqscell.out": "365013e89f30c28777e516781645e4ab2718dd0b9429865fb16ea6eeb9ee100a",
+      "target-correlations.in": "4e65051cb6c94050d2d139a97c9ad1324181f8a963744a766e8d72cb90a19fdf"
+    },
+    "shared_species_labels": false
+  },
+  "sro_conversion": "binary equiatomic: alpha_ab = -gamma(a)*gamma(b)*<gamma_i gamma_j>; ATAT pair orbits combined by multiplicity",
+  "sro_scope": "disordered-disordered pairs within figure cutoff; fixed-site pairs tested analytically"
+}
