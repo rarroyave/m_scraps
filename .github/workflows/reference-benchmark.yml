@@ -36,7 +36,7 @@ jobs:
         run: pytest tools/tests/test_atat_reference.py tools/tests/test_reference_benchmark.py tools/tests/test_figure_checkpoints.py tools/tests/test_submission_benchmark.py tools/tests/test_analysis_oracle.py tools/tests/test_structure_analysis.py -q
       - name: Short reproducible benchmark (CI performance is informational)
         run: python tools/benchmark_submission.py --output benchmark-results --seconds 5 --ranks 2
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           retention-days: 7
