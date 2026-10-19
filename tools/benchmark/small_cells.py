@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded, self-contained small-cell pair-SRO comparison (maximum 32 atoms)."""
+"""Bounded, self-contained small-cell pair-SRO comparison (up to 48 atoms)."""
 from __future__ import annotations
 import argparse
 import csv
@@ -32,18 +32,18 @@ def save(path, value):
     temp.replace(path)
 
 
-def cases():
+def cases(sizes=(8, 16, 32)):
     """Fixed geometries and equiatomic fractions; only target SRO varies."""
     for system in ['bcc', 'rocksalt']:
-        for size in [8, 16, 32]:
+        for size in sizes:
             if system == 'bcc':
-                repeat = {8: (2, 2, 1), 16: (2, 2, 2), 32: (2, 2, 4)}[size]
+                repeat = {8: (2, 2, 1), 16: (2, 2, 2), 32: (2, 2, 4), 48: (2, 3, 4)}[size]
                 atoms = bulk('Cu', 'bcc', a=3, cubic=True).repeat(repeat)
                 labels = ['all'] * size
                 allowed = {'all': ['Cu', 'Zn']}
                 source, destination, a, b, cutoff = 'all', 'all', 'Cu', 'Zn', 2.7
             else:
-                repeat = {8: (2, 2, 1), 16: (2, 2, 2), 32: (2, 2, 4)}[size]
+                repeat = {8: (2, 2, 1), 16: (2, 2, 2), 32: (2, 2, 4), 48: (2, 3, 4)}[size]
                 atoms = bulk('TiC', 'rocksalt', a=4.4).repeat(repeat)
                 labels = ['M', 'X'] * (size // 2)
                 allowed = {'M': ['Ti', 'Zr'], 'X': ['C', 'N']}
@@ -79,16 +79,34 @@ def render(root, records):
     body = ''.join('<tr>' + ''.join('<td>' + html.escape(value(row[k])) + '</td>' for k in columns) + '</tr>' for row in rows)
     (root / 'report.html').write_text('''<!doctype html><meta charset="utf-8"><title>Small-cell m_scraps benchmark</title>
 <style>body{font:15px system-ui;margin:32px;color:#172333}h1{font-size:26px}table{border-collapse:collapse;font-size:12px}th,td{padding:7px;border-bottom:1px solid #ccd4dd;text-align:right}th{background:#eaf0f6;position:sticky;top:0}tr:nth-child(even){background:#f6f8fa}p{max-width:1000px}</style>
-<h1>Small-cell pair-SRO benchmark: 8–32 atoms</h1>
+<h1>Small-cell pair-SRO benchmark: selected sizes</h1>
 <p>Same fixed cells, compositions, initial occupations, targets and metrics across methods. Full enumeration, symmetry reduction and bound-aware stopping are compared with the cell-search Python SA, not native SCRAPS SA. One directed first-shell component per case makes max, RMS and MAE numerically identical. No higher-order correlation claims.</p>
 <p>Enumeration is capped before symmetry reduction; skipped rows are explicit, not failed optimizations. SA has three seeds. Times include per-method preparation but exclude interpreter startup and validation. Threshold times are observed improvement callback times; a dash means not observed, not zero or the budget. Each final witness is independently reanalyzed. Geometry is held fixed: this is not a supercell-shape search. Bounds/certificates concern one cell only.</p>
 <p>This limited deterministic screen does not establish broad statistical superiority. See protocol.json, environment.json, results.json and case witness files for reproducibility.</p>
 <div style="overflow:auto"><table><thead><tr>''' + header + '</tr></thead><tbody>' + body + '</tbody></table></div>\n')
 
 
+def export_references(root, records, sizes):
+    """Freeze feasible witnesses; certify only by exhaustion or bound attainment."""
+    references = []
+    for case in cases(sizes):
+        rows = [r for r in records if r['case'] == case['id'] and 'witness' in r]
+        if not rows:
+            continue
+        best = min(rows, key=lambda r: r['max_error'])
+        proved = any(r['status'] == 'certified_minimum' and abs(r['max_error']-best['max_error']) < 1e-12 for r in rows)
+        references.append(dict(id=case['id'], cutoff=case['cutoff'], targets=case['targets'],
+            sublattices=case['config'], initial_extxyz=(root/case['id']/'initial.extxyz').read_text(),
+            witness_extxyz=(root/best['witness']).read_text(), witness_sha256=best['witness_sha256'],
+            optimum=best['max_error'] if proved else None, best_error=best['max_error'],
+            lower_bound=best['lower_bound'], proof_basis='certified_search' if proved else 'unproven'))
+    save(root/'cases.json', dict(cases=references))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--sizes', type=int, nargs='+', choices=[8,16,32,48], default=[8,16,32])
     parser.add_argument('--seconds', type=float, default=5)
     parser.add_argument('--max-configurations', type=int, default=20000)
     parser.add_argument('--sa-steps', type=int, default=10000)
@@ -99,7 +117,7 @@ def main(argv=None):
         parser.error('Budgets must be positive and finite')
     root = args.output.resolve(); root.mkdir(parents=True)
     methods = ['labeled_exhaustive', 'symmetry_exhaustive', 'symmetry_bound_stop', 'python_pair_sro_sa']
-    protocol = dict(schema_version=1, systems=['bcc_CuZn', 'rocksalt_TiZr_CN'], sizes=[8,16,32], targets=[0,-.1],
+    protocol = dict(schema_version=1, systems=['bcc_CuZn', 'rocksalt_TiZr_CN'], sizes=args.sizes, targets=[0,-.1],
         methods=methods, sa_seeds=[42,43,44], selected_metric='max_error', reported_metrics=['max_error','rms_error','mean_absolute_error'],
         components='One explicit first-shell directed component per case; no implicit targets.',
         max_configurations=args.max_configurations, seconds_per_trial=args.seconds, sa_steps=args.sa_steps,
@@ -115,7 +133,7 @@ def main(argv=None):
             [Path(__file__), TOOLS/'enumerate_sro.py',TOOLS/'enumeration_symmetry.py',TOOLS/'sro_bounds.py',TOOLS/'search_cells.py',TOOLS/'structure_analysis.py']})
     save(root/'environment.json', environment)
     records = []
-    for case in cases():
+    for case in cases(args.sizes):
         directory = root/case['id']; directory.mkdir()
         write(directory/'initial.extxyz', case['atoms'])
         save(directory/'targets.json', case['targets']); save(directory/'sublattices.json', case['config'])
@@ -167,6 +185,7 @@ def main(argv=None):
             optimum=exact[0]['max_error']
             assert all(abs(r['max_error']-optimum)<1e-12 for r in exact)
             assert all(r.get('max_error',float('inf'))+1e-12>=optimum for r in records if r['case']==case['id'])
+    export_references(root,records,args.sizes)
     render(root,records)
     save(root/'completed.json',dict(trials=len(records),verified_witnesses=sum('witness' in r for r in records),status='complete'))
     return 0

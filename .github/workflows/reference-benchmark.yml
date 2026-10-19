@@ -2,24 +2,11 @@ name: ATAT-free reference benchmark
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'SCRAPs/**'
-      - 'tools/atat_reference.py'
-      - 'tools/benchmark_atat_reference.py'
-      - 'tools/benchmark_submission.py'
-      - 'tools/structure_analysis.py'
-      - 'tools/compare_atat.py'
-      - 'tools/fixtures/analysis_oracle/**'
-      - 'tools/benchmark/**'
-      - 'tools/fixtures/atat/**'
-      - 'tools/fixtures/submission_benchmark/**'
-      - 'tools/tests/test_submission_benchmark.py'
-      - 'tools/tests/test_figure_checkpoints.py'
-      - 'tools/tests/test_atat_reference.py'
-      - 'tools/tests/test_reference_benchmark.py'
-      - '.github/workflows/reference-benchmark.yml'
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   reference-benchmark:
@@ -30,6 +17,7 @@ jobs:
       MPIRUN: /usr/bin/mpirun
       EIGEN_INC: /usr/include/eigen3
       OMPI_MCA_rmaps_base_oversubscribe: '1'
+      PRTE_MCA_rmaps_default_mapping_policy: ':oversubscribe'
       OMP_NUM_THREADS: '1'
       OPENBLAS_NUM_THREADS: '1'
     steps:
@@ -51,5 +39,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
+          retention-days: 7
           name: atat-free-benchmark
           path: benchmark-results/

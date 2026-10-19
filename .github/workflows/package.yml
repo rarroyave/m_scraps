@@ -1,12 +1,13 @@
 name: Package installation
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   install:
     strategy:

@@ -985,16 +985,17 @@ python -m pytest tools/tests/test_small_cell_benchmark.py -q
 ### Small-cell extension: native solvers, ATAT and icet
 
 The [all-method HTML report](docs/small_cell_all_methods.html) compares all eight
-methods on the same 12 fixed cells and targets. The extension adds 48 trials:
+methods on 16 fixed-cell problems (8, 16, 32, and 48 atoms). The external/native
+comparison includes 64 trials:
 native SCRAPS cuckoo, native SCRAPS SA, ATAT `mcsqs`, and icet with the matched
 ATAT calculator. Each added trial uses seed 42, one worker, and a five-second
 budget. Engine-specific initialization differs; using the same seed does not
 create identical starting occupations. Native restarts increment the seed.
 
-All four added methods reached the certified optimum in every case (48/48
-trials). Each reached error ≤0.01 in the same seven cases; the other five have
+All four added methods reached the certified optimum in every case (64/64
+trials). Each reached error ≤0.01 in the same ten cases; the other six have
 certified floors above that threshold. The largest discrepancy between the
-saved witness correlations and ATAT was 2.8×10⁻¹⁷.
+saved witness correlations and ATAT was 4.2×10⁻¹⁷.
 
 For these equiatomic binary groups, the selected pair correlation equals the
 pair-SRO alpha. The input mapping and best witnesses are checked independently
@@ -1015,10 +1016,18 @@ statistical ranking.
 Optional fresh run from a source checkout with icet 4.0 and ATAT available:
 
 ```bash
+python tools/benchmark/small_cells.py --output new-baseline --sizes 8 16 32 48
 python tools/benchmark/small_cells_external.py --output new-external-results \
-  --binary SCRAPs/m_scraps --mpirun /path/to/matching/mpirun \
+  --reference new-baseline --binary SCRAPs/m_scraps --mpirun /path/to/matching/mpirun \
   --atat-bin /path/to/atat/bin --seconds 5 --seed 42
 ```
+
+Use `--sizes 48` in the first command to run only the four new cases. Existing
+8–32-atom measurements were retained for the reported extension. At 48 atoms,
+all random targets reached zero error; target −0.1 gave certified minima of
+0.004167 (BCC) and 0.011111 (two-sublattice rocksalt). Enumeration was capped;
+feasible witnesses attained rigorous lower bounds. The added results are archived
+in `tools/fixtures/small_cells_48/`.
 
 The runner validates all inputs before optimization, records source/executable
 hashes and environment versions, locks the output directory, and resumes only

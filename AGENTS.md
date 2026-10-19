@@ -48,15 +48,19 @@ Single source of truth:
 
 ```bash
 ./install.sh                        # MPI build + locked Python environment
-./scripts/test.sh -q                # 183 collected; 4 generated-fixture tests skip on a clean clone
+./scripts/test.sh -q                # full regression suite; optional dependencies may skip
 python -m pytest tools/tests/test_<file>.py -x -q   # single file, faster
 ```
 
 Build deps: `mpic++` (Open MPI on macOS, Open MPI or MPICH on Linux),
 Eigen, C++17. Python deps in `tools/requirements.txt`
-(`pymatgen`, `ase`, `matplotlib`, `pytest`). CI runs the matrix
-{Ubuntu, macOS} × {Python 3.11, 3.12} on every push and PR — see
-`.github/workflows/test.yml`.
+(`pymatgen`, `ase`, `matplotlib`, `pytest`). Routine code CI uses Ubuntu/Python 3.12 only. The full
+{Ubuntu, macOS} × {Python 3.11, 3.12} matrix is reserved for version tags
+and manual audits — see `.github/workflows/test.yml`. Package/notebook checks
+run on tags or manual dispatch; the separate reference benchmark is manual-only.
+Preserve this cost policy: run development campaigns on the Studio, avoid adding
+automatic or scheduled jobs, and cancel superseded runs. Documentation-only
+changes should not launch scientific CI. See CONTRIBUTING.md for release checks.
 
 **Tests that need scraps or mpirun gate themselves:**
 

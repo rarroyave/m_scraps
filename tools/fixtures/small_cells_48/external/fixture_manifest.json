@@ -1,0 +1,21 @@
+{
+  "rocksalt_48_random.pair-sro-audit.json": "d9f06af5d1b10dfcfd9121ced114b45e08c6a473930a3d379fb10c92ac55df75",
+  "bcc_48_sro.pair-sro-audit.json": "a217f43116c6a80c680f3d2dd6616fc357c6efc4eaab6c45ca9d3bcdce37108d",
+  "summary.json": "7c41841626c34f2cb6fd710af257c047cae5d8bdcd4b4d2a908eaa22a52e61bd",
+  "bcc_48_random.figures.gz": "a766460676585959c2e34912534a0136819df319e1ad553519c513ca84923e40",
+  "bcc_48_random.figures.json": "ae706985e72bd6bd7584639dcb54400fd1482519e369527fd38313fafa360391",
+  "bcc_48_sro.figures.gz": "41f9820fc0d3eb2e7563151e0c9e0a4f4bd49ffb48b669b841fa5b5e9319ed43",
+  "oracle_provenance.json": "99c8e0742e2b7d89152890b68012669ad74182fc8234cb5324c07065cb00fc4c",
+  "rocksalt_48_random.figures.json": "dff0100dabce38d8181859417ae21473a93786b5ec850ae1de68d1b5f8ce6274",
+  "bcc_48_sro.figures.json": "9aa9d2c8e385611f5e23ea61c415023a5b10b0b30bc07f818cf7a537c6dedb59",
+  "rocksalt_48_sro.figures.gz": "5acc147cf3094affcac1765382f605e9e6c219395221f2996b525711a7b80a64",
+  "rocksalt_48_sro.pair-sro-audit.json": "55c3745f4f12e90d579cef66671593d7ed5f9547140501c1476bb3b704fccc8d",
+  "bcc_48_random.pair-sro-audit.json": "6aa9a16ea10d37e57ed6a689416e41a309a02fee1c546552423f80c7a20a0d84",
+  "rocksalt_48_sro.figures.json": "9b0015256f555c1e469928f1bfbfe3088fc42ec928e7049f57483621436a968c",
+  "manifest.json": "372e02f855b43a9411b9db314794ead3a0ee2559ab502142c6ffce1fcfea5d24",
+  "protocol.json": "27edf4576282fa4b3fc7353380d27b8ef77be61cac4ff700600da3376d4d212f",
+  "status.json": "a1e37ff2e96c394aaf49f28d630246d25b6b1191a8d956d277cf8bf136c17222",
+  "rocksalt_48_random.figures.gz": "6808d5208fd3cd650984d99a60d049f0530b72f9fe7585a8e9e80ff096777dd5",
+  "environment.json": "be4b7de5ea9245f4c1816d063c55f4c2518826c5ca3f298e1a274a1d4ae75175",
+  "oracles.json": "21e614dae74c00b7a04eb13bfea49981d9a7c8705ead038c68e3f0bba3ebf947"
+}

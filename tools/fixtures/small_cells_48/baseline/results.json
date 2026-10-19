@@ -1,0 +1,1896 @@
+[
+  {
+    "case": "bcc_48_random",
+    "system": "bcc",
+    "size": 48,
+    "target": 0,
+    "method": "labeled_exhaustive",
+    "seed": null,
+    "lower_bound": 0.0,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.004798791371285915,
+    "reason": "32247603683100 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "bcc_48_random",
+    "system": "bcc",
+    "size": 48,
+    "target": 0,
+    "method": "symmetry_exhaustive",
+    "seed": null,
+    "lower_bound": 0.0,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.004183458164334297,
+    "reason": "32247603683100 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "bcc_48_random",
+    "system": "bcc",
+    "size": 48,
+    "target": 0,
+    "method": "symmetry_bound_stop",
+    "seed": null,
+    "lower_bound": 0.0,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.004005708731710911,
+    "reason": "32247603683100 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "bcc_48_random",
+    "system": "bcc",
+    "size": 48,
+    "target": 0,
+    "method": "python_pair_sro_sa",
+    "seed": 42,
+    "lower_bound": 0.0,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.15097341686487198,
+    "max_error": 0.0,
+    "rms_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.007908125407993793,
+        "best_error": 0.04166666666666663,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.008019832894206047,
+        "best_error": 0.02083333333333337,
+        "steps": 2
+      },
+      {
+        "elapsed_seconds": 0.00803895853459835,
+        "best_error": 0.0,
+        "steps": 3
+      }
+    ],
+    "witness": "bcc_48_random/python_pair_sro_sa-42.extxyz",
+    "witness_sha256": "2791991e7e7fe6b4c051b4e8739ebe9ddce04f40717e0b7898d71f90fda2c446",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.0,
+      "lower_bound": 0.0,
+      "steps": 10000,
+      "seed": 42,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.00803895853459835,
+    "time_to_0.05": 0.007908125407993793
+  },
+  {
+    "case": "bcc_48_random",
+    "system": "bcc",
+    "size": 48,
+    "target": 0,
+    "method": "python_pair_sro_sa",
+    "seed": 43,
+    "lower_bound": 0.0,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.14667095802724361,
+    "max_error": 0.0,
+    "rms_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.00784824974834919,
+        "best_error": 0.04166666666666663,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.007877834141254425,
+        "best_error": 0.02083333333333326,
+        "steps": 1
+      },
+      {
+        "elapsed_seconds": 0.007895958609879017,
+        "best_error": 0.0,
+        "steps": 2
+      }
+    ],
+    "witness": "bcc_48_random/python_pair_sro_sa-43.extxyz",
+    "witness_sha256": "b33a0c58a09df994a721754945298f66ffac0e6b6ba7327f72f7ef929405ac38",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.0,
+      "lower_bound": 0.0,
+      "steps": 10000,
+      "seed": 43,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.007895958609879017,
+    "time_to_0.05": 0.00784824974834919
+  },
+  {
+    "case": "bcc_48_random",
+    "system": "bcc",
+    "size": 48,
+    "target": 0,
+    "method": "python_pair_sro_sa",
+    "seed": 44,
+    "lower_bound": 0.0,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.14774245861917734,
+    "max_error": 0.0,
+    "rms_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.007793541997671127,
+        "best_error": 0.04166666666666663,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.007839874364435673,
+        "best_error": 0.02083333333333326,
+        "steps": 2
+      },
+      {
+        "elapsed_seconds": 0.008080416359007359,
+        "best_error": 0.0,
+        "steps": 19
+      }
+    ],
+    "witness": "bcc_48_random/python_pair_sro_sa-44.extxyz",
+    "witness_sha256": "be10831028218ea45cd35bd80985f67449315526bb48fc2b998f12ea0b7d31c8",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.0,
+      "lower_bound": 0.0,
+      "steps": 10000,
+      "seed": 44,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.008080416359007359,
+    "time_to_0.05": 0.007793541997671127
+  },
+  {
+    "case": "bcc_48_sro",
+    "system": "bcc",
+    "size": 48,
+    "target": -0.1,
+    "method": "labeled_exhaustive",
+    "seed": null,
+    "lower_bound": 0.004166666666666667,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.003982415422797203,
+    "reason": "32247603683100 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "bcc_48_sro",
+    "system": "bcc",
+    "size": 48,
+    "target": -0.1,
+    "method": "symmetry_exhaustive",
+    "seed": null,
+    "lower_bound": 0.004166666666666667,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.003963625058531761,
+    "reason": "32247603683100 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "bcc_48_sro",
+    "system": "bcc",
+    "size": 48,
+    "target": -0.1,
+    "method": "symmetry_bound_stop",
+    "seed": null,
+    "lower_bound": 0.004166666666666667,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.0039389170706272125,
+    "reason": "32247603683100 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "bcc_48_sro",
+    "system": "bcc",
+    "size": 48,
+    "target": -0.1,
+    "method": "python_pair_sro_sa",
+    "seed": 42,
+    "lower_bound": 0.004166666666666667,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.1475539579987526,
+    "max_error": 0.004166666666666735,
+    "rms_error": 0.004166666666666735,
+    "mean_absolute_error": 0.004166666666666735,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.0077344998717308044,
+        "best_error": 0.14166666666666664,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.007783874869346619,
+        "best_error": 0.12083333333333338,
+        "steps": 2
+      },
+      {
+        "elapsed_seconds": 0.0078004999086260796,
+        "best_error": 0.1,
+        "steps": 3
+      },
+      {
+        "elapsed_seconds": 0.008013290353119373,
+        "best_error": 0.058333333333333265,
+        "steps": 18
+      },
+      {
+        "elapsed_seconds": 0.008621207438409328,
+        "best_error": 0.037500000000000006,
+        "steps": 63
+      },
+      {
+        "elapsed_seconds": 0.00866204034537077,
+        "best_error": 0.024999999999999994,
+        "steps": 66
+      },
+      {
+        "elapsed_seconds": 0.008745832368731499,
+        "best_error": 0.016666666666666746,
+        "steps": 72
+      },
+      {
+        "elapsed_seconds": 0.009446332231163979,
+        "best_error": 0.004166666666666735,
+        "steps": 124
+      }
+    ],
+    "witness": "bcc_48_sro/python_pair_sro_sa-42.extxyz",
+    "witness_sha256": "bf12ac853107c87badb39dc620838291d7163b9a82c85ac2c726c7325cd9dd43",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.004166666666666667,
+      "lower_bound": 0.004166666666666667,
+      "steps": 10000,
+      "seed": 42,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.009446332231163979,
+    "time_to_0.05": 0.008621207438409328
+  },
+  {
+    "case": "bcc_48_sro",
+    "system": "bcc",
+    "size": 48,
+    "target": -0.1,
+    "method": "python_pair_sro_sa",
+    "seed": 43,
+    "lower_bound": 0.004166666666666667,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.1462742919102311,
+    "max_error": 0.004166666666666735,
+    "rms_error": 0.004166666666666735,
+    "mean_absolute_error": 0.004166666666666735,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.007870333269238472,
+        "best_error": 0.14166666666666664,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.007903332822024822,
+        "best_error": 0.07916666666666675,
+        "steps": 1
+      },
+      {
+        "elapsed_seconds": 0.007943792268633842,
+        "best_error": 0.058333333333333265,
+        "steps": 3
+      },
+      {
+        "elapsed_seconds": 0.008318999782204628,
+        "best_error": 0.037500000000000006,
+        "steps": 29
+      },
+      {
+        "elapsed_seconds": 0.008564166724681854,
+        "best_error": 0.024999999999999994,
+        "steps": 47
+      },
+      {
+        "elapsed_seconds": 0.008578416891396046,
+        "best_error": 0.016666666666666746,
+        "steps": 48
+      },
+      {
+        "elapsed_seconds": 0.00860687531530857,
+        "best_error": 0.004166666666666735,
+        "steps": 50
+      }
+    ],
+    "witness": "bcc_48_sro/python_pair_sro_sa-43.extxyz",
+    "witness_sha256": "d9ef27f4200ecaa5b2a7dde93674c583eef352a957b815e110cbcdaf8b6e5203",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.004166666666666667,
+      "lower_bound": 0.004166666666666667,
+      "steps": 10000,
+      "seed": 43,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.00860687531530857,
+    "time_to_0.05": 0.008318999782204628
+  },
+  {
+    "case": "bcc_48_sro",
+    "system": "bcc",
+    "size": 48,
+    "target": -0.1,
+    "method": "python_pair_sro_sa",
+    "seed": 44,
+    "lower_bound": 0.004166666666666667,
+    "total_configurations": 32247603683100,
+    "geometry": {
+      "shortest_repeat": 6.0,
+      "aspect_ratio": 2.0,
+      "reduced_lengths": [
+        6.0,
+        9.0,
+        12.0
+      ],
+      "volume": 647.9999999999999,
+      "reduced_cell": [
+        [
+          6.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          9.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          12.0
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.14613474998623133,
+    "max_error": 0.004166666666666735,
+    "rms_error": 0.004166666666666735,
+    "mean_absolute_error": 0.004166666666666735,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.0077316658571362495,
+        "best_error": 0.14166666666666664,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.007775790989398956,
+        "best_error": 0.07916666666666675,
+        "steps": 2
+      },
+      {
+        "elapsed_seconds": 0.007864125072956085,
+        "best_error": 0.058333333333333265,
+        "steps": 8
+      },
+      {
+        "elapsed_seconds": 0.008138790726661682,
+        "best_error": 0.037500000000000006,
+        "steps": 28
+      },
+      {
+        "elapsed_seconds": 0.008168458007276058,
+        "best_error": 0.016666666666666746,
+        "steps": 30
+      },
+      {
+        "elapsed_seconds": 0.008506041020154953,
+        "best_error": 0.004166666666666735,
+        "steps": 55
+      }
+    ],
+    "witness": "bcc_48_sro/python_pair_sro_sa-44.extxyz",
+    "witness_sha256": "9a90370d8633b90d426fec78cbc20a054a5d35d1a0c4e6e9bed5a5dd31851e54",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.004166666666666667,
+      "lower_bound": 0.004166666666666667,
+      "steps": 10000,
+      "seed": 44,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.008506041020154953,
+    "time_to_0.05": 0.008138790726661682
+  },
+  {
+    "case": "rocksalt_48_random",
+    "system": "rocksalt",
+    "size": 48,
+    "target": 0,
+    "method": "labeled_exhaustive",
+    "seed": null,
+    "lower_bound": 0.0,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.006327750161290169,
+    "reason": "7312459672336 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "rocksalt_48_random",
+    "system": "rocksalt",
+    "size": 48,
+    "target": 0,
+    "method": "symmetry_exhaustive",
+    "seed": null,
+    "lower_bound": 0.0,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.006350790150463581,
+    "reason": "7312459672336 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "rocksalt_48_random",
+    "system": "rocksalt",
+    "size": 48,
+    "target": 0,
+    "method": "symmetry_bound_stop",
+    "seed": null,
+    "lower_bound": 0.0,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.00632366631180048,
+    "reason": "7312459672336 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "rocksalt_48_random",
+    "system": "rocksalt",
+    "size": 48,
+    "target": 0,
+    "method": "python_pair_sro_sa",
+    "seed": 42,
+    "lower_bound": 0.0,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.13938354142010212,
+    "max_error": 0.0,
+    "rms_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.012594625353813171,
+        "best_error": 0.02777777777777779,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.012691083364188671,
+        "best_error": 0.0,
+        "steps": 6
+      }
+    ],
+    "witness": "rocksalt_48_random/python_pair_sro_sa-42.extxyz",
+    "witness_sha256": "58a1c0089a64ce85962831732a36812757a652f243266613136e01edf5fc5421",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.0,
+      "lower_bound": 0.0,
+      "steps": 10000,
+      "seed": 42,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.012691083364188671,
+    "time_to_0.05": 0.012594625353813171
+  },
+  {
+    "case": "rocksalt_48_random",
+    "system": "rocksalt",
+    "size": 48,
+    "target": 0,
+    "method": "python_pair_sro_sa",
+    "seed": 43,
+    "lower_bound": 0.0,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.14124879147857428,
+    "max_error": 0.0,
+    "rms_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.012676207348704338,
+        "best_error": 0.02777777777777779,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.01296854205429554,
+        "best_error": 0.0,
+        "steps": 22
+      }
+    ],
+    "witness": "rocksalt_48_random/python_pair_sro_sa-43.extxyz",
+    "witness_sha256": "e758d329a8305bc4453376811c4f631841658737ef82def238a0744af2c5f90d",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.0,
+      "lower_bound": 0.0,
+      "steps": 10000,
+      "seed": 43,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.01296854205429554,
+    "time_to_0.05": 0.012676207348704338
+  },
+  {
+    "case": "rocksalt_48_random",
+    "system": "rocksalt",
+    "size": 48,
+    "target": 0,
+    "method": "python_pair_sro_sa",
+    "seed": 44,
+    "lower_bound": 0.0,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.13984995801001787,
+    "max_error": 0.0,
+    "rms_error": 0.0,
+    "mean_absolute_error": 0.0,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.012928375042974949,
+        "best_error": 0.02777777777777779,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.01295654196292162,
+        "best_error": 0.02777777777777768,
+        "steps": 1
+      },
+      {
+        "elapsed_seconds": 0.012972957454621792,
+        "best_error": 0.0,
+        "steps": 2
+      }
+    ],
+    "witness": "rocksalt_48_random/python_pair_sro_sa-44.extxyz",
+    "witness_sha256": "fc90030e8313b65cd3aec81c98c2a307cfd15b0cead006848ac912b01f994687",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.0,
+      "lower_bound": 0.0,
+      "steps": 10000,
+      "seed": 44,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": 0.012972957454621792,
+    "time_to_0.05": 0.012928375042974949
+  },
+  {
+    "case": "rocksalt_48_sro",
+    "system": "rocksalt",
+    "size": 48,
+    "target": -0.1,
+    "method": "labeled_exhaustive",
+    "seed": null,
+    "lower_bound": 0.011111111111111112,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.006317291408777237,
+    "reason": "7312459672336 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "rocksalt_48_sro",
+    "system": "rocksalt",
+    "size": 48,
+    "target": -0.1,
+    "method": "symmetry_exhaustive",
+    "seed": null,
+    "lower_bound": 0.011111111111111112,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.006399749778211117,
+    "reason": "7312459672336 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "rocksalt_48_sro",
+    "system": "rocksalt",
+    "size": 48,
+    "target": -0.1,
+    "method": "symmetry_bound_stop",
+    "seed": null,
+    "lower_bound": 0.011111111111111112,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "configuration_cap",
+    "elapsed_seconds": 0.006317624822258949,
+    "reason": "7312459672336 configurations exceed --max-configurations 20000; choose a smaller cell or explicitly raise the cap",
+    "events": []
+  },
+  {
+    "case": "rocksalt_48_sro",
+    "system": "rocksalt",
+    "size": 48,
+    "target": -0.1,
+    "method": "python_pair_sro_sa",
+    "seed": 42,
+    "lower_bound": 0.011111111111111112,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.14061258360743523,
+    "max_error": 0.011111111111111155,
+    "rms_error": 0.011111111111111155,
+    "mean_absolute_error": 0.011111111111111155,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.013046416454017162,
+        "best_error": 0.1277777777777778,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.01315274927765131,
+        "best_error": 0.1,
+        "steps": 6
+      },
+      {
+        "elapsed_seconds": 0.013219749554991722,
+        "best_error": 0.044444444444444425,
+        "steps": 11
+      },
+      {
+        "elapsed_seconds": 0.013397417031228542,
+        "best_error": 0.016666666666666746,
+        "steps": 24
+      },
+      {
+        "elapsed_seconds": 0.013810333795845509,
+        "best_error": 0.011111111111111155,
+        "steps": 56
+      }
+    ],
+    "witness": "rocksalt_48_sro/python_pair_sro_sa-42.extxyz",
+    "witness_sha256": "f1994be1fcde2f1a3f8166469b7fae8cab22ba8750d25b3b9f71fa1f18afbc6d",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.011111111111111112,
+      "lower_bound": 0.011111111111111112,
+      "steps": 10000,
+      "seed": 42,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": null,
+    "time_to_0.05": 0.013219749554991722
+  },
+  {
+    "case": "rocksalt_48_sro",
+    "system": "rocksalt",
+    "size": 48,
+    "target": -0.1,
+    "method": "python_pair_sro_sa",
+    "seed": 43,
+    "lower_bound": 0.011111111111111112,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.14210350066423416,
+    "max_error": 0.011111111111111155,
+    "rms_error": 0.011111111111111155,
+    "mean_absolute_error": 0.011111111111111155,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.012594250030815601,
+        "best_error": 0.1277777777777778,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.01288741733878851,
+        "best_error": 0.1,
+        "steps": 22
+      },
+      {
+        "elapsed_seconds": 0.013224207796156406,
+        "best_error": 0.07222222222222233,
+        "steps": 50
+      },
+      {
+        "elapsed_seconds": 0.013308124616742134,
+        "best_error": 0.011111111111111155,
+        "steps": 57
+      }
+    ],
+    "witness": "rocksalt_48_sro/python_pair_sro_sa-43.extxyz",
+    "witness_sha256": "dfb99bdecdb68cf20780b0279b04a6991de9a2c29c7263d549d67c94c3933922",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.011111111111111112,
+      "lower_bound": 0.011111111111111112,
+      "steps": 10000,
+      "seed": 43,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": null,
+    "time_to_0.05": 0.013308124616742134
+  },
+  {
+    "case": "rocksalt_48_sro",
+    "system": "rocksalt",
+    "size": 48,
+    "target": -0.1,
+    "method": "python_pair_sro_sa",
+    "seed": 44,
+    "lower_bound": 0.011111111111111112,
+    "total_configurations": 7312459672336,
+    "geometry": {
+      "shortest_repeat": 6.222539674441618,
+      "aspect_ratio": 1.7320508075688772,
+      "reduced_lengths": [
+        6.222539674441618,
+        8.231646250902672,
+        10.777754868245983
+      ],
+      "volume": 511.1040000000003,
+      "reduced_cell": [
+        [
+          0.0,
+          4.4,
+          4.4
+        ],
+        [
+          6.6000000000000005,
+          -4.4,
+          2.2
+        ],
+        [
+          8.8,
+          4.4,
+          -4.4
+        ]
+      ],
+      "basis_operation": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ],
+        [
+          -1,
+          0,
+          1
+        ]
+      ]
+    },
+    "status": "certified_minimum",
+    "elapsed_seconds": 0.14108883310109377,
+    "max_error": 0.011111111111111155,
+    "rms_error": 0.011111111111111155,
+    "mean_absolute_error": 0.011111111111111155,
+    "evaluations": 10000,
+    "certificate_basis": null,
+    "events": [
+      {
+        "elapsed_seconds": 0.012659958563745022,
+        "best_error": 0.1277777777777778,
+        "steps": 0
+      },
+      {
+        "elapsed_seconds": 0.012686207890510559,
+        "best_error": 0.07222222222222233,
+        "steps": 1
+      },
+      {
+        "elapsed_seconds": 0.012783832848072052,
+        "best_error": 0.044444444444444425,
+        "steps": 8
+      },
+      {
+        "elapsed_seconds": 0.012931415811181068,
+        "best_error": 0.011111111111111155,
+        "steps": 20
+      }
+    ],
+    "witness": "rocksalt_48_sro/python_pair_sro_sa-44.extxyz",
+    "witness_sha256": "c2b77b61a9df91cef6900e812b30d491d416604f63830076113d2ba465640eef",
+    "verification": "Independent analyze_structure of exported witness passed",
+    "result": {
+      "method": "python_pair_sro_sa",
+      "status": "certified_minimum",
+      "best_error": 0.011111111111111112,
+      "lower_bound": 0.011111111111111112,
+      "steps": 10000,
+      "seed": 44,
+      "temperature_start": 0.1,
+      "temperature_end": 0.0001,
+      "stop_reason": "steps"
+    },
+    "time_to_0.01": null,
+    "time_to_0.05": 0.012783832848072052
+  }
+]

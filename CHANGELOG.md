@@ -16,6 +16,13 @@ archive; a new DOI will be added only after an approved release is archived.
   the same 12 cases. Archive ATAT-audited witnesses, gap-to-optimum metrics,
   threshold observations, and an eight-method report with timing limitations.
 
+- Extend the fixed-cell comparison to 48 atoms, retaining prior measurements.
+  Add four cases, ATAT-audited solver witnesses, certified error floors and
+  regression fixtures; keep enumeration capped.
+- Reduce routine GitHub CI to one Linux/Python test job with path filtering
+  and cancellation of superseded runs. Reserve full platform/package matrices
+  for release tags and manual audits; make the separate benchmark manual-only.
+
 ### Small-cell design with explicit accuracy and geometry limits
 
 - Add `m_scraps bounds` and `sro_bounds` for necessary lower bounds on explicit

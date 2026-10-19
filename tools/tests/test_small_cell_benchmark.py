@@ -15,6 +15,7 @@ from structure_analysis import analyze_structure
 
 FIXTURES = Path(__file__).resolve().parents[1] / 'fixtures' / 'small_cells'
 CASES = json.loads((FIXTURES / 'cases.json').read_text())['cases']
+CASES += json.loads((FIXTURES.parent / 'small_cells_48/baseline/cases.json').read_text())['cases']
 
 
 @pytest.mark.parametrize('case', CASES, ids=[c['id'] for c in CASES])

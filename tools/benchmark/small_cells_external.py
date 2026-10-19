@@ -59,7 +59,7 @@ def prepare(root, m):
     for ref in references:
         initial = read(io.StringIO(ref['initial_extxyz']), format='extxyz')
         n = len(initial); kind = ref['id'].split('_')[0]
-        dims = {8: [2,2,1], 16: [2,2,2], 32: [2,2,4]}[n]
+        dims = {8: [2,2,1], 16: [2,2,2], 32: [2,2,4], 48: [2,3,4]}[n]
         if kind == 'bcc':
             primitive = bulk('Cu', 'bcc', a=3, cubic=True)
             species = ['Cu','Zn']; counts = [n//2]*2; kwargs = {}; constraints = []
@@ -127,7 +127,8 @@ def assess(record, case, root, m):
     atoms = atoms_for(model, occ)
     metrics = pair_analysis(atoms, case, model)['sro_comparison']['metrics']
     assert abs(metrics['max_error'] - best['metrics']['max_error']) < 2e-10
-    assert metrics['max_error'] + 2e-10 >= row['certified_optimum']
+    if row['certified_optimum'] is not None:
+        assert metrics['max_error'] + 2e-10 >= row['certified_optimum']
     audit = root / 'audit' / case['id'] / row['method']; audit.mkdir(parents=True, exist_ok=True)
     for name in ['rndstr.in', 'clusters.out']:
         if not (audit/name).exists(): (audit/name).symlink_to(m.input_dir(case)/name)
@@ -137,7 +138,7 @@ def assess(record, case, root, m):
     assert delta < 2e-10
     witness = audit / 'witness.extxyz'; write(witness, atoms)
     row.update(metrics)
-    row.update(status='verified_output', gap_to_optimum=max(0.,metrics['max_error']-row['certified_optimum']),
+    row.update(status='verified_output', gap_to_optimum=(max(0.,metrics['max_error']-row['certified_optimum']) if row['certified_optimum'] is not None else None),
                atat_discrepancy=delta, witness=str(witness.relative_to(root)),
                witness_extxyz=witness.read_text(), witness_sha256=hashlib.sha256(witness.read_bytes()).hexdigest(),
                site_labels=['all']*len(atoms) if case['kind']=='bcc' else ['M' if g==0 else 'X' for g in model['site_groups']],
@@ -149,7 +150,9 @@ def assess(record, case, root, m):
 
 
 def main():
+    global REFERENCES
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--reference', type=Path, default=REFERENCES, help='Frozen case directory with cases.json')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--binary', type=Path, required=True)
     parser.add_argument('--mpirun', type=Path, required=True)
@@ -158,6 +161,7 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--prepare-only', action='store_true')
     args = parser.parse_args()
+    REFERENCES = args.reference.resolve()
     if not np.isfinite(args.seconds) or args.seconds < 2:
         parser.error('Use a finite budget of at least 2 seconds for subprocess startup and observations')
     for path in [args.binary,args.mpirun,args.atat_bin/'mcsqs',args.atat_bin/'corrdump']:
@@ -183,7 +187,7 @@ def main():
     if (root/'manifest.json').exists(): assert json.loads((root/'manifest.json').read_text()) == fingerprints, 'Source changed; use a new output directory'
     else: save(root/'manifest.json',fingerprints)
     cases = json.loads((root/'cases.json').read_text()) if (root/'cases.json').exists() else prepare(root,m)
-    protocol = dict(cases=12, trials=48, methods=METHODS, seed=args.seed, seconds=args.seconds, workers=1,
+    protocol = dict(cases=len(cases), trials=len(cases)*len(METHODS), methods=METHODS, seed=args.seed, seconds=args.seconds, workers=1,
         objective='One binary pair correlation per case, equal to the selected pair-SRO alpha; ATAT score has the same ranking for these attainable discrete errors. icet uses the matched ATAT calculator, not its stock score.',
         initialization='Native engine initialization; seeds do not imply identical initial occupations across engines. Native SCRAPS restarts increment the seed.',
         timing='Process launch to observed output, including executable/import startup; input preparation and post-search verification excluded. ATAT/icet snapshots at 1-second intervals and budget-0.02; native checkpoints/completed outputs. First-observed times are upper bounds.',

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "systems": [
+    "bcc_CuZn",
+    "rocksalt_TiZr_CN"
+  ],
+  "sizes": [
+    48
+  ],
+  "targets": [
+    0,
+    -0.1
+  ],
+  "methods": [
+    "labeled_exhaustive",
+    "symmetry_exhaustive",
+    "symmetry_bound_stop",
+    "python_pair_sro_sa"
+  ],
+  "sa_seeds": [
+    42,
+    43,
+    44
+  ],
+  "selected_metric": "max_error",
+  "reported_metrics": [
+    "max_error",
+    "rms_error",
+    "mean_absolute_error"
+  ],
+  "components": "One explicit first-shell directed component per case; no implicit targets.",
+  "max_configurations": 20000,
+  "seconds_per_trial": 5,
+  "sa_steps": 10000,
+  "threads": 1,
+  "initialization": "Shared per-case seed 20261019 + atom count; exact fixed fractions per sublattice.",
+  "timing": "Per-method preparation included; interpreter startup and post-trial verification excluded. Monotonic improvement callbacks record threshold observations.",
+  "thresholds": [
+    0.01,
+    0.05
+  ],
+  "limits": "Time limits cooperative; library preparation may overrun. No global shape certificate; pair-SRO only.",
+  "objective": "All methods optimize the identical explicit max pair-SRO error; native SCRAPS/ATAT/icet are outside this focused comparison."
+}

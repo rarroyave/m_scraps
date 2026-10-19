@@ -1,0 +1,50 @@
+{
+  "bcc_48_sro/icet_atat": [
+    -0.10416666666666667
+  ],
+  "rocksalt_48_random/scraps_sa": [
+    0.0
+  ],
+  "bcc_48_sro/scraps_sa": [
+    -0.10416666666666667
+  ],
+  "bcc_48_sro/mcsqs": [
+    -0.10416666666666667
+  ],
+  "rocksalt_48_sro/mcsqs": [
+    -0.1111111111111111
+  ],
+  "rocksalt_48_random/mcsqs": [
+    0.0
+  ],
+  "rocksalt_48_sro/scraps_cuckoo": [
+    -0.1111111111111111
+  ],
+  "rocksalt_48_random/scraps_cuckoo": [
+    0.0
+  ],
+  "bcc_48_random/scraps_sa": [
+    0.0
+  ],
+  "bcc_48_random/mcsqs": [
+    0.0
+  ],
+  "rocksalt_48_sro/scraps_sa": [
+    -0.1111111111111111
+  ],
+  "rocksalt_48_sro/icet_atat": [
+    -0.1111111111111111
+  ],
+  "bcc_48_sro/scraps_cuckoo": [
+    -0.10416666666666667
+  ],
+  "rocksalt_48_random/icet_atat": [
+    0.0
+  ],
+  "bcc_48_random/scraps_cuckoo": [
+    0.0
+  ],
+  "bcc_48_random/icet_atat": [
+    0.0
+  ]
+}

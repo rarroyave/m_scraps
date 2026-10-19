@@ -183,3 +183,23 @@ Update `CHANGELOG.md` when preparing a release. After Zenodo publishes it, add
 the version-specific DOI to the README, `CITATION.cff`, and GitHub release notes.
 Do not rewrite the published tag to include that subsequent DOI update. CI
 checks tag consistency but does not publish releases or change approval rules.
+
+## GitHub Actions cost policy
+
+Routine code pushes and pull requests use one Ubuntu/Python 3.12 test job.
+Path filters avoid scientific CI for documentation-only changes. Release metadata
+runs only for relevant metadata changes, manual requests, or version tags.
+Superseded runs on the same branch/PR are cancelled automatically using GitHub's
+[workflow concurrency controls](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#concurrency).
+There are no scheduled benchmark campaigns.
+
+Before a release, manually run `tests` with `full_matrix=true`, `Package installation`,
+and `Release metadata` on the intended commit. The full Linux/macOS × Python
+3.11/3.12 matrices are retained for manual audits and `v*` tags. Package builds and
+notebook execution no longer run on every ordinary push/PR. The separate reference
+performance benchmark is manual-only; its artifacts expire after seven days.
+Run development benchmarks and expensive validation on the Studio instead of
+adding hosted jobs. Local checks do not require dispatching Actions.
+
+If required branch checks are introduced later, review path filters and check
+names first: a workflow skipped by a path filter cannot satisfy a required check.
