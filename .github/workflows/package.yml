@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 20
     env:
       OMPI_MCA_rmaps_base_oversubscribe: '1'
+      PRTE_MCA_rmaps_default_mapping_policy: ':oversubscribe'
       OMP_NUM_THREADS: '1'
       OPENBLAS_NUM_THREADS: '1'
     steps:
