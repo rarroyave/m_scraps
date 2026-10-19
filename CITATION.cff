@@ -1,5 +1,8 @@
 cff-version: 1.2.0
-message: "Please cite this software and the original SCRAPS paper listed in references."
+message: >-
+  Please cite both the original SCRAPS paper listed in references and the
+  Zenodo DOI for the m_scraps release you used. The Zenodo DOI will be added
+  to this file when the archive is available.
 type: software
 title: "m_scraps: multi-sublattice short-range-order and cluster-correlation targeting"
 version: 0.5.0
@@ -17,6 +20,9 @@ abstract: >-
   Original SCRAPS authorship and licensing are preserved.
   Development of m_scraps is supported by the U.S. National Science Foundation
   under Award OAC-2608825 (PhaseForge).
+  We acknowledge support from the Air Force Research Laboratory (AFRL)
+  through ARCTOS Technology Solutions, LLC, under TOPS VI, Task Order 03,
+  subcontract 165852-19F5830-19-02-C1.
 keywords:
   - short-range order
   - special quasirandom structures

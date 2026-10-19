@@ -334,7 +334,6 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
     vector<double> errorArray(max_num_neighs > 0 ? max_num_neighs : 1, 0.0);
     vector<vector<vector<double> > > pairGr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
     vector<vector<vector<double> > > avgGr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
-    vector<vector<vector<double> > > countgr(_typesatoms, std::vector<vector <double>> (_typesatoms, std::vector<double> (numofmaxneighs, 0.0)));
     int center, surr, shellnum;
     for(int i = 0; i < (int)nest.size(); i++)
     {
@@ -349,46 +348,30 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
                     shellnum_M += 1;
                 }
             }
-            for(int k = 0; k < shellnum; k++)
-            {
-                int neigh_idx = lat.atoms_shell_atom[i][j][k];
-                if (initialPlacement[neigh_idx] >= 0) continue;  // skip spectator neighbor
-                center = nest[i];
-                surr = nest[neigh_idx];
-                pairGr[center][surr][j] += 1;
-                if(center != surr)
-                {
-                    double alphaTarget = targetSROpair[center][surr][j];
-                    // Per-sublattice expected pair count:
-                    //   target = N_i * (1-alpha) * z[sigma->tau][k] * N_j / N_tau
-                    // where sigma = species(center)'s sublattice, tau = same for
-                    // neighbor. For the single-sublattice / HEB-spectator path
-                    // the partition has one sublattice with N_tau = numofatoms_M
-                    // and z[0][0][k] = shellnum_M, reducing exactly to the
-                    // legacy formula. For multi-sublattice the per-sublattice
-                    // N_j / N_tau replaces the (incorrect) global N_j / N_M.
-                    int sig = g_species_to_sublattice[center];
-                    int tau = g_species_to_sublattice[surr];
-                    double z_st;
-                    double N_tau;
-                    if (sig >= 0 && tau >= 0
-                        && (int) g_z_sub_sub_shell.size() > sig
-                        && (int) g_z_sub_sub_shell[sig].size() > tau) {
-                        z_st = g_z_sub_sub_shell[sig][tau][j];
-                        N_tau = (double) g_sub_count[tau];
-                    } else {
-                        // Spectator species (sig or tau == -1) or pre-init
-                        // call: fall back to the legacy per-center counts.
-                        z_st = (double) shellnum_M;
-                        N_tau = (double) numofatoms_M;
-                    }
-                    if (N_tau > 0.0) {
-                        avgGr[center][surr][j] += (double)eachElement_M[center]
-                            * (1 - alphaTarget) * z_st
-                            * ((double)eachElement_M[surr] / N_tau);
-                    }
-                    countgr[center][surr][j] += 1;
+            center = nest[i];
+            // Expected counts depend on composition and topology, including
+            // pair types with no observed bonds in the current configuration.
+            for (surr = 0; surr < _typesatoms; ++surr) {
+                if (center == surr || eachElement_M[surr] == 0) continue;
+                int sig = g_species_to_sublattice[center];
+                int tau = g_species_to_sublattice[surr];
+                double z_st = (double) shellnum_M;
+                double N_tau = (double) numofatoms_M;
+                if (sig >= 0 && tau >= 0
+                    && (int) g_z_sub_sub_shell.size() > sig
+                    && (int) g_z_sub_sub_shell[sig].size() > tau) {
+                    z_st = g_z_sub_sub_shell[sig][tau][j];
+                    N_tau = (double) g_sub_count[tau];
                 }
+                if (N_tau > 0.0)
+                    avgGr[center][surr][j] = (double) eachElement_M[center]
+                        * (1.0 - targetSROpair[center][surr][j])
+                        * z_st * (double) eachElement_M[surr] / N_tau;
+            }
+            for(int k = 0; k < shellnum; k++) {
+                int neigh_idx = lat.atoms_shell_atom[i][j][k];
+                if (initialPlacement[neigh_idx] >= 0) continue;
+                pairGr[center][nest[neigh_idx]][j] += 1;
             }
         }
     }
@@ -402,10 +385,6 @@ double fitnessvalue(vector<int> nest, const Lattice &lat, int _typesatoms, vecto
             {
                 if(i != j )
                 {
-                    if(countgr[i][j][k] == 0)
-                        avgGr[i][j][k] = 0;
-                    else
-                        avgGr[i][j][k] /= countgr[i][j][k];
                     errorArray[k] += pow(pairGr[i][j][k] - avgGr[i][j][k], 2);
                 }
             }
@@ -632,11 +611,7 @@ int empty_nests(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int
 // precompute expected, maintain pairGr, and update it incrementally by
 // touching only the O(z) neighbors of the two swapped atoms.
 //
-// Edge case: when countgr would be 0 in the legacy formulation (no i-j
-// pairs in the nest at all for some i!=j), the legacy code zeros out
-// avgGr while the constant-expected here would still penalize. In
-// practice countgr > 0 for normal compositions, so results match to FP
-// precision on real test cases.
+// Missing pairs retain their expected-count penalty in both evaluators.
 int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, int iter, vector<double> &origfitness, const Lattice &lat, const int _typesatoms, const vector<int> eachElement, int &max_num_neighs, vector<double> &weights, const vector<vector<vector<double>>> &targetSROpair, const vector<int> &initialPlacement)
 {
     const int n_atoms = (int) _nests[0].size();
@@ -644,8 +619,7 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
 
     // Same salts as the legacy empty_nests() path so that, with the same
     // RNG_SEED, FAST_SWAPS=0 and FAST_SWAPS=1 propose the same swap
-    // sequence and reach the same final state (modulo the constant-vs-
-    // countgr-zero edge case noted above).
+    // sequence; floating-point accumulation can still change tied decisions.
     static thread_local std::mt19937 gen_f, gen1_f;
     static thread_local bool seeded_f = false;
     if (!seeded_f) {
@@ -717,22 +691,13 @@ int empty_nests_fast(vector<vector<int>> &_nests, vector<vector<int>> &_newnests
     }
 
     auto fitness_from_pairGr = [&](const vector<vector<vector<double>>>& pgr) -> double {
-        // Match legacy fitnessvalue semantics: when countgr is 0 (no
-        // pairs of this type in the current nest), legacy sets avgGr = 0
-        // and the contribution becomes pgr^2 = 0. The principled
-        // delta-fitness would use the constant `expected` here -- giving
-        // expected^2 contribution -- which DISAGREES with legacy and
-        // breaks the L2_1 warm-start (perfect L2_1 has zero X-Y and X-Z
-        // at 2NN; legacy says fit=0, principled delta says fit > 0).
-        // Match legacy by skipping pairs with pgr==0 (equivalent to
-        // setting the per-pair contribution to 0 in that case).
+        // Penalize missing bonds against the same fixed target as full evaluation.
         double err = 0.0;
         for (int k = 0; k < max_num_neighs; k++) {
             double e_k = 0.0;
             for (int i = 0; i < _typesatoms; i++) {
                 for (int j = 0; j < _typesatoms; j++) {
                     if (i == j) continue;
-                    if (pgr[i][j][k] == 0.0) continue;  // legacy countgr==0 contract
                     double d = pgr[i][j][k] - expected[i][j][k];
                     e_k += d * d;
                 }
@@ -1122,7 +1087,6 @@ int empty_nests_sa(vector<vector<int>> &_nests, vector<vector<int>> &_newnests, 
             for (int i = 0; i < _typesatoms; i++) {
                 for (int j = 0; j < _typesatoms; j++) {
                     if (i == j) continue;
-                    if (pgr[i][j][k] == 0.0) continue;  // legacy contract
                     double d = pgr[i][j][k] - expected[i][j][k];
                     e_k += d * d;
                 }

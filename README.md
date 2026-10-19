@@ -861,7 +861,12 @@ all search inputs and logs, independently validated structures, and portable
 regression fixtures. Routine CI checks numerical correctness using saved
 fixtures; it does not rerun the 40-trial campaign or assert wall-clock speed.
 
-## Credits
+## Credits and citation
+
+If you use m_scraps in research, please cite **both** the original SCRAPS paper
+below and the **Zenodo DOI for the m_scraps release you used**. The Zenodo archive
+has not yet been published; its DOI and full software citation will be added
+here and to `CITATION.cff` when available.
 
 Original SCRAPS / Hybrid-Cuckoo-Search code by Rahul Singh, Aayush Sharma,
 Prashant Singh, Ganesh Balasubramanian, and Duane D. Johnson (Iowa State
@@ -877,6 +882,11 @@ Extension work and bug fixes by Raymundo Arroyave (Texas A&M).
 
 ## Release verification
 
+SRO fitness includes the error for absent unlike-species bonds when the target
+expects a nonzero count. To target an absent pair, specify `SRO i j shell 1.0`;
+omitted targets default to random mixing (`0.0`). This applies to the full,
+fast-swap, and simulated-annealing evaluators.
+
 The test suite generates integration structures in temporary directories; no
 pre-existing `SCRAPS.vasp` files are required. Run `pytest tools/tests -q -rs`
 after building the native optimizer. Install `icet==4.0` to exercise the optional
@@ -891,10 +901,14 @@ Development of m_scraps is supported by the U.S. National Science Foundation und
 
 Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
 
+We acknowledge support from the Air Force Research Laboratory (AFRL) through ARCTOS Technology Solutions, LLC, under TOPS VI, Task Order 03, subcontract 165852-19F5830-19-02-C1.
+
 ## License
 
-MIT (preserved from upstream). See `SCRAPs/ReadMe.md` and individual
-source-file headers for the original Iowa State copyright notice.
+Licensed under the [MIT License](LICENSE), preserving the upstream Iowa State
+University copyright and the copyright for the m_scraps extensions. Original
+authorship and citation guidance are listed above; see also `SCRAPs/ReadMe.md`
+and individual source-file headers.
 
 ## Analyze an existing structure
 

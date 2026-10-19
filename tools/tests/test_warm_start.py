@@ -175,12 +175,10 @@ def test_warm_start_l21_with_fast_swaps_preserved(tmp_path):
     and basis-OUTERMOST ordering: atoms 0..7 are basis 0 (Y or Z by
     parity), atoms 8..15 are basis 1 (all X).
 
-    The L2_1 warm-start has zero X-Y and X-Z at the 2NN shell (X's
-    2NN are all X), which is the case the FAST_SWAPS=1 path used to
-    mis-evaluate -- legacy fitness reported 0, delta-fitness reported
-    a non-zero value, and MC then 'optimized' away from the perfect
-    seed. This test verifies the warm-start nest stays at fitness=0
-    through the MC loop with FAST_SWAPS=1 (default).
+    The L2_1 warm-start has zero X-Y and X-Z at the 2NN shell.
+    Those absent pairs require explicit alpha=+1 targets; leaving them
+    at the default random target must incur an error. With the complete
+    ordered target, the warm-start remains at fitness=0.
     """
     # Build the warm-start nest: basis 0 (atoms 0..7) gets Y or Z by
     # (i+j+k) parity; basis 1 (atoms 8..15) gets X.
@@ -217,6 +215,8 @@ def test_warm_start_l21_with_fast_swaps_preserved(tmp_path):
         SRO 0 2 0 -1.0
         SRO 1 2 0 +1.0
         SRO 1 2 1 -3.0
+        SRO 0 1 1 +1.0
+        SRO 0 2 1 +1.0
         INIT_NEST init.nest
         """)
     rc, log = run_scraps(tmp_path, BCC_POSCAR_NO_SPECIES, inp,
@@ -229,3 +229,29 @@ def test_warm_start_l21_with_fast_swaps_preserved(tmp_path):
     assert final == 0.0, (
         f"L2_1 warm-start with FAST_SWAPS=1 lost fitness=0 -- got {final}. "
         "This is the legacy-vs-delta fitness regression.")
+
+
+@pytest.mark.parametrize('kernel', ['RANDOM_ONLY 1', 'FAST_SWAPS 0',
+                                    'FAST_SWAPS 1', 'MC_KERNEL sa'])
+def test_absent_pairs_have_nonzero_target_error(tmp_path, kernel):
+    """B2 has no unlike 2NN bonds; a random target still requires 24 each way."""
+    import re
+    import numpy as np
+    sys.path.insert(0, str(REPO / 'tools'))
+    from verify_sro import load_structure, detect_shells, compute_alpha
+
+    inp = B2_INPUT.replace('NESTS   4', 'NESTS   1').replace(
+        'WEIGHT 1 1', 'WEIGHT 0 1').replace(
+        'SRO 0 1 1 +1.0', 'SRO 0 1 1 0.0')
+    rc, log = run_scraps(tmp_path, BCC_POSCAR_NO_SPECIES,
+                         inp + '\n' + kernel + '\n', init_nest=B2_INIT_NEST)
+    assert rc == 0, log[-2000:]
+    initial = re.search(r'INITIAL FITNESS.*min=([\d.eE+-]+)', log)
+    assert initial is not None
+    assert float(initial.group(1)) == pytest.approx(np.sqrt(2 * 24**2), rel=1e-5)
+    structure, _ = load_structure(tmp_path / 'SCRAPS.vasp', ['Ni', 'Al'])
+    _, counts, _ = compute_alpha(structure, detect_shells(structure, 2, cutoff=1.1))
+    expected = np.sqrt((counts[1, 0, 1] - 24)**2 + (counts[1, 1, 0] - 24)**2)
+    final = next(float(line.split('=')[-1]) for line in log.splitlines()
+                 if line.startswith('FINAL fitness'))
+    assert final == pytest.approx(expected, abs=1e-4)
