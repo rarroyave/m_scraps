@@ -609,66 +609,17 @@ speedup or an inherent accuracy limit of another method.
 
 ## 8. Release scope and remaining scientific limitations
 
-m_scraps generates and characterizes configurations at prescribed compositions
-and correlation targets. Its scope includes independently disordered sublattices,
-native cuckoo-search and simulated-annealing solvers, structure analysis,
-fixed-cell error bounds, bounded cell searches, and configuration ensembles.
-The v0.6.0 release is archived on Zenodo; the changelog distinguishes that frozen
-release from subsequent development. Resumable ensembles and tolerance-based
-cell recommendations are currently listed under **Unreleased**.
+The proposed release combines generation, structure analysis, worked examples,
+checksummed external references and a bounded benchmark. Publication of the
+repository, release and Zenodo archive requires the author's final approval.
 
-### What the results establish
-
-A returned structure provides an achievable error for its particular cell,
-composition, target set and metric. A rigorous lower bound establishes an error
-that no allowed occupation of that cell can improve upon. Equality between an
-independently verified witness error and the bound certifies a fixed-cell
-minimum. A bound below the requested tolerance does not establish that the
-target is attainable: the count constraints can relax compatibility between
-shells and the requirement that one occupation realize all counts simultaneously.
-Completed exact enumeration can resolve a fixed-cell minimum; a capped search
-must retain its incomplete status.
-
-Cell recommendations identify the smallest verified cell **found within the
-specified search**. Shape filters, the supplied parent lattice, candidate caps
-and time budgets restrict that search. A smaller unresolved cell is not ruled
-out by a larger successful witness, and a fixed-cell certificate does not prove
-a globally optimal cell size or shape. The bounds and recommendation workflow
-currently use pair-SRO objectives; support for higher-order figures elsewhere
-in the code does not extend those certificates to arbitrary figure objectives.
-
-### Validation and transferability
-
-The benchmarks compare methods on explicitly matched problems and metrics,
-with frozen witnesses and external-reference checks. Their limited repetitions,
-cell sizes and budgets support reproducible regression testing, not a general
-claim of solver superiority or a runtime guarantee for a new material. Offline
-fixtures allow verification without ATAT or icet; rerunning those external
-solvers requires their installation. Independent SRO fixtures cover binary
-equiatomic mixed sublattices; general multicomponent SRO inversion from ATAT
-correlations remains a future extension.
-
-Structure mapping accepts small displacements and atom reordering, with cell
-agreement within 0.0001 angstrom for serialization rounding. It does not fit
-arbitrary strain, rotations, origin shifts or vacancies. Prototype examples
-establish configuration workflows, not phase stability or property accuracy.
-
-### Interpretation of ensembles and property variability
-
-Random selection samples the collected symmetry-distinct candidate pool;
-it does not remove discovery bias or weight configurations by symmetry-orbit
-multiplicity. Diversity selection deliberately spans the chosen descriptors.
-Neither mode supplies Boltzmann weights or an equilibrium thermodynamic
-ensemble. Equal targeted SRO does not imply equal untargeted correlations,
-local environments or energies. Reported property spread therefore describes
-the selected configurations and the external property model, rather than a
-converged thermodynamic distribution or a statistical uncertainty estimate.
-
-Resuming a saved ensemble preserves selected structure IDs and can extend its
-pool or selection. It does not restore a partially completed SA chain, and
-hard termination can lose work since the last returned report. Continuation
-requires compatible inputs, source code and dependencies; it is not a promise
-of checkpoint compatibility across releases.
+The benchmark has limited repetitions and does not establish broad statistical
+superiority. Multi-component SRO inversion from ATAT correlations remains a
+future extension; current independent SRO fixtures cover binary equiatomic
+mixed sublattices. Structure mapping accepts small displacements and atom
+reordering, with cell agreement within 0.0001 angstrom for serialization
+rounding; it does not fit arbitrary strain, rotations, origin shifts or vacancies.
+Prototype examples do not establish phase stability or property accuracy.
 
 ## Submission benchmark
 
