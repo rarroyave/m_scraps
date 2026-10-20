@@ -708,6 +708,19 @@ Exact rational tolerance checks precede canonical occupation deduplication.
 Small occupation spaces are enumerated; large spaces use seeded starts. Both
 paths obey pool and cooperative time limits.
 
+Schema-3 ensemble reports include the complete candidate pool, selected pool
+indices, enumeration cursor/coverage, next SA start index and cumulative counters.
+The checkpoint checksum covers this state. A separate contract digest checks
+scientific inputs, original geometry/site order, FIGURES content, search method
+and seed, source hashes and dependency versions before reuse. Output paths and
+selection budgets are not part of that contract. Resume retains selected IDs;
+`collect_more=False` changes only selection after reconstructing the input checks.
+Enumeration uses an iterator offset without rescoring the prefix; SA allocates
+fresh start seeds rather than restoring mid-chain state. CLI export uses a new
+directory and atomically replaces its JSON temporary file. This is continuation
+from returned reports, not periodic crash recovery. Legacy schema-2 archives
+remain readable for analysis/replay but cannot supply a resumable pool.
+
 Default `selection="diversity"` greedy farthest-point selection uses all analyzed pair SROs or an optional native
 FIGURES vector. It retains the lowest-error anchor and uses equal-component RMS
 distance; no thermodynamic weighting is implied. Reported spreads describe only

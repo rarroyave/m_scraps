@@ -8,6 +8,7 @@ import hashlib
 import importlib.metadata
 import json
 import math
+from itertools import islice
 from pathlib import Path
 import time
 
@@ -30,10 +31,10 @@ def _exact_metrics(symbols, prepared):
                 rms_error=sum(e * e for e in residuals) / len(residuals))
 
 
-def _select(vectors, errors, count):
+def _select(vectors, errors, count, retained=()):
     """Lowest-error anchor, then greedy farthest-point selection in RMS distance."""
-    selected = [min(range(len(errors)), key=lambda i: (errors[i], i))]
-    distance = np.full(len(errors), np.inf)
+    selected = list(retained) or [min(range(len(errors)), key=lambda i: (errors[i], i))]
+    distance = np.min([np.mean((vectors - vectors[i]) ** 2, axis=1) for i in selected], axis=0)
     while len(selected) < min(count, len(errors)):
         distance = np.minimum(distance, np.mean((vectors - vectors[selected[-1]]) ** 2, axis=1))
         available = [i for i in range(len(errors)) if i not in selected]
@@ -41,11 +42,31 @@ def _select(vectors, errors, count):
     return selected
 
 
+def _digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, allow_nan=False).encode()).hexdigest()
+
+
+def _read_checkpoint(resume, contract):
+    report = json.loads(Path(resume).read_text()) if isinstance(resume, (str, Path)) else resume
+    if not isinstance(report, dict) or 'checkpoint' not in report:
+        raise ValueError('Resume requires a new-format report containing the full candidate pool; legacy reports cannot be resumed')
+    checkpoint = deepcopy(report['checkpoint'])
+    if not isinstance(checkpoint, dict):
+        raise ValueError('Invalid resume checkpoint')
+    checksum = checkpoint.pop('sha256', None)
+    if checksum != _digest(checkpoint):
+        raise ValueError('Resume checkpoint checksum mismatch')
+    if checkpoint['version'] != 1 or checkpoint['contract_sha256'] != _digest(contract):
+        raise ValueError('Resume inputs, search seed/method, source, or dependency versions differ from the saved run')
+    return checkpoint, checksum
+
+
 def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
                       shells=2, sublattices=None, metric='max_error', method='auto',
                       max_configurations=10000, max_pool=256, max_seconds=30.0,
                       starts=8, steps=2000, seed=42, symprec=1e-5,
-                      figures=None, species=None, selection='diversity', selection_seed=None):
+                      figures=None, species=None, selection='diversity', selection_seed=None,
+                      resume=None, collect_more=True):
     """Return (JSON-ready report, selected ASE Atoms), preserving compositions.
 
     The tolerance is absolute error in the selected pair-SRO metric. Small
@@ -53,9 +74,15 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
     starts, continuing past individual optimum witnesses. Selection is either
     greedy diversity (default) or uniform without replacement from that pool.
     Neither mode samples uniformly over all labeled occupations. selection_seed
-    defaults to seed and never changes candidate generation.
+    defaults to seed and never changes candidate generation. Resume accepts a
+    prior report or its JSON path; count/max_pool are new TOTAL limits, while
+    starts and max_seconds are per-call budgets. Old selections retain their
+    IDs. SA continues with unused start seeds, not a saved mid-chain RNG state.
+    collect_more=False extends selection from the saved pool without search.
     """
     start = time.monotonic()
+    if not isinstance(collect_more, bool) or (not collect_more and resume is None):
+        raise ValueError('collect_more=False requires a saved report to resume')
     for name, value in dict(count=count, max_configurations=max_configurations, max_pool=max_pool,
                             starts=starts, steps=steps).items():
         if isinstance(value, bool) or not isinstance(value, int) or value < 1:
@@ -115,8 +142,33 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
         columns = [{k: f[k] for k in ('index', 'order', 'diameter')} for f in initial_analysis['figures']['features']]
     else:
         columns = [{k: row[k] for k in KEYS} for row in initial_analysis['sro'] if row['alpha'] is not None]
+    provenance = dict(source_sha256={name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+        for name in ('sro_ensemble.py', 'search_cells.py', 'sro_bounds.py', 'sro_joint_bounds.py',
+                     'sro_stopping.py', 'enumeration_symmetry.py', 'structure_analysis.py', 'atat_reference.py')},
+        dependencies={name: importlib.metadata.version(name) for name in ('numpy', 'ase', 'spglib')})
+    contract = dict(symbols=atoms.get_chemical_symbols(), positions=atoms.positions.tolist(),
+        cell=atoms.cell.array.tolist(), pbc=atoms.pbc.tolist(), sublattices=config,
+        targets=targets, cutoff=cutoff, shells=shells, metric=metric, error_tolerance=error_tolerance,
+        symprec=symprec, method=chosen_method, seed=seed,
+        figures_sha256=initial_analysis['figures']['sha256'] if figures is not None else None,
+        species=list(species) if figures is not None else None, provenance=provenance)
     pool, seen = [], set()
     evaluated, eligible, duplicates, covered, starts_run = 0, 0, 0, 0, 0
+    cursor, next_start, retained = 0, 0, []
+    enumeration_complete, input_processed = False, False
+    parent_checksum = None
+    if resume is not None:
+        state, parent_checksum = _read_checkpoint(resume, contract)
+        pool = state['pool']
+        retained = state['selected_indices']
+        if count < len(retained) or max_pool < len(pool):
+            raise ValueError('Resume count/max_pool cannot discard previous selections or candidates')
+        seen = {tuple(entry['symbols']) for entry in pool}
+        cursor, next_start = state['enumeration_cursor'], state['next_sa_start']
+        enumeration_complete, input_processed = state['enumeration_complete'], state['input_processed']
+        evaluated, eligible, duplicates, covered = (state['totals'][key] for key in
+            ('evaluated', 'eligible', 'symmetry_duplicates', 'covered_configurations'))
+    previous_evaluated, previous_pool = evaluated, len(pool)
     reason = 'infeasible_by_bound' if screened else 'search_budget'
     deadline = start + max_seconds
 
@@ -154,20 +206,37 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
         return True
 
     try:
-        if not screened and collect(np.array(atoms.get_chemical_symbols()), dict(method='input', seed=None, step=0)):
+        can_search = not screened
+        if not collect_more:
+            can_search, reason = False, 'selection_only'
+        elif enumeration_complete:
+            can_search, reason = False, 'exhausted'
+        elif len(pool) >= max_pool:
+            can_search, reason = False, 'pool_limit'
+        if can_search and not input_processed:
+            before = evaluated
+            can_search = collect(np.array(atoms.get_chemical_symbols()), dict(method='input', seed=None, step=0))
+            input_processed = evaluated > before
+        if can_search:
             if chosen_method == 'enumerate':
-                for symbols, multiplicity in symmetry_occupations(labels, bound['composition'], permutations):
-                    if not collect(np.array(symbols), dict(method='enumerate', seed=None, representative=covered)):
+                occupations = symmetry_occupations(labels, bound['composition'], permutations)
+                for symbols, multiplicity in islice(occupations, cursor, None):
+                    before = evaluated
+                    keep_going = collect(np.array(symbols), dict(method='enumerate', seed=None, representative=covered))
+                    if evaluated > before:
+                        cursor += 1
+                        covered += multiplicity
+                    if not keep_going:
                         break
-                    covered += multiplicity
                 else:
-                    reason = 'exhausted'
+                    reason, enumeration_complete = 'exhausted', True
             else:
                 for run in range(starts):
                     if time.monotonic() >= deadline:
                         reason = 'time_limit'
                         break
-                    run_seed = seed + run
+                    run_seed = seed + next_start
+                    next_start += 1
                     initial = atoms.copy()
                     symbols = np.array(initial.get_chemical_symbols())
                     rng = np.random.default_rng(run_seed)
@@ -191,10 +260,11 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
     selected = []
     if pool:
         vectors = np.array([p['diversity_vector'] for p in pool])
-        indices = (np.random.default_rng(selection_seed).choice(
-            len(pool), size=min(count, len(pool)), replace=False).tolist()
+        available = [i for i in range(len(pool)) if i not in retained]
+        indices = (list(retained) + np.random.default_rng(selection_seed).choice(
+            available, size=min(count - len(retained), len(available)), replace=False).tolist()
             if selection == 'random' else
-            _select(vectors, [Fraction(p['metrics_exact'][metric]) for p in pool], count))
+            _select(vectors, [Fraction(p['metrics_exact'][metric]) for p in pool], count, retained))
         selected = [dict(pool[i], id=f'structure-{j:03d}', pool_index=i) for j, i in enumerate(indices)]
     witnesses = []
     for entry in selected:
@@ -212,7 +282,19 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
         'Uniform without replacement over collected symmetry-distinct candidates; no error or energy ranking.'
         if selection == 'random' else
         'Lowest-error anchor, then greedy farthest-point RMS distance; equal component weights; no variance rescaling.')
-    report = dict(schema_version=2, objective='directed_pair_sro', metric=metric,
+    if retained:
+        selection_description = 'Retain prior selections and IDs; append from unselected pool. ' + selection_description
+    checkpoint = dict(version=1, contract_sha256=_digest(contract), pool=pool,
+        selected_indices=[entry['pool_index'] for entry in selected],
+        enumeration_cursor=cursor, enumeration_complete=enumeration_complete,
+        next_sa_start=next_start, input_processed=input_processed,
+        totals=dict(evaluated=evaluated, eligible=eligible, symmetry_duplicates=duplicates,
+                    covered_configurations=covered))
+    checkpoint['sha256'] = _digest(checkpoint)
+    report = dict(schema_version=3, checkpoint=checkpoint,
+        continuation=dict(parent_checkpoint_sha256=parent_checksum, retained_count=len(retained),
+            added_candidates=len(pool)-previous_pool, evaluated_this_call=evaluated-previous_evaluated,
+            collect_more=collect_more), objective='directed_pair_sro', metric=metric,
         exact_metric_conventions=dict(max_error='error', mean_absolute_error='error', rms_error='mean_squared_error'),
         status='requested_count_reached' if len(selected) == count else 'insufficient_candidates',
         stop_reason=reason, selected_count=len(selected), requested_count=count,
@@ -223,7 +305,8 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
             pool_occupations_sha256=[p['occupations_sha256'] for p in pool]),
         search=dict(method=chosen_method, evaluated=evaluated, eligible=eligible, symmetry_duplicates=duplicates,
             pool_size=len(pool), site_symmetries=len(permutations), total_configurations=total,
-            covered_configurations=covered, complete=reason == 'exhausted', starts_run=starts_run),
+            covered_configurations=covered, complete=enumeration_complete, starts_run=starts_run,
+            starts_run_total=next_start),
         settings=dict(cutoff=cutoff, shells=shells, seed=seed, starts=starts, steps=steps,
             max_configurations=max_configurations, max_pool=max_pool, max_seconds=max_seconds, symprec=symprec,
             selection=selection, selection_seed=selection_seed),
@@ -233,15 +316,15 @@ def generate_ensemble(atoms, *, cutoff, targets, error_tolerance, count=8,
             species=list(species) if figures is not None else None, spread=spread),
         initial_structure_sha256=hashlib.sha256(json.dumps(dict(symbols=atoms.get_chemical_symbols(),
             positions=atoms.positions.tolist(), cell=atoms.cell.array.tolist()), sort_keys=True).encode()).hexdigest(),
-        provenance=dict(source_sha256={name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
-            for name in ('sro_ensemble.py', 'search_cells.py', 'sro_bounds.py', 'sro_joint_bounds.py',
-                         'sro_stopping.py', 'enumeration_symmetry.py', 'structure_analysis.py', 'atat_reference.py')},
-            dependencies={name: importlib.metadata.version(name) for name in ('numpy', 'ase', 'spglib')}),
+        provenance=provenance,
         elapsed_seconds=time.monotonic() - start,
         limitations=['Fixed geometry and compositions; distinct under verified label- and target-preserving parent-cell symmetries. No species relabeling.',
             'A bounded candidate pool does not guarantee discovery of every eligible structure; greedy diversity is not globally optimal.',
             'Random selection is uniform only within the collected symmetry-orbit pool, without orbit-multiplicity weights; SA and truncated enumeration can bias that pool.',
             'Distinct structures can share the same descriptor vector; zero descriptor distance does not imply structural equivalence.',
+            'Extensions retain earlier selections; random additions are uniform only over the remaining current pool, not a fresh uniform sample of the enlarged pool.',
+            'Resume uses unused SA start seeds; interrupted chains are not restored. Enumeration traverses the saved prefix but does not reevaluate it.',
+            'Reports are saved on return or caught search interruption; hard termination can lose the current call. Keep previous reports.',
             'No thermodynamic sampling distribution or statistical uncertainty estimate; spread describes only the selected configurations.',
             'Time limit is cooperative, includes preparation and collection, excludes final selection/export; library calls can overrun.'])
     if screened:
@@ -273,6 +356,9 @@ def main(argv=None):
     parser.add_argument('--symprec', type=float, default=1e-5)
     parser.add_argument('--figures', type=Path, help='Optional diversity FIGURES, including pairs/triplets; same cell/site order')
     parser.add_argument('--species', help='Comma-separated FIGURES alphabet')
+    parser.add_argument('--resume', type=Path, help='Prior result.json with full pool; preserve old IDs and extend to total --count')
+    parser.add_argument('--select-only', dest='collect_more', action='store_false',
+                        help='With --resume, append selections from the saved pool without new search')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
@@ -296,7 +382,9 @@ def main(argv=None):
             write(directory / 'POSCAR', witness, format='vasp', direct=True, sort=False)
             entry['files'] = {str(p.relative_to(args.output)): hashlib.sha256(p.read_bytes()).hexdigest()
                               for p in sorted(directory.iterdir())}
-        (args.output / 'result.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
+        temporary = args.output / 'result.json.tmp'
+        temporary.write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
+        temporary.replace(args.output / 'result.json')
         print(f"Selected {len(witnesses)}/{args.count} structures; {report['stop_reason']}")
     except (ValueError, TypeError, KeyError, OSError) as exc:
         parser.error(str(exc))

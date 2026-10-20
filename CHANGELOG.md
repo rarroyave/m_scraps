@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add resumable ensemble pools with stable selected IDs, new SA start seeds,
+  enumeration continuation, and selection-only extension. Validate saved state
+  and scientific provenance; support random and diversity additions.
+
 - Add an installed-package ensemble tutorial for the MAX-phase example,
   comparing random and diversity selection and inspecting frozen energy
   variability without optional solvers or ML packages. Include execution in

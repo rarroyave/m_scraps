@@ -1381,6 +1381,37 @@ report, structures = generate_ensemble(
 )
 ```
 
+To extend an existing ensemble, repeat its original scientific inputs and search
+seed, pass `--resume ensemble-result/result.json`, and use a new output directory:
+
+```bash
+m_scraps ensemble initial.cif --cutoff 6 --shells 3 \
+  --targets targets.json --sublattices sublattices.json \
+  --error-tolerance 0.02 --count 16 --seed 42 \
+  --max-pool 256 --max-seconds 30 \
+  --resume ensemble-result/result.json --output ensemble-extended
+```
+
+Previously selected structures retain their IDs and order; new selections are
+appended, so external property results remain associated with the original IDs.
+`--count` and `--max-pool` are total limits; `--starts` and `--max-seconds` provide
+additional budgets for this call. Add `--select-only` to select more structures
+from the saved pool without further search. In Python, use `resume=report` or
+`resume="ensemble-result/result.json"`, with `collect_more=False` for selection only.
+Both random and diversity selection support extension. Random additions are
+uniform over the remaining current pool; retaining earlier selections does not
+produce a fresh uniform sample of an enlarged pool. Diversity additions maximize
+distance from all retained selections.
+
+New reports store the full candidate pool and a checksummed continuation state.
+Resume requires matching geometry, composition, targets, tolerance, method, search
+seed, descriptors, source code and dependency versions. Older reports without
+this state cannot be resumed. Enumeration skips scoring completed representatives
+but traverses their prefix again. SA uses unused start seeds; it does not restore
+a partially completed chain. Reports are saved on return, including a caught
+search interruption, rather than periodically during execution: a hard termination
+can lose the current call. Keep the previous report and output directory.
+
 The default `--method auto` enumerates symmetry orbits when the labeled
 occupation count is at most `--max-configurations` (default 10000); otherwise it
 uses multiple seeded Python pair-SRO SA starts. `--method sa`, `--starts` and

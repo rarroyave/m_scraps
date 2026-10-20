@@ -101,6 +101,14 @@ def test_multisublattice_rocksalt_counts_and_symmetry(selection):
     report, structures = generate_ensemble(atoms, cutoff=2.3, shells=1, targets=target,
         sublattices=config, error_tolerance=.34, count=8, selection=selection)
     assert len(structures) > 1 and report['search']['complete']
+    first, _ = generate_ensemble(atoms, cutoff=2.3, shells=1, targets=target,
+        sublattices=config, error_tolerance=.34, count=1, selection=selection)
+    extended, structures = generate_ensemble(atoms, cutoff=2.3, shells=1, targets=target,
+        sublattices=config, error_tolerance=.34, count=8, selection=selection,
+        resume=first, collect_more=False)
+    assert extended['selected'][:1] == first['selected']
+    assert extended['continuation']['evaluated_this_call'] == 0
+    assert len(structures) == report['selected_count']
     for candidate in structures:
         analysis = analyze_structure(candidate, cutoff=2.3, shells=1, sublattices=config, sro_targets=target)
         assert analysis['composition']['M']['counts'] == {'Ti': 2, 'Zr': 2}
@@ -237,3 +245,91 @@ def test_random_empty_and_short_pools_and_validation():
     for bad in (-1, True, 1.5):
         with pytest.raises(ValueError, match='selection_seed'):
             run(selection_seed=bad)
+
+
+@pytest.mark.parametrize('selection', ['random', 'diversity'])
+def test_resume_enumeration_preserves_ids_and_skips_scoring(tmp_path, selection):
+    first, _ = run(count=2, max_pool=2, selection=selection)
+    saved = tmp_path / 'result.json'
+    saved.write_text(json.dumps(first))
+    extended, structures = run(count=4, resume=saved, selection=selection)
+    complete, _ = run(count=4, selection=selection)
+    assert extended['selected'][:2] == json.loads(saved.read_text())['selected']
+    assert extended['selection']['pool_occupations_sha256'] == complete['selection']['pool_occupations_sha256']
+    assert extended['search']['evaluated'] == complete['search']['evaluated']
+    assert extended['search']['covered_configurations'] == 70
+    assert extended['search']['complete'] and len(structures) == 4
+    again, _ = run(count=4, resume=extended, selection=selection)
+    assert again['continuation']['evaluated_this_call'] == 0
+    assert again['selected'] == extended['selected']
+
+
+@pytest.mark.parametrize('selection', ['random', 'diversity'])
+def test_resume_selection_only_with_higher_order_descriptors(tmp_path, selection):
+    figures = tmp_path / 'FIGURES'
+    write_ring_figures(figures)
+    options = dict(figures=figures, species=['Cu', 'Zn'], selection=selection)
+    first, _ = run(count=1, **options)
+    extended, _ = run(count=4, resume=first, collect_more=False, **options)
+    assert extended['selected'][:1] == first['selected']
+    assert extended['continuation']['evaluated_this_call'] == 0
+    assert extended['continuation']['added_candidates'] == 0
+    assert extended['stop_reason'] == 'selection_only'
+    assert len({x['occupations_sha256'] for x in extended['selected']}) == 4
+    assert extended['diversity']['columns'] == first['diversity']['columns']
+
+
+def test_resume_sa_uses_unused_seeds_and_matches_uninterrupted_pool():
+    first, _ = run(count=1, method='sa', starts=1, steps=50)
+    extended, _ = run(count=4, method='sa', starts=1, steps=50, resume=first)
+    complete, _ = run(count=4, method='sa', starts=2, steps=50)
+    assert extended['checkpoint']['pool'] == complete['checkpoint']['pool']
+    assert extended['search']['evaluated'] == complete['search']['evaluated']
+    assert extended['search']['starts_run'] == 1
+    assert extended['search']['starts_run_total'] == 2
+    assert extended['selected'][:1] == first['selected']
+
+
+def test_resume_rejects_incompatible_or_corrupted_reports():
+    first, _ = run(count=2)
+    for changed in (dict(seed=43), dict(error_tolerance=.1), dict(targets=targets(.1)),
+                    dict(method='sa')):
+        with pytest.raises(ValueError, match='differ'):
+            run(resume=first, **changed)
+    with pytest.raises(ValueError, match='discard'):
+        run(count=1, resume=first)
+    with pytest.raises(ValueError, match='discard'):
+        run(count=2, max_pool=2, resume=first)
+    with pytest.raises(ValueError, match='legacy'):
+        run(resume={'schema_version': 2})
+    with pytest.raises(ValueError, match='requires'):
+        run(collect_more=False)
+    first['checkpoint']['pool'][0]['symbols'] = ['Cu'] * 8
+    with pytest.raises(ValueError, match='checksum'):
+        run(resume=first)
+
+
+def test_resume_after_preparation_time_limit():
+    first, _ = run(max_seconds=1e-12)
+    extended, _ = run(resume=first)
+    complete, _ = run()
+    assert extended['checkpoint']['pool'] == complete['checkpoint']['pool']
+    assert extended['search']['evaluated'] == complete['search']['evaluated']
+
+
+def test_cli_resume_select_only_preserves_exports(tmp_path):
+    structure, target = tmp_path/'input.extxyz', tmp_path/'targets.json'
+    write(structure, ring())
+    target.write_text(json.dumps(targets()))
+    base = [sys.executable, str(ROOT/'sro_ensemble.py'), str(structure),
+            '--targets', str(target), '--cutoff', '2.1', '--error-tolerance', '0']
+    first, second = tmp_path/'first', tmp_path/'second'
+    subprocess.run(base + ['--count', '1', '--output', str(first)], check=True)
+    before = {str(p.relative_to(first)): p.read_bytes() for p in first.rglob('*') if p.is_file()}
+    subprocess.run(base + ['--count', '4', '--resume', str(first/'result.json'),
+                          '--select-only', '--output', str(second)], check=True)
+    result = json.loads((second/'result.json').read_text())
+    assert result['selected_count'] == 4 and result['continuation']['evaluated_this_call'] == 0
+    assert before == {str(p.relative_to(first)): p.read_bytes() for p in first.rglob('*') if p.is_file()}
+    for name in ('POSCAR', 'structure.extxyz', 'structure.cif'):
+        assert (first/'structure-000'/name).read_bytes() == (second/'structure-000'/name).read_bytes()
