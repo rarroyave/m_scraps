@@ -232,6 +232,8 @@ def search_cells(atoms, *, cutoff, targets, min_atoms, max_atoms, sublattices=No
         raise ValueError('Positive cutoff and shell count required')
     labels, allowed, fractions = _composition(atoms, sublattices, composition)
     rotations = parent_rotations(atoms, labels)
+    threshold = (None if error_tolerance is None else
+                 Fraction(str(error_tolerance)) ** (2 if metric == 'rms_error' else 1))
     deadline = start + max_seconds
     pool, seen, examined, incompatible = [], set(), 0, []
     stop = 'exhausted'
@@ -281,8 +283,9 @@ def search_cells(atoms, *, cutoff, targets, min_atoms, max_atoms, sublattices=No
         bound = sro_bounds(cell, cutoff=cutoff, targets=targets, shells=shells, sublattices=config, metric=metric)
         candidate['sublattices'] = config
         candidate['lower_bound'] = bound['result']['lower_bound']
+        candidate['lower_bound_exact'] = bound['result']['lower_bound_exact']
         candidate['total_configurations'] = configuration_count(bound['composition'])
-        if error_tolerance is not None and candidate['lower_bound'] > error_tolerance:
+        if threshold is not None and Fraction(candidate['lower_bound_exact']) > threshold:
             candidate.update(status='screened_by_bound', best_error=None)
         else:
             remaining = max(1e-9, min(seconds_per_cell, deadline - time.monotonic()))
@@ -328,7 +331,55 @@ def search_cells(atoms, *, cutoff, targets, min_atoms, max_atoms, sublattices=No
                      'Exact certificates apply to one cell only. Larger occupation spaces use a seeded Python pair-SRO SA, not the native SCRAPS solver.',
                      'Pair-SRO and uniform coordination only; no higher-order correlation objective.',
                      'Time budgets are cooperative and include preparation; individual library calls may overrun.'])
+    if threshold is not None:
+        verification_start = time.monotonic()
+        _recommend_cells(report, witnesses, cutoff, shells, metric, targets, threshold, max_configurations)
+        report['recommendation']['verification_seconds'] = time.monotonic() - verification_start
+        report['elapsed_seconds'] = time.monotonic() - start
     return report, witnesses
+
+
+def _recommend_cells(report, witnesses, cutoff, shells, metric, targets, threshold, max_configurations):
+    # Independently verify achieved errors; never interpret a bound as a witness.
+    ranked = []
+    for candidate in report['candidates']:
+        cid = candidate['id']
+        lower = Fraction(candidate['lower_bound_exact'])
+        actual = None
+        if cid in witnesses:
+            checked = sro_bounds(witnesses[cid], cutoff=cutoff, shells=shells,
+                                 metric=metric, targets=targets, sublattices=candidate['sublattices'])
+            actual = Fraction(checked['result']['achieved_upper_bound_exact'])
+        state = ('verified' if actual is not None and actual <= threshold else
+                 'excluded_by_bound' if lower > threshold else 'unresolved')
+        # Exhaustive optimization can tighten a cell's bound beyond the analytical bound.
+        if (state == 'unresolved' and actual is not None and
+                candidate['status'] == 'certified_minimum'):
+            lower, state = actual, 'excluded_by_bound'
+        ranked.append(dict(id=cid, atoms=candidate['atoms'], status=state,
+            achieved_error_exact=None if actual is None else str(actual),
+            lower_bound_exact=str(lower), best_error=candidate['best_error'],
+            geometry=candidate['geometry'],
+            difficulty=dict(labeled_configurations=candidate['total_configurations'],
+                planned_method='enumerate' if candidate['total_configurations'] <= max_configurations else 'sa',
+                interpretation='Occupation-space size proxy, not a runtime prediction; symmetry can reduce it.')))
+    order = {'verified': 0, 'unresolved': 1, 'excluded_by_bound': 2}
+    ranked.sort(key=lambda c: (order[c['status']], c['atoms'], Fraction(c['lower_bound_exact']),
+                              c['difficulty']['labeled_configurations'], c['geometry']['aspect_ratio'], c['id']))
+    verified = [c for c in ranked if c['status'] == 'verified']
+    best = verified[0] if verified else None
+    for rank, entry in enumerate(ranked, 1):
+        entry['rank'] = rank
+    report['recommendation'] = dict(
+        status='verified_candidate_found' if best else 'no_verified_candidate_found',
+        selected_id=best['id'] if best else None,
+        smallest_verified_atoms=best['atoms'] if best else None,
+        alternative_ids=[c['id'] for c in verified[1:]], ranked_candidates=ranked,
+        smaller_unresolved_ids=[c['id'] for c in ranked if best and c['atoms'] < best['atoms'] and c['status'] == 'unresolved'],
+        unsearched_geometry_candidates=report['generation']['geometry_accepted']-len(ranked),
+        exact_value_convention='squared error' if metric == 'rms_error' else 'error',
+        scope='Smallest verified cell found within this bounded search; global smallest size is not certified.',
+        ranking='Verification status, atom count, rigorous error bound, occupation-space size, aspect ratio, ID.')
 
 
 def main(argv=None):
@@ -384,6 +435,10 @@ def main(argv=None):
             error = '-' if c['best_error'] is None else f"{c['best_error']:.6g}"
             print(f"{c['id']:10} {c['atoms']:5} {error:>12} {c['geometry']['aspect_ratio']:8.3f} "
                   f"{c['geometry']['shortest_repeat']:19.3f}  {c['status']}" + (' *' if c.get('pareto') else ''))
+        if 'recommendation' in report:
+            recommendation = report['recommendation']
+            print(f"Recommendation: {recommendation['selected_id'] or 'no verified candidate'}; "
+                  f"{recommendation['scope']}")
         print(f"* Pareto candidates among evaluated cells; report: {args.output / 'result.json'}")
     except (ValueError, KeyError, TypeError, OSError) as exc:
         parser.error(str(exc))

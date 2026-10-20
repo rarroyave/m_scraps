@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add tolerance-based cell-size recommendations to `search-cells`, with exact
+  witness verification, ranked alternatives, difficulty indicators, and explicit
+  unresolved/excluded candidates and search-coverage limits.
+
 - Add resumable ensemble pools with stable selected IDs, new SA start seeds,
   enumeration continuation, and selection-only extension. Validate saved state
   and scientific provenance; support random and diversity additions.

@@ -764,3 +764,15 @@ SRO, including random/diversity ensemble export. External property evaluation
 is an example workflow; equilibrium sampling, free energies and phase transitions
 are outside the current release scope. Describe the archive as configuration-
 dependent energy variability at fixed targeted SRO, not a thermodynamic sample.
+
+### Cell-size recommendations
+
+When `search_cells` receives an error tolerance, its `recommendation` section
+ranks verified witnesses, unresolved cells, and bound-excluded cells separately.
+Witness errors are recomputed with `sro_bounds`, using exact error (squared error
+for RMS), before selecting the smallest verified atom count. Analytical screening
+also uses rational comparisons. A certified fixed-cell optimum can tighten the
+exclusion bound. Occupation-space size and the planned enumeration/SA method are
+reported as difficulty indicators, without predicting runtime. Coverage gaps and
+smaller unresolved candidates remain explicit; no global size certificate is
+inferred. Final verification is outside the cooperative search deadline.

@@ -89,7 +89,8 @@ def test_multisublattice_shared_species_and_fixed_spectator():
     composition = {'A': {'Cu': '.5', 'Zn': '.5'}, 'B': {'Cu': '.5', 'Zn': '.5'}, 'fixed': {'C': 1}}
     report, witnesses = search_cells(parent, cutoff=2.7, targets=[target('A', 'B')],
         min_atoms=3, max_atoms=6, sublattices=config, composition=composition, max_candidates=3,
-        max_seconds=30, seconds_per_cell=10)
+        max_seconds=30, seconds_per_cell=10, error_tolerance=1)
+    assert report['recommendation']['selected_id'] in witnesses
     assert report['generation']['composition_incompatible_sizes'] == [3]
     for c in report['candidates']:
         symbols = np.array(witnesses[c['id']].get_chemical_symbols())
@@ -149,9 +150,10 @@ def test_cli_roundtrip(tmp_path):
     output = tmp_path / 'results'
     command = [sys.executable, str(Path(__file__).resolve().parents[1] / 'search_cells.py'), str(parent),
         '--cutoff', '1.01', '--targets', str(targets), '--composition', str(composition),
-        '--min-atoms', '2', '--max-atoms', '2', '--output', str(output)]
+        '--min-atoms', '2', '--max-atoms', '2', '--error-tolerance', '1', '--output', str(output)]
     subprocess.run(command, check=True, capture_output=True, text=True)
     report = json.loads((output / 'result.json').read_text())
+    assert report['recommendation']['selected_id'] in [c['id'] for c in report['candidates']]
     for candidate in report['candidates']:
         folder = output / candidate['id']
         witness = read(folder / 'best.extxyz')
@@ -192,3 +194,56 @@ def test_sa_progress_preserves_search_and_measures_improvements():
     assert all(a['best_error'] > b['best_error'] for a, b in zip(events, events[1:]))
     assert all(a['elapsed_seconds'] <= b['elapsed_seconds'] for a, b in zip(events, events[1:]))
     assert np.isclose(events[-1]['best_error'], observed['best_error'])
+
+
+@pytest.mark.parametrize('metric', ['max_error', 'mean_absolute_error', 'rms_error'])
+def test_recommendation_smallest_verified_cell_and_exact_metric(metric):
+    from fractions import Fraction
+    report, witnesses = run(error_tolerance=0, metric=metric)
+    rec = report['recommendation']
+    assert rec['smallest_verified_atoms'] == 4
+    assert rec['selected_id'] in witnesses
+    assert not report['global_optimum_certified']
+    assert rec['unsearched_geometry_candidates'] == 0
+    for entry in rec['ranked_candidates']:
+        if entry['status'] == 'verified':
+            assert Fraction(entry['achieved_error_exact']) == 0
+            assert entry['atoms'] >= rec['smallest_verified_atoms']
+        if entry['atoms'] < 4:
+            assert entry['status'] == 'excluded_by_bound'
+            assert Fraction(entry['lower_bound_exact']) > 0
+    assert rec['exact_value_convention'] == ('squared error' if metric == 'rms_error' else 'error')
+
+
+def test_recommendation_no_hit_caps_and_alternatives():
+    report, _ = run(error_tolerance=.00001, targets=[target(value=.123)])
+    assert report['recommendation']['selected_id'] is None
+    assert report['recommendation']['status'] == 'no_verified_candidate_found'
+    assert all(c['status'] == 'excluded_by_bound' for c in report['recommendation']['ranked_candidates'])
+    report, _ = run(error_tolerance=1, max_candidates=2)
+    rec = report['recommendation']
+    assert rec['smallest_verified_atoms'] == 2
+    assert len(rec['alternative_ids']) == 1
+    assert rec['unsearched_geometry_candidates'] > 0
+    assert not report['global_optimum_certified']
+    empty, _ = run(error_tolerance=0, max_seconds=1e-12)
+    assert empty['recommendation']['selected_id'] is None
+    assert empty['recommendation']['ranked_candidates'] == []
+
+
+def test_recommendation_does_not_confuse_small_bound_with_verified_witness():
+    report, _ = run(error_tolerance=0, max_configurations=1, sa_steps=1)
+    ranked = report['recommendation']['ranked_candidates']
+    unresolved = [c for c in ranked if c['status'] == 'unresolved']
+    assert unresolved
+    assert all(c['best_error'] > 0 and c['lower_bound_exact'] == '0' for c in unresolved)
+    assert all(c['difficulty']['planned_method'] == 'sa' for c in unresolved)
+
+
+@pytest.mark.parametrize('metric', ['max_error', 'mean_absolute_error', 'rms_error'])
+def test_recommendation_nonzero_tolerance_boundary(metric):
+    excluded, _ = run(min_atoms=2, max_atoms=2, metric=metric,
+                      error_tolerance=.3333333333333333)
+    assert excluded['recommendation']['selected_id'] is None  # decimal tolerance < exact 1/3
+    accepted, _ = run(min_atoms=2, max_atoms=2, metric=metric, error_tolerance=.34)
+    assert accepted['recommendation']['smallest_verified_atoms'] == 2

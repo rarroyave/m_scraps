@@ -1674,6 +1674,28 @@ m_scraps search-cells parent.cif --min-atoms 8 --max-atoms 32 \
   --max-candidates 12 --max-seconds 60 --seed 42 --output cell-search
 ```
 
+Add `--error-tolerance 0.01` to obtain a cell-size recommendation in the console
+and the JSON `recommendation` section. The same option is available through
+`search_cells(..., error_tolerance=0.01)` in Python. The workflow independently
+checks each returned witness using the selected SRO metric, then identifies the
+**smallest verified cell found** and lists alternative verified cells. Exact
+rational comparisons include squared-error comparisons for RMS.
+
+The ranked table in JSON distinguishes `verified`, `unresolved`, and
+`excluded_by_bound` candidates. Within each group, ordering uses atom count,
+rigorous error bound, labeled occupation-space size, and aspect ratio. The
+occupation count is a search-difficulty proxy, not a runtime estimate; symmetry
+can substantially reduce enumeration work. A low bound alone never qualifies a
+cell as verified. Failed bounded SA searches remain unresolved unless a bound
+or a fixed-cell optimum certificate excludes the tolerance.
+
+`smaller_unresolved_ids` and `unsearched_geometry_candidates` expose gaps in the
+search. Generation, candidate, atom-count, shape, and time caps remain in effect;
+the recommendation does **not** certify the globally smallest possible cell.
+A report with no verified candidate does not establish that the request is
+impossible. Final witness verification and export follow the cooperative search
+budget and may add runtime. No ATAT or icet installation is needed.
+
 **Control awkwardness before optimizing occupations:**
 
 - `--max-aspect` limits the longest/shortest **Minkowski-reduced** basis-vector
